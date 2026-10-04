@@ -10,7 +10,7 @@ import {
   type IslandMode, type IslandViewName,
 } from "../core/layout";
 import { Sound } from "../core/sound";
-import { State } from "../core/state";
+import { ASSISTANT_ID, State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { Greeting } from "../mochi/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
@@ -49,6 +49,7 @@ export class Island {
 
   private header!: ViewHost;
   private views!: Map<IslandViewName, ViewHost>;
+  actions!: ViewActions;
   private uploadCanvas!: UploadCanvas;
 
   private width = new Tracked(NOTCH_W);
@@ -138,14 +139,41 @@ export class Island {
         const req = State.pendingApproval;
         void Bridge.log(`decide ${d} req=${req?.requestId ?? "none"}`);
         if (!req) return;
+        if (d === "always" && !req.allowAlways) return;
         Sound.play(d === "deny" ? "blip" : "approve");
         void Bridge.approvalDecision(req.requestId, d);
         State.pendingApproval = null;
         State.isPinned = false;
         this.fsm.pinned = false;
-        State.updateTask("integration_claude", "working");
-        State.setPillBadge("integration_claude", null);
+        if (req.agentId === ASSISTANT_ID) {
+          this.setView("prompt");
+          return;
+        }
+        State.updateTask(req.agentId, "working");
+        State.setPillBadge(req.agentId, null);
         this.setView(State.defaultView());
+      },
+      answerQuestions: (answers) => {
+        const q = State.pendingQuestion;
+        if (!q) return;
+        void Bridge.log(`question ${answers ? "answered" : "to terminal"} req=${q.requestId}`);
+        if (answers) {
+          Sound.play("approve");
+          void Bridge.questionAnswer(q.requestId, answers);
+        } else {
+          Sound.play("blip");
+          void Bridge.approvalDecline(q.requestId);
+        }
+        State.pendingQuestion = null;
+        State.isPinned = false;
+        this.fsm.pinned = false;
+        State.updateTask(q.agentId, "working");
+        this.setView(State.defaultView());
+      },
+      showDiff: (taskId) => {
+        State.diffTaskId = taskId;
+        Sound.play("blip");
+        this.setView("diff");
       },
       toggleSound: () => {
         State.settings.soundEnabled = !State.settings.soundEnabled;
@@ -168,6 +196,7 @@ export class Island {
       openSettingsWindow: () => void Bridge.openSettingsWindow(),
       blip: () => Sound.play("blip"),
     };
+    this.actions = actions;
 
     this.wakeStrip = h("div", { id: "wake-strip" });
     this.botGlow = h("div", { id: "bot-glow" });
@@ -546,6 +575,14 @@ export class Island {
 
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && State.mode === "expanded" && !State.isPinned) this.collapse();
+      // The Y / N / A hints on the approval buttons. Only while the card is on
+      // screen and the island has focus — a key press is as explicit as a click.
+      if (State.mode === "expanded" && State.view === "approval" && State.pendingApproval) {
+        const k = e.key.toLowerCase();
+        if (k === "y") this.actions.decide("allow");
+        else if (k === "n") this.actions.decide("deny");
+        else if (k === "a" && State.pendingApproval.allowAlways) this.actions.decide("always");
+      }
       State.lastActivity = performance.now();
     });
 

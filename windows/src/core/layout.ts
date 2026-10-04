@@ -21,6 +21,7 @@ export type IslandViewName =
   | "result"
   | "note"
   | "settings"
+  | "diff"
   | "greeting";
 
 export type BotStateName =
@@ -85,6 +86,7 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
   result: { height: 160, botX: 52, botY: null, botDiameter: 44, agentMode: "column" },
   note: { height: 160, botX: 60, botY: null, botDiameter: 50, agentMode: "column" },
   settings: { height: 160, botX: 54, botY: null, botDiameter: 46, agentMode: "none" },
+  diff: { height: 280, botX: 46, botY: 70, botDiameter: 40, agentMode: "none" },
   greeting: { height: 150, botX: 320, botY: 90, botDiameter: 0, agentMode: "none" },
 };
 
@@ -95,6 +97,18 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
 /** Chat view grows with the conversation — IslandContainer.chatPromptHeight. */
 export function chatPromptHeight(messageCount: number): number {
   return Math.min(300, 240 + messageCount * 40);
+}
+
+/** Set while the approval card shows a skill's code or a diff. */
+let approvalWithDetail = false;
+export function setApprovalDetail(on: boolean) {
+  approvalWithDetail = on;
+}
+
+/** Height of the question card, set by the view from its option count. */
+let questionHeight = 0;
+export function setQuestionHeight(h: number) {
+  questionHeight = Math.min(PANEL_H, Math.max(160, h));
 }
 
 export function islandSize(
@@ -110,7 +124,11 @@ export function islandSize(
     case "compact":
       return { w: COMPACT_W, h: NOTCH_H };
     case "expanded": {
-      const h = view === "prompt" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height;
+      let h = view === "prompt" ? chatPromptHeight(chatCount) : VIEW_LAYOUTS[view].height;
+      // A question with its options needs more room than a yes/no card.
+      if (view === "question" && questionHeight > 0) h = questionHeight;
+      // So does an approval that carries code or a diff to read.
+      if (view === "approval" && approvalWithDetail) h = Math.min(PANEL_H, 300);
       return { w: EXPANDED_W, h };
     }
   }

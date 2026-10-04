@@ -5,7 +5,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { Settings } from "./state";
+import type { GrokBot, Settings } from "./state";
+
+export type { GrokBot };
+
+export interface GrokBotStatus extends GrokBot {
+  hasKey: boolean;
+}
 
 export const IS_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -62,19 +68,23 @@ export const Bridge = {
   /** Writes to %LOCALAPPDATA%\Coucou\coucou.log, next to the Rust lines. */
   log: (message: string) => call<void>("log_line", { message }),
 
-  // ── Claude Code hooks ─────────────────────────────────────────────────────
-  hooksStatus: () => call<HookStatus>("hooks_status"),
+  // ── Agent hooks (Claude Code, Cursor, Codex, Gemini CLI) ──────────────────
+  hooksStatus: (target: HookTarget = "claude") => call<HookStatus>("hooks_status", { target }),
   /** Diff to show before anything is written. `install: false` previews removal. */
-  hooksPreview: (install: boolean) => callOrThrow<HookPreview>("hooks_preview", { install }),
+  hooksPreview: (install: boolean, target: HookTarget = "claude", options: HookOptions = {}) =>
+    callOrThrow<HookPreview>("hooks_preview", { target, install, options }),
   /**
-   * Writes ~/.claude/settings.json — only ever after an explicit click, and only
+   * Writes the agent's config — only ever after an explicit click, and only
    * when the file still matches the preview the user looked at.
    */
-  hooksApply: (install: boolean, fingerprint: string) =>
-    callOrThrow<string>("hooks_apply", { install, fingerprint }),
+  hooksApply: (install: boolean, fingerprint: string, target: HookTarget = "claude", options: HookOptions = {}) =>
+    callOrThrow<string>("hooks_apply", { target, install, fingerprint, options }),
 
-  approvalDecision: (requestId: string, decision: "allow" | "deny") =>
+  approvalDecision: (requestId: string, decision: "allow" | "deny" | "always") =>
     call<void>("approval_decision", { requestId, decision }),
+  /** AskUserQuestion answers: `{ question text: chosen label(s) }`. */
+  questionAnswer: (requestId: string, answers: Record<string, string>) =>
+    call<void>("question_answer", { requestId, answers }),
   /** "The card is up" — until this lands the relay only waits a moment. */
   approvalAck: (requestId: string) => call<void>("approval_ack", { requestId }),
   /** "Nobody can act on this" — Claude Code asks in the terminal right away. */
@@ -85,6 +95,42 @@ export const Bridge = {
   chatSend: (query: string, context: ChatContext | null) =>
     callOrThrow<{ text: string }>("chat_send", { query, context }),
   chatReset: () => call<void>("chat_reset"),
+  /** Stops the assistant after the current step. */
+  chatStop: () => call<void>("chat_stop"),
+  /** Models the provider offers (needs its key, or the local server running). */
+  modelsList: (provider: string) => callOrThrow<string[]>("models_list", { provider }),
+
+  // ── Grok Bots ─────────────────────────────────────────────────────────────
+  grokbotList: () => call<GrokBotStatus[]>("grokbot_list"),
+  /** An empty key keeps the stored one; `previous` is the old id after a rename. */
+  grokbotSave: (bot: { previous?: string; name: string; color: string; url: string; key: string }) =>
+    callOrThrow<GrokBot>("grokbot_save", bot),
+  grokbotRemove: (id: string) => callOrThrow<void>("grokbot_remove", { id }),
+  /** Starts the Bot's routine with this task. Spends the owner's Grok Bot usage. */
+  grokbotSend: (bot: string, message: string) => callOrThrow<string>("grokbot_send", { bot, message }),
+  grokbotInstructions: (id: string) => callOrThrow<string>("grokbot_instructions", { id }),
+  /** The Cursor engine (sdk-bridge): installed, and which version. */
+  cursorStatus: () => call<{ installed: boolean; version: string | null }>("cursor_status"),
+  /** Downloads and verifies the latest bridge from GitHub. Returns the tag. */
+  cursorInstall: () => callOrThrow<string>("cursor_install"),
+
+  // ── Connections (MCP), skills, core ───────────────────────────────────────
+  mcpList: () => call<McpStatus[]>("mcp_list"),
+  mcpConfig: () => call<{ mcpServers: Record<string, McpServerConfig> }>("mcp_config"),
+  /** Secret values (`env:NAME` / `header:NAME`) go to the Credential Manager. */
+  mcpSave: (name: string, config: McpServerConfig, secrets: Record<string, string> = {}) =>
+    callOrThrow<void>("mcp_save", { name, config, secrets }),
+  mcpRemove: (name: string) => callOrThrow<void>("mcp_remove", { name }),
+  mcpSetEnabled: (name: string, enabled: boolean) => callOrThrow<void>("mcp_set_enabled", { name, enabled }),
+  mcpImportPreview: () => call<McpImportCandidate[]>("mcp_import_preview"),
+  mcpImportApply: (names: string[]) => callOrThrow<number>("mcp_import_apply", { names }),
+  mcpReconnect: () => call<void>("mcp_reconnect"),
+  skillsList: () => call<SkillInfo[]>("skills_list"),
+  skillSetEnabled: (name: string, enabled: boolean) => callOrThrow<void>("skill_set_enabled", { name, enabled }),
+  skillRemove: (name: string) => callOrThrow<void>("skill_remove", { name }),
+  coreStatus: () => call<{ protected: string[]; tampered: string[] }>("core_status"),
+  openDataFolder: (which: "skills" | "memory" | "log" | "config") => call<void>("open_data_folder", { which }),
+
   /** Copies a dropped file into the inbox. */
   ingestFile: (path: string) => callOrThrow<DroppedFile>("ingest_file", { path }),
   /** Only ever tells you whether a key exists — never its value. */
@@ -118,11 +164,55 @@ export interface DroppedFile {
   size: number;
 }
 
+export interface McpServerConfig {
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  url?: string;
+  headers?: Record<string, string>;
+  disabled?: boolean;
+  askAll?: boolean;
+}
+
+export interface McpStatus {
+  name: string;
+  transport: "stdio" | "http";
+  state: "connecting" | "connected" | "disabled" | "error";
+  error: string | null;
+  tools: string[];
+}
+
+export interface McpImportCandidate {
+  name: string;
+  source: string;
+  summary: string;
+  exists: boolean;
+}
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  kind: "script" | "mcp";
+  tools: { name: string; description: string; readOnly: boolean }[];
+  enabled: boolean;
+}
+
+export type HookTarget = "claude" | "cursor" | "codex" | "gemini";
+
+export interface HookOptions {
+  /** Cursor: route shell and MCP approvals through the island. */
+  approvals?: boolean;
+}
+
 export interface HookStatus {
   installed: boolean;
   settingsPath: string;
   hookPath: string;
   hookReady: boolean;
+  approvals: boolean;
+  /** Installed entries match what this build would write. */
+  upToDate: boolean;
 }
 
 export interface HookPreview {

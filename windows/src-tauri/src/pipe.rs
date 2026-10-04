@@ -2,9 +2,10 @@
 //
 // Windows: the named pipe `\\.\pipe\coucou-<sid>`, one instance per connection.
 // Linux: the Unix socket `$XDG_RUNTIME_DIR/coucou.sock`. Every hook event is
-// forwarded to the island as a `hook` event. `PermissionRequest` is the only one
-// that keeps its connection open: it waits for the island's decision and writes
-// it back on the same connection, which is how approving from the island works.
+// forwarded to the island as a `hook` event. `PermissionRequest` and
+// AskUserQuestion (`coucou_kind: ask_user_question`) are the only ones that keep
+// their connection open: they wait for the island's decision and write it back
+// on the same connection, which is how answering from the island works.
 //
 // Claude Code is never blocked by us. Three things guarantee it:
 //   * coucou-hook gives the connection 300 ms and exits cleanly if we are closed;
@@ -14,9 +15,9 @@
 //   * whatever happens we drop the connection after the decision timeout, and
 //     the terminal takes over.
 //
-// What we write back is the bare word `allow` or `deny`. Turning that into the
-// documented hookSpecificOutput JSON is coucou-hook's job, so the wire format
-// Claude Code expects lives in exactly one place.
+// What we write back is the bare word `allow`, `always` or `deny`, or a JSON
+// line `{"decision":"answer","answers":{…}}`. Turning that into each agent's
+// documented output is coucou-hook's job, so the wire formats live in one place.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -194,8 +195,9 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    let is_question = payload.get("coucou_kind").and_then(Value::as_str) == Some("ask_user_question");
 
-    if event != "PermissionRequest" {
+    if event != "PermissionRequest" && !is_question {
         log::line(format!("hook {event}"));
         let _ = app.emit_to(WINDOW_LABEL, "hook", payload);
         pipe.finish();
@@ -209,7 +211,7 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
         pending.0.lock().unwrap().insert(id.clone(), tx);
     }
     payload["request_id"] = json!(id);
-    log::line(format!("hook PermissionRequest id={id}"));
+    log::line(format!("hook {} id={id}", if is_question { "AskUserQuestion" } else { "PermissionRequest" }));
     let _ = app.emit_to(WINDOW_LABEL, "hook", payload);
 
     let decision = wait_for_decision(&id, &mut rx).await;
@@ -285,13 +287,24 @@ pub fn decline(app: &AppHandle, request_id: &str) {
     send(app, request_id, Reply::Decline, false);
 }
 
-/// Called by the island's Allow / Deny buttons. Only ever a bare word: turning
-/// it into Claude Code's JSON is coucou-hook's job.
+/// Called by the island's Allow / Always / Deny buttons. Only ever a bare word:
+/// turning it into each agent's JSON is coucou-hook's job.
 pub fn answer(app: &AppHandle, request_id: &str, decision: &str) {
     let word = match decision {
-        "allow" | "always" => "allow",
+        "allow" => "allow",
+        "always" => "always",
         _ => "deny",
     };
     log::line(format!("decision id={request_id} {word}"));
     send(app, request_id, Reply::Decision(word.to_string()), false);
+}
+
+/// The answers to an AskUserQuestion card, as `{ question text: chosen label(s) }`.
+pub fn answer_questions(app: &AppHandle, request_id: &str, answers: Value) {
+    if !answers.is_object() {
+        return;
+    }
+    log::line(format!("decision id={request_id} answer"));
+    let line = json!({ "decision": "answer", "answers": answers }).to_string();
+    send(app, request_id, Reply::Decision(line), false);
 }

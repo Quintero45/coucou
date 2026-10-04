@@ -1,15 +1,25 @@
 // Coucou for Windows — app wiring and the commands the island calls.
 
+mod agent;
 mod claude;
+mod cursor;
 mod files;
+mod grokbot;
 mod hooks;
 mod integrations;
 mod island;
 mod log;
+mod mcp;
+mod memory;
 mod pipe;
 mod platform;
+mod policy;
+mod providers;
 mod secrets;
+mod selfmod;
 mod settings;
+mod shortcuts;
+mod tools;
 mod tray;
 
 use std::process::Command;
@@ -20,9 +30,10 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_autostart::{ManagerExt, MacosLauncher};
 
-use claude::{Chat, ChatContext, ChatReply};
+use agent::{Assistant, ChatReply};
+use claude::ChatContext;
 use files::DroppedFile;
-use hooks::{HookPreview, HookStatus};
+use hooks::{HookOptions, HookPreview, HookStatus, HookTarget};
 use island::{PollGate, ScreenInfo};
 use pipe::Pending;
 use settings::Settings;
@@ -48,7 +59,7 @@ pub struct BootInfo {
 fn boot(app: AppHandle, shared: State<Shared>) -> BootInfo {
     let mut settings = shared.settings.lock().unwrap().clone();
     // The real state of ~/.claude/settings.json wins over whatever we stored.
-    settings.hooks_installed = hooks::status().installed;
+    settings.hooks_installed = hooks::status(HookTarget::Claude).installed;
     let screen = island::screen_info(&app, &settings.screen);
     BootInfo {
         settings,
@@ -61,13 +72,17 @@ fn boot(app: AppHandle, shared: State<Shared>) -> BootInfo {
 
 #[tauri::command]
 fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
-    let (screen_changed, autostart_changed) = {
+    let (screen_changed, autostart_changed, shortcuts_changed) = {
         let mut current = shared.settings.lock().unwrap();
         let screen_changed = current.screen != settings.screen;
         let autostart_changed = current.autostart != settings.autostart;
+        let shortcuts_changed = current.shortcuts_enabled != settings.shortcuts_enabled;
         *current = settings.clone();
-        (screen_changed, autostart_changed)
+        (screen_changed, autostart_changed, shortcuts_changed)
     };
+    if shortcuts_changed {
+        shortcuts::apply(&app, settings.shortcuts_enabled);
+    }
     if let Err(err) = settings::save(&settings) {
         eprintln!("[coucou] could not save settings: {err}");
     }
@@ -177,17 +192,21 @@ fn set_paused(paused: bool) {
     integrations::set_paused(paused);
 }
 
-// ── Claude Code hooks ─────────────────────────────────────────────────────────
+// ── Agent hooks (Claude Code, Cursor, Codex, Gemini CLI) ──────────────────────
 
 #[tauri::command]
-fn hooks_status() -> HookStatus {
-    hooks::status()
+fn hooks_status(target: Option<HookTarget>) -> HookStatus {
+    hooks::status(target.unwrap_or_default())
 }
 
 /// Returns the diff the user has to look at before anything is written.
 #[tauri::command]
-fn hooks_preview(install: bool) -> Result<HookPreview, String> {
-    hooks::preview(install)
+fn hooks_preview(
+    target: Option<HookTarget>,
+    install: bool,
+    options: Option<HookOptions>,
+) -> Result<HookPreview, String> {
+    hooks::preview(target.unwrap_or_default(), install, options.unwrap_or_default())
 }
 
 /// Only ever called from an explicit click in the settings window.
@@ -195,25 +214,36 @@ fn hooks_preview(install: bool) -> Result<HookPreview, String> {
 fn hooks_apply(
     app: AppHandle,
     shared: State<Shared>,
+    target: Option<HookTarget>,
     install: bool,
     fingerprint: String,
+    options: Option<HookOptions>,
 ) -> Result<String, String> {
+    let target = target.unwrap_or_default();
     // The fingerprint comes from the preview the user actually looked at, so a
-    // settings.json that changed in between is refused rather than overwritten.
-    let backup = hooks::write(install, &fingerprint)?;
-    let updated = {
-        let mut current = shared.settings.lock().unwrap();
-        current.hooks_installed = install;
-        let _ = settings::save(&current);
-        current.clone()
-    };
-    let _ = app.emit("settings-changed", updated);
+    // config file that changed in between is refused rather than overwritten.
+    let backup = hooks::write(target, install, &fingerprint, options.unwrap_or_default())?;
+    if target == HookTarget::Claude {
+        let updated = {
+            let mut current = shared.settings.lock().unwrap();
+            current.hooks_installed = install;
+            let _ = settings::save(&current);
+            current.clone()
+        };
+        let _ = app.emit("settings-changed", updated);
+    }
     Ok(backup)
 }
 
 #[tauri::command]
 fn approval_decision(app: AppHandle, request_id: String, decision: String) {
     pipe::answer(&app, &request_id, &decision);
+}
+
+/// AskUserQuestion answered from the island: `{ question text: label(s) }`.
+#[tauri::command]
+fn question_answer(app: AppHandle, request_id: String, answers: serde_json::Value) {
+    pipe::answer_questions(&app, &request_id, answers);
 }
 
 /// The island has the card on screen, so the long wait for a human may begin.
@@ -233,21 +263,167 @@ fn approval_decline(app: AppHandle, request_id: String) {
 
 // ── Chat, files and secrets ───────────────────────────────────────────────────
 
-/// One chat turn. The API key and any file bytes stay on the Rust side.
+/// One chat turn with the assistant. Keys and file bytes stay on the Rust side;
+/// text streams back as `chat-delta` events, tools as `chat-step`.
 #[tauri::command]
-async fn chat_send(
-    shared: State<'_, Shared>,
-    chat: State<'_, Chat>,
-    query: String,
-    context: Option<ChatContext>,
-) -> Result<ChatReply, String> {
-    let model = shared.settings.lock().unwrap().model.clone();
-    claude::send(&chat, &model, query, context).await
+async fn chat_send(app: AppHandle, query: String, context: Option<ChatContext>) -> Result<ChatReply, String> {
+    agent::send(app, query, context).await
 }
 
 #[tauri::command]
-fn chat_reset(chat: State<Chat>) {
-    chat.reset();
+fn chat_reset(assistant: State<Assistant>) {
+    assistant.reset();
+}
+
+#[tauri::command]
+fn chat_stop(assistant: State<Assistant>) {
+    assistant.stop();
+}
+
+/// Models a provider offers, for the picker in settings.
+#[tauri::command]
+async fn models_list(app: AppHandle, provider: providers::Provider) -> Result<Vec<String>, String> {
+    agent::models(&app, provider).await
+}
+
+// ── Grok Bots ─────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn grokbot_list(app: AppHandle) -> Vec<grokbot::BotStatus> {
+    grokbot::statuses(&app)
+}
+
+/// Only from the settings window: the owner typed this Bot in.
+#[tauri::command]
+fn grokbot_save(
+    app: AppHandle,
+    previous: Option<String>,
+    name: String,
+    color: String,
+    url: String,
+    key: String,
+) -> Result<grokbot::GrokBot, String> {
+    grokbot::save(&app, previous.as_deref(), &name, &color, &url, &key)
+}
+
+#[tauri::command]
+fn grokbot_remove(app: AppHandle, id: String) -> Result<(), String> {
+    grokbot::remove(&app, &id)
+}
+
+/// The owner typed the task and pressed send: that is the click.
+#[tauri::command]
+async fn grokbot_send(app: AppHandle, bot: String, message: String) -> Result<String, String> {
+    grokbot::send(&app, &bot, &message).await
+}
+
+#[tauri::command]
+fn grokbot_instructions(app: AppHandle, id: String) -> Result<String, String> {
+    grokbot::instructions(&app, &id)
+}
+
+// ── Cursor engine ─────────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn cursor_status() -> cursor::Status {
+    cursor::status()
+}
+
+/// The owner pressed "Instalar motor" in settings.
+#[tauri::command]
+async fn cursor_install() -> Result<String, String> {
+    cursor::install().await
+}
+
+// ── Connections (MCP), skills, core guard ─────────────────────────────────────
+
+#[tauri::command]
+fn mcp_list() -> Vec<mcp::ServerStatus> {
+    mcp::statuses()
+}
+
+#[tauri::command]
+fn mcp_config() -> mcp::Config {
+    mcp::load_config()
+}
+
+/// Only from the settings window: the owner typed this server in.
+#[tauri::command]
+fn mcp_save(
+    app: AppHandle,
+    name: String,
+    config: mcp::ServerConfig,
+    secrets: Option<std::collections::BTreeMap<String, String>>,
+) -> Result<(), String> {
+    mcp::save_server(&app, &name, config, secrets.unwrap_or_default())
+}
+
+#[tauri::command]
+fn mcp_remove(app: AppHandle, name: String) -> Result<(), String> {
+    mcp::remove_server(&app, &name)
+}
+
+#[tauri::command]
+fn mcp_set_enabled(app: AppHandle, name: String, enabled: bool) -> Result<(), String> {
+    mcp::set_enabled(&app, &name, enabled)
+}
+
+#[tauri::command]
+fn mcp_import_preview() -> Vec<mcp::ImportCandidate> {
+    mcp::import_preview()
+}
+
+#[tauri::command]
+fn mcp_import_apply(app: AppHandle, names: Vec<String>) -> Result<usize, String> {
+    mcp::import_apply(&app, &names)
+}
+
+#[tauri::command]
+fn mcp_reconnect(app: AppHandle) {
+    mcp::start(app);
+}
+
+#[tauri::command]
+fn skills_list() -> Vec<selfmod::skills::Skill> {
+    selfmod::skills::list()
+}
+
+#[tauri::command]
+fn skill_set_enabled(app: AppHandle, name: String, enabled: bool) -> Result<(), String> {
+    selfmod::skills::set_enabled(&app, &name, enabled)
+}
+
+#[tauri::command]
+fn skill_remove(app: AppHandle, name: String) -> Result<(), String> {
+    selfmod::skills::remove(&app, &name)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreStatus {
+    protected: Vec<String>,
+    tampered: Vec<String>,
+}
+
+#[tauri::command]
+fn core_status() -> CoreStatus {
+    CoreStatus {
+        protected: selfmod::guard::PROTECTED.iter().map(|s| s.to_string()).collect(),
+        tampered: selfmod::guard::tampered().to_vec(),
+    }
+}
+
+/// Opens one of Mochi's own folders in Explorer.
+#[tauri::command]
+fn open_data_folder(which: String) {
+    let dir = match which.as_str() {
+        "skills" => selfmod::skills::dir(),
+        "memory" => memory::dir(),
+        "log" => settings::local_dir(),
+        _ => settings::config_dir(),
+    };
+    let _ = std::fs::create_dir_all(&dir);
+    platform::reveal_folder(&dir.to_string_lossy());
 }
 
 /// Copies a dropped file into the inbox and reports its name back.
@@ -321,7 +497,7 @@ fn create_settings_window(app: &AppHandle) {
     let url = settings_page_url(app);
     match WebviewWindowBuilder::new(app, "settings", url)
         .additional_browser_args(BROWSER_ARGS)
-        .title("Settings — Coucou")
+        .title("Ajustes — Coucou")
         .inner_size(560.0, 680.0)
         .min_inner_size(460.0, 480.0)
         .resizable(true)
@@ -368,12 +544,13 @@ pub fn run() {
             let _ = app.emit_to(island::WINDOW_LABEL, "tray", "open".to_string());
         }))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(shortcuts::plugin())
         .manage(Shared {
             settings: Mutex::new(loaded.clone()),
             gate: gate.clone(),
         })
         .manage(Pending::default())
-        .manage(Chat::default())
+        .manage(Assistant::default())
         .invoke_handler(tauri::generate_handler![
             boot,
             save_settings,
@@ -388,11 +565,34 @@ pub fn run() {
             hooks_preview,
             hooks_apply,
             approval_decision,
+            question_answer,
             approval_ack,
             approval_decline,
             log_line,
             chat_send,
             chat_reset,
+            chat_stop,
+            models_list,
+            grokbot_list,
+            grokbot_save,
+            grokbot_remove,
+            grokbot_send,
+            grokbot_instructions,
+            cursor_status,
+            cursor_install,
+            mcp_list,
+            mcp_config,
+            mcp_save,
+            mcp_remove,
+            mcp_set_enabled,
+            mcp_import_preview,
+            mcp_import_apply,
+            mcp_reconnect,
+            skills_list,
+            skill_set_enabled,
+            skill_remove,
+            core_status,
+            open_data_folder,
             ingest_file,
             secret_present,
             secret_set,
@@ -423,7 +623,13 @@ pub fn run() {
             island::spawn_cursor_poll(handle.clone(), gate.clone());
 
             log::line(format!("--- Coucou {} started ---", env!("CARGO_PKG_VERSION")));
+            selfmod::guard::verify_at_startup();
+            selfmod::evolve::startup_health();
             hooks::ensure_hook_exe(&handle);
+            mcp::start(handle.clone());
+            cursor::init(handle.clone());
+            memory::ensure();
+            shortcuts::apply(&handle, loaded.shortcuts_enabled);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             Ok(())

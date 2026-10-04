@@ -8,6 +8,11 @@ const SERVICE: &str = "fr.louisraille.coucou";
 /// Every key Coucou may store. Anything outside this list is refused.
 pub const KNOWN_KEYS: &[&str] = &[
     "anthropic-api-key",
+    "cursor-api-key",
+    "xai-api-key",
+    "openai-api-key",
+    "google-api-key",
+    "brave-api-key",
     "n8n-url",
     "n8n-api-key",
     "vercel-token",
@@ -18,8 +23,27 @@ pub const KNOWN_KEYS: &[&str] = &[
     "calcom-api-key",
 ];
 
+/// Secrets of MCP servers (env values, headers): `mcp-secret:<server>:<field>`.
+/// mcp.json only ever holds a `${secret:…}` placeholder for them.
+pub const MCP_PREFIX: &str = "mcp-secret:";
+
+/// Webhook key of a Grok Bot routine: `grokbot-key:<bot id>`.
+pub const GROKBOT_PREFIX: &str = "grokbot-key:";
+
+fn allowed(key: &str) -> bool {
+    if KNOWN_KEYS.contains(&key) {
+        return true;
+    }
+    let safe = |rest: &str| {
+        !rest.is_empty()
+            && rest.len() <= 160
+            && rest.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '_' | '-' | '.'))
+    };
+    key.strip_prefix(MCP_PREFIX).is_some_and(safe) || key.strip_prefix(GROKBOT_PREFIX).is_some_and(safe)
+}
+
 fn entry(key: &str) -> Option<Entry> {
-    if !KNOWN_KEYS.contains(&key) {
+    if !allowed(key) {
         return None;
     }
     Entry::new(SERVICE, key).ok()

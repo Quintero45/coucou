@@ -76,6 +76,39 @@ pub fn no_console(cmd: &mut Command) -> &mut Command {
     cmd.creation_flags(CREATE_NO_WINDOW)
 }
 
+/// Long-lived helpers (the Cursor bridge) die with the app, even when it is
+/// killed: they join a job object whose only handle closes when we exit.
+pub fn tie_to_app(pid: u32) {
+    use ::windows::core::PCWSTR;
+    use ::windows::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    use ::windows::Win32::System::Threading::{OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE};
+    static JOB: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    let job = *JOB.get_or_init(|| unsafe {
+        let Ok(job) = CreateJobObjectW(None, PCWSTR::null()) else { return 0 };
+        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let _ = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const core::ffi::c_void,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        job.0 as usize
+    });
+    if job == 0 {
+        return;
+    }
+    unsafe {
+        if let Ok(process) = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid) {
+            let _ = AssignProcessToJobObject(HANDLE(job as *mut _), process);
+            let _ = CloseHandle(process);
+        }
+    }
+}
+
 pub fn open_url(url: &str) {
     let _ = no_console(Command::new("rundll32.exe").args(["url.dll,FileProtocolHandler", url]))
         .spawn();
@@ -84,6 +117,41 @@ pub fn open_url(url: &str) {
 pub fn reveal_folder(path: &str) {
     let _ = Command::new("explorer").arg(path).spawn();
 }
+
+/// Opens an app, a file, a folder or a URL the way Explorer's Run box would:
+/// App Paths names (`notepad`, `chrome`, `excel`) work as well as full paths.
+/// Only ever called after the owner approved exactly this target.
+pub fn shell_open(target: &str, args: Option<&str>) -> Result<(), String> {
+    use ::windows::core::HSTRING;
+    use ::windows::Win32::UI::Shell::ShellExecuteW;
+    use ::windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let file = HSTRING::from(target);
+    let verb = HSTRING::from("open");
+    let params = args.map(HSTRING::from);
+    let result = unsafe {
+        match &params {
+            Some(p) => ShellExecuteW(None, &verb, &file, p, None, SW_SHOWNORMAL),
+            None => ShellExecuteW(None, &verb, &file, None, None, SW_SHOWNORMAL),
+        }
+    };
+    // ShellExecute reports success as a value above 32.
+    if result.0 as isize > 32 {
+        Ok(())
+    } else {
+        Err(format!("Windows could not open {target} (code {})", result.0 as isize))
+    }
+}
+
+/// The shell the assistant's commands run in.
+pub fn shell_command(script: &str) -> tokio::process::Command {
+    let mut cmd = tokio::process::Command::new("powershell.exe");
+    cmd.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script]);
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
+pub const SHELL_NAME: &str = "PowerShell";
 
 /// Our own `where`: walks %PATH% against %PATHEXT%, no shell involved.
 /// Rust quotes arguments correctly for `.cmd`/`.bat` targets since 1.77, so

@@ -42,7 +42,17 @@ pub struct IntegrationEvent {
 }
 
 fn emit(app: &AppHandle, update: IntegrationUpdate) {
+    LAST.lock().unwrap().insert(update.id, json!({ "data": update.data, "error": update.error }));
     let _ = app.emit_to(WINDOW_LABEL, "integration", update);
+}
+
+/// What each poller last reported, for the assistant's integration_status tool.
+static LAST: std::sync::LazyLock<Mutex<std::collections::BTreeMap<&'static str, Value>>> =
+    std::sync::LazyLock::new(|| Mutex::new(std::collections::BTreeMap::new()));
+
+pub fn last_reports() -> Value {
+    let map = LAST.lock().unwrap();
+    Value::Object(map.iter().map(|(k, v)| (k.to_string(), v.clone())).collect())
 }
 
 fn client() -> reqwest::Client {
@@ -135,9 +145,9 @@ fn is_new(key: &'static str, id: &str) -> bool {
 
 fn status_error(code: u16, unauthorised_hint: &str) -> String {
     match code {
-        401 => "Invalid API key (401)".into(),
+        401 => "Clave de API no válida (401)".into(),
         403 => unauthorised_hint.into(),
-        _ => format!("API error {code}"),
+        _ => format!("Error de la API {code}"),
     }
 }
 
@@ -189,7 +199,7 @@ async fn poll_stripe(app: AppHandle) {
             emit(&app, IntegrationUpdate {
                 id: "integration_stripe",
                 data: json!({}),
-                error: Some(format!("No connection: {e}")),
+                error: Some(format!("Sin conexión: {e}")),
                 event: None,
             });
             return;
@@ -280,7 +290,7 @@ async fn poll_github(app: AppHandle) {
         emit(&app, IntegrationUpdate {
             id: "integration_github",
             data: json!({}),
-            error: Some(status_error(response.status().as_u16(), "Token lacks the needed scope")),
+            error: Some(status_error(response.status().as_u16(), "Al token le faltan permisos")),
             event: None,
         });
         return;
@@ -338,7 +348,7 @@ async fn poll_vercel(app: AppHandle) {
         emit(&app, IntegrationUpdate {
             id: "integration_vercel",
             data: json!({}),
-            error: Some(status_error(response.status().as_u16(), "Token lacks access")),
+            error: Some(status_error(response.status().as_u16(), "El token no tiene acceso")),
             event: None,
         });
         return;
@@ -410,7 +420,7 @@ async fn poll_resend(app: AppHandle) {
         emit(&app, IntegrationUpdate {
             id: "integration_resend",
             data: json!({}),
-            error: Some(status_error(response.status().as_u16(), "Key lacks access")),
+            error: Some(status_error(response.status().as_u16(), "La clave no tiene acceso")),
             event: None,
         });
         return;
@@ -559,7 +569,7 @@ async fn poll_calcom(app: AppHandle) {
         emit(&app, IntegrationUpdate {
             id: "integration_calcom",
             data: json!({}),
-            error: Some(status_error(response.status().as_u16(), "Key lacks access")),
+            error: Some(status_error(response.status().as_u16(), "La clave no tiene acceso")),
             event: None,
         });
         return;

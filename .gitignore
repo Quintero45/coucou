@@ -19,3 +19,6 @@ DerivedData/
 # Local only (never published)
 .claude/
 _prive/
+
+# Mochi's self-evolution worktree (windows/src-tauri/src/selfmod/evolve.rs)
+.coucou-evolve/

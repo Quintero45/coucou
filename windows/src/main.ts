@@ -6,6 +6,7 @@ import { Sound } from "./core/sound";
 import { State, type Settings } from "./core/state";
 import { Island } from "./island/island";
 import { registerHookHandlers } from "./island/hooks";
+import { registerAssistantHandlers } from "./island/assistant";
 import { registerIntegrationHandlers, refreshConfigured } from "./island/integrations";
 
 async function main() {
@@ -53,6 +54,43 @@ async function main() {
 
   await onEvent<null>("screen-changed", () => void Bridge.reposition());
 
+  // Global shortcuts (shortcuts.rs). They open and navigate; none of them answers.
+  await onEvent<string>("shortcut", (action) => {
+    if (State.paused && action !== "toggle") return;
+    switch (action) {
+      case "chat":
+        island.alert("prompt");
+        break;
+      case "alert":
+        if (State.pendingApproval) {
+          State.setFocus(State.pendingApproval.agentId);
+          island.alert("approval");
+        } else if (State.pendingQuestion) {
+          island.alert("question");
+        } else {
+          island.alert(State.defaultView());
+        }
+        break;
+      case "toggle":
+        if (State.mode === "expanded") island.collapse();
+        else island.alert(State.defaultView());
+        break;
+      case "mute":
+        island.actions.toggleSound();
+        break;
+      case "next-pill":
+      case "prev-pill": {
+        if (State.tasks.length < 2) break;
+        const idx = State.tasks.findIndex((t) => t.id === State.focusId);
+        const step = action === "next-pill" ? 1 : -1;
+        const next = State.tasks[(idx + step + State.tasks.length) % State.tasks.length];
+        State.setFocus(next.id);
+        island.alert("overview");
+        break;
+      }
+    }
+  });
+
   // The settings window writes preferences; apply them here without a restart.
   await onEvent<Settings>("settings-changed", (s) => {
     State.settings = { ...State.settings, ...s };
@@ -62,6 +100,7 @@ async function main() {
   });
 
   registerHookHandlers(island);
+  registerAssistantHandlers(island);
   registerIntegrationHandlers(island);
 
   island.launch();

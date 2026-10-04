@@ -1,14 +1,26 @@
 // Chat view — DOM port of PromptView / ChatBubble / TypingDotsView from
-// IslandViewContent.swift.
+// IslandViewContent.swift, now talking to the assistant (agent.rs): replies
+// stream in as `chat-delta`, each tool it runs shows as a step, and the send
+// button turns into Stop while it works.
 
 import { h, svg, clear } from "./dom";
 import { ICONS } from "./icons";
-import { Bridge, type ChatContext } from "../core/bridge";
+import { renderMarkdown } from "./markdown";
+import { Bridge, onEvent, type ChatContext } from "../core/bridge";
 import { Sound } from "../core/sound";
-import { State, type ChatMessage } from "../core/state";
+import { State, aiProvider, type ChatMessage } from "../core/state";
 import type { ViewHost } from "./views";
 
 let nextId = 1;
+
+function steps(message: ChatMessage): HTMLElement | null {
+  if (!message.steps?.length) return null;
+  return h(
+    "div",
+    { class: "chat-steps" },
+    ...message.steps.map((s) => h("div", { class: "chat-step", text: `› ${s}` })),
+  );
+}
 
 function bubble(message: ChatMessage): HTMLElement {
   if (message.role === "user") {
@@ -18,7 +30,9 @@ function bubble(message: ChatMessage): HTMLElement {
       h("div", { class: "bubble", text: message.content }),
     );
   }
-  return h("div", { class: "chat-row" }, h("div", { class: "reply", text: message.content }));
+  const reply = h("div", { class: "reply" }, steps(message));
+  if (message.content) reply.append(renderMarkdown(message.content));
+  return h("div", { class: "chat-row" }, reply);
 }
 
 function typingDots(): HTMLElement {
@@ -42,10 +56,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   const input = h("input", {
     type: "text",
     class: "chat-input",
-    placeholder: "Ask me anything…",
+    placeholder: "Pregúntame lo que quieras…",
     spellcheck: "false",
   }) as HTMLInputElement;
-  const send = h("button", { class: "send-btn", title: "Send" }, svg(ICONS.arrowUp, 11));
+  const send = h("button", { class: "send-btn", title: "Enviar" }, svg(ICONS.arrowUp, 11));
   const bar = h("div", { class: "chat-bar" }, input, send);
 
   const el = h(
@@ -56,43 +70,151 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   (el.querySelector(".card") as HTMLElement).style.setProperty("--wash", "rgba(99,102,241,0.5)");
 
   let sending = false;
-  let renderedCount = -1;
+  let renderedKey = "";
+  /** The reply being written right now, and its row in the log. */
+  let live: ChatMessage | null = null;
+  let liveRow: HTMLElement | null = null;
+  let repaint = 0;
+
+  const scrollDown = () => {
+    log.scrollTop = log.scrollHeight;
+  };
+
+  /** Re-renders only the live reply, at most once a frame. */
+  const paintLive = () => {
+    if (repaint) return;
+    repaint = requestAnimationFrame(() => {
+      repaint = 0;
+      if (!live) return;
+      const row = bubble(live);
+      if (liveRow?.isConnected) liveRow.replaceWith(row);
+      else {
+        log.querySelector(".typing")?.parentElement?.remove();
+        log.append(row);
+      }
+      liveRow = row;
+      scrollDown();
+    });
+  };
+
+  void onEvent<string>("chat-delta", (text) => {
+    if (!live) return;
+    live.content += text;
+    State.stateOverride = "working";
+    paintLive();
+  });
+  void onEvent<{ label: string }>("chat-step", ({ label }) => {
+    if (!live) return;
+    (live.steps ??= []).push(label);
+    State.stateOverride = "working";
+    paintLive();
+  });
+
+  function setSendMode(stop: boolean) {
+    clear(send);
+    send.append(stop ? h("i", { class: "stop-square" }) : svg(ICONS.arrowUp, 11));
+    send.title = stop ? "Detener" : "Enviar";
+    send.classList.toggle("stop", stop);
+  }
+
+  /** "@Name task" goes straight to that Grok Bot, without Mochi in between. */
+  function botTarget(query: string): { bot: string; task: string } | null {
+    if (!query.startsWith("@")) return null;
+    const lower = query.toLowerCase();
+    const hit = State.settings.grokBots
+      .flatMap((b) => [b.name, b.id].map((n) => ({ id: b.id, prefix: `@${n.toLowerCase()}` })))
+      .filter((c) => lower.startsWith(c.prefix) && /\s/.test(query.charAt(c.prefix.length)))
+      .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+    if (!hit) return null;
+    const task = query.slice(hit.prefix.length).trim();
+    return task ? { bot: hit.id, task } : null;
+  }
+
+  async function sendToBot(target: { bot: string; task: string }, query: string) {
+    State.chatHistory.push({ id: nextId++, role: "user", content: query });
+    const message: ChatMessage = { id: nextId++, role: "assistant", content: "", steps: [] };
+    State.chatHistory.push(message);
+    State.notify();
+    onHeightChange();
+    try {
+      message.content = `✓ ${await Bridge.grokbotSend(target.bot, target.task)}`;
+      Sound.play("finish");
+    } catch (err) {
+      message.content = `⚠ ${String(err).replace(/^Error:\s*/, "")}`;
+      Sound.play("error");
+    }
+  }
 
   async function submit() {
     const query = input.value.trim();
     if (!query || sending) return;
     input.value = "";
     sending = true;
+    setSendMode(true);
     Sound.play("send");
 
+    const target = botTarget(query);
+    if (target) {
+      await sendToBot(target, query);
+      sending = false;
+      setSendMode(false);
+      renderedKey = "";
+      State.notify();
+      onHeightChange();
+      input.focus();
+      return;
+    }
+
+    const file = State.droppedFile;
+    const context: ChatContext | null =
+      State.chatHistory.length === 0 && file ? { kind: "file", name: file.name, path: file.path } : null;
+
     State.chatHistory.push({ id: nextId++, role: "user", content: query });
+    // In the history from the start, so the island grows to fit it as it streams.
+    live = { id: nextId++, role: "assistant", content: "", steps: [] };
+    liveRow = null;
+    State.chatHistory.push(live);
     State.stateOverride = "thinking";
     State.notify();
     onHeightChange();
 
-    const file = State.droppedFile;
-    const context: ChatContext | null =
-      State.chatHistory.length === 1 && file ? { kind: "file", name: file.name, path: file.path } : null;
-
+    const message = live;
     try {
       const reply = await Bridge.chatSend(query, context);
-      State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
+      message.content = reply.text;
       State.stateOverride = null;
       Sound.play("finish");
     } catch (err) {
       State.stateOverride = null;
-      State.noteMessage = String(err).replace(/^Error:\s*/, "");
-      State.view = "note";
+      const text = String(err).replace(/^Error:\s*/, "");
+      if (message.content || message.steps?.length) {
+        message.content += `${message.content ? "\n\n" : ""}⚠ ${text}`;
+      } else {
+        State.chatHistory = State.chatHistory.filter((m) => m !== message);
+        State.noteMessage = text;
+        State.view = "note";
+      }
       Sound.play("error");
     } finally {
+      live = null;
+      liveRow = null;
       sending = false;
+      setSendMode(false);
+      renderedKey = "";
       State.notify();
       onHeightChange();
       input.focus();
     }
   }
 
-  send.addEventListener("click", () => void submit());
+  send.addEventListener("click", () => {
+    if (sending) {
+      Sound.play("blip");
+      void Bridge.chatStop();
+    } else {
+      void submit();
+    }
+  });
   input.addEventListener("keydown", (e) => {
     if ((e as KeyboardEvent).key === "Enter") {
       e.preventDefault();
@@ -112,17 +234,38 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
         if (wantChip) chipRow.append(contextChip(wantChip));
       }
 
-      const thinking = State.stateOverride === "thinking";
-      const count = State.chatHistory.length + (thinking ? 0.5 : 0);
-      if (count !== renderedCount) {
-        renderedCount = count;
+      const key = `${State.chatHistory.length}:${sending}`;
+      if (key !== renderedKey) {
+        renderedKey = key;
         clear(log);
-        for (const m of State.chatHistory) log.append(bubble(m));
-        if (thinking) log.append(typingDots());
-        log.scrollTop = log.scrollHeight;
+        liveRow = null;
+        for (const m of State.chatHistory) {
+          if (m === live && !live.content && !live.steps?.length) {
+            log.append(typingDots());
+            continue;
+          }
+          const row = bubble(m);
+          if (m === live) liveRow = row;
+          log.append(row);
+        }
+        scrollDown();
       }
 
-      input.placeholder = State.chatHistory.length === 0 ? "Ask me anything…" : "Continue…";
+      const provider = aiProvider(State.settings.provider);
+      if (State.chatDraft !== null && !sending) {
+        input.value = State.chatDraft;
+        State.chatDraft = null;
+        requestAnimationFrame(() => {
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        });
+      }
+      const bots = State.settings.grokBots;
+      input.placeholder = State.chatHistory.length > 0
+        ? "Sigue…"
+        : bots.length > 0
+          ? `Pregunta a ${provider.name}… o «@${bots[0].name} tarea»`
+          : `Pregunta a ${provider.name}…`;
       input.disabled = sending;
     },
     focus() {

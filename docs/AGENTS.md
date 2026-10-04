@@ -99,7 +99,7 @@ A **declared pill** is a catalog entry (`PillCatalog.swift`) that has been enabl
 
 A catalog pill that is not checked in Settings behaves like any other agent: it gets an automatic pill when a session starts, and that pill is removed when the session ends.
 
-The GitHub build exposes Gemini CLI (`agent_gemini`) and Antigravity (`agent_antigravity`) in Settings → Active pills. Cursor (`agent_cursor`) and Codex (`agent_codex`, GitHub build only) are there too — their pills can be declared and set as the main pill; session support is coming in a future version.
+The GitHub build exposes Gemini CLI (`agent_gemini`) and Antigravity (`agent_antigravity`) in Settings → Active pills. Cursor (`agent_cursor`) and Codex (`agent_codex`, GitHub build only) are there too — their pills can be declared and set as the main pill. On Windows, Cursor and Codex sessions are fully supported (see below).
 
 ## Real-world examples
 
@@ -133,6 +133,39 @@ island's `tool_name` / `session_id`.
 | `PostToolUse` | `PostToolUse` |
 | `PostInvocation` | `PostToolUse` |
 | `Stop` | `Stop` |
+
+### Cursor (Windows)
+
+**Settings… → Cursor → Install hooks…** writes `%USERPROFILE%\.cursor\hooks.json`
+(`"version": 1`, timeouts in seconds) after showing the diff and taking a dated backup.
+Every command is `coucou-hook.exe --agent cursor <event>`; the relay maps Cursor's
+camelCase events to canonical ones.
+
+| Cursor event | Canonical event |
+|---|---|
+| `sessionStart` / `sessionEnd` | `SessionStart` / `SessionEnd` |
+| `beforeSubmitPrompt` | `UserPromptSubmit` |
+| `preToolUse`, `beforeShellExecution`, `beforeMCPExecution`, `beforeReadFile` | `PreToolUse` |
+| `postToolUse`, `afterShellExecution`, `afterMCPExecution`, `afterFileEdit` | `PostToolUse` (`afterFileEdit` feeds the live diff) |
+| `afterAgentResponse` | `AgentResponse` (kept for the Finished card) |
+| `stop` | `Stop`, or `StopFailure` when `status` is `error` |
+
+With **Approve from the island** on, `beforeShellExecution` and `beforeMCPExecution`
+are also installed with `--approve`: they become `PermissionRequest` and the island
+shows Deny / Allow. The relay answers `{"permission":"allow"|"deny"}`; with no click in
+time it answers `{"permission":"ask"}`, so Cursor asks in its own UI — never an
+implicit allow.
+
+### Codex (Windows)
+
+**Settings… → Codex → Install hooks…** writes `%USERPROFILE%\.codex\hooks.json` in the
+Claude Code layout, with `--agent codex`. `PermissionRequest` gets Deny / Allow in the
+island; Codex never receives `updatedPermissions`, so **Always** is not offered.
+
+### Gemini CLI (Windows)
+
+Same mapping as on macOS, installed into `%USERPROFILE%\.gemini\settings.json` from
+**Settings… → Gemini CLI**.
 
 ### Any other tool
 

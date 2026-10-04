@@ -6,7 +6,7 @@
 
 **Mochi doesn't get a notch on a PC — so it lives at the top of your screen instead.**
 
-Approve Claude Code permissions, watch your session work, drop a file, chat with Claude, keep an eye on your services — without leaving what you're doing.
+Approve Claude Code, Cursor and Codex permissions, watch your sessions work, drop a file, ask an assistant that can act on your PC, keep an eye on your services — without leaving what you're doing.
 
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=black)
@@ -68,11 +68,156 @@ in time, Coucou stays quiet and Claude Code asks in the terminal as usual.
 
 It works from any terminal — Windows Terminal, PowerShell, VS Code, Git Bash.
 
-## Chat and keys
+From the island you can also:
 
-**Settings… → Claude** takes your Anthropic API key. Keys live in the **Windows
-Credential Manager**, never on disk and never in the interface — the island can
-only ask whether a key exists. Same for every integration key.
+- answer **AskUserQuestion** cards (single or multiple choice), or hand them back to the terminal;
+- click **Always** when Claude Code offers a rule for it (`A` on the keyboard, with `Y` / `N` for Allow / Deny);
+- open the live **diff** of the last file an agent edited;
+- read the agent's final answer on the Finished card.
+
+## Cursor, Codex and Gemini CLI
+
+**Settings…** has one section per agent, each with the same diff-backup-confirm
+installer: Cursor writes `%USERPROFILE%\.cursor\hooks.json`, Codex
+`%USERPROFILE%\.codex\hooks.json`, Gemini CLI `%USERPROFILE%\.gemini\settings.json`.
+Each agent gets its own pill. Cursor and Codex permission requests get Deny / Allow
+in the island (for Cursor, switch on **Approve from the island**); with no answer in
+time the agent asks in its own UI. Details in [`docs/AGENTS.md`](../docs/AGENTS.md).
+
+**Settings… → Active pills** declares which agent pills stay visible and which one is
+the main pill.
+
+**Settings… → General** has two switches: **Agente de Cursor** (on by default) and
+**Otros agentes** (Claude Code / VS Code, Codex, Gemini CLI; off by default). Hidden
+agents get no pill, and their questions go straight back to their own UI.
+
+Cursor's `AskQuestion` reaches the island through a second `preToolUse` entry
+(`matcher: AskQuestion|AskUserQuestion`, `--ask`, 130 s). Cursor's hooks can only
+allow or deny a tool, so an answer from the island denies Cursor's card and hands
+the agent the chosen answers in `agent_message`. **Responder en Cursor**, no answer
+within 125 s, or Coucou closed all mean `allow`, and Cursor shows its own card.
+Settings flags hooks written by an older build: **Reinstalar hooks…** shows the diff.
+
+## Grok Bots
+
+**Settings… → Mis Bots de Grok** connects the owner's Grok Bots: each one gets a
+routine with a webhook trigger, and its POST URL and key go into Coucou (the key in
+the Credential Manager). Tasks go out as `@Bot task` in the chat, or through Mochi's
+`send_to_grok_bot` tool after an approval. Bots report back by running
+`coucou-hook.exe --bot "<name>" --status working|done|needs|error "<text>"`, which
+lights up their pill. Grok Bot has no chat API, so a Bot's full answer stays in its
+own chat.
+
+## Keyboard shortcuts
+
+On by default, off in **Settings… → General**. None of them approves anything.
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Alt+Space` | Ask Mochi (opens the chat) |
+| `Ctrl+Alt+A` | Jump to the waiting approval or question |
+| `Ctrl+Alt+H` | Show / hide the island |
+| `Ctrl+Alt+M` | Mute / unmute |
+| `Ctrl+Alt+]` / `Ctrl+Alt+[` | Next / previous pill |
+
+## The assistant
+
+`Ctrl+Alt+Space` (or the chat in the island) talks to Mochi, an assistant that can
+act on your PC. **Settings… → Assistant** picks the model provider:
+
+| Provider | Key | Notes |
+|---|---|---|
+| Cursor (Grok) | `cursor_…` (cursor.com/dashboard/integrations) | Default. Runs through Cursor's SDK bridge, installed with **Instalar motor**; `grok` picks the newest Grok |
+| Anthropic (Claude) | `sk-ant-…` | Server-side web search included |
+| xAI (Grok) | `xai-…` | |
+| OpenAI | `sk-…` | |
+| Google (Gemini) | AI Studio key | Through Google's OpenAI-compatible endpoint |
+| Ollama | none | Local, `http://localhost:11434/v1` |
+| LM Studio | none | Local, `http://localhost:1234/v1` |
+
+**Load list** fetches the provider's models; any model name can be typed in.
+Replies stream into the island, each tool step shows as a line under the answer,
+and the send button turns into **Stop** while Mochi works.
+
+### Tools and approvals
+
+With **Tools** on, Mochi can read files, list folders, search text, read system
+information and processes, fetch web pages, search the web (with a Brave Search
+key), read GitHub, check your integrations, and remember notes between chats.
+
+Anything with a side effect — writing a file, running PowerShell, opening an app
+or a URL, the clipboard, calling an n8n webhook, sending an email, an MCP tool
+that is not read-only — opens an approval card in the island first. **Always**
+allows that one tool for the rest of the session. Unanswered requests are
+declined. Every call, allowed or not, is written to the log.
+
+Mochi's ground rules live in [`core-directive.md`](core-directive.md) and are
+sent with every conversation: serve the owner, nothing with side effects without
+a click, never touch its protected core or reveal keys, treat what it reads as
+data rather than orders.
+
+Memory notes and the chat history (`history.jsonl`, rotated at 2 MB) stay in
+`%APPDATA%\Coucou\memory\`; **Open memory folder** shows them.
+
+### Connections (MCP)
+
+**Settings… → Connections** plugs Mochi into
+[Model Context Protocol](https://modelcontextprotocol.io) servers, local
+(a command, over stdio) or remote (a URL, over Streamable HTTP). Their tools
+appear to the model as `mcp__server__tool`.
+
+- The **recommended** servers fill the form in one click, then **Save**: Playwright
+  (drives a browser), Windows MCP (mouse, keyboard, windows), Filesystem, GitHub,
+  Memory, Fetch. Most need [Node](https://nodejs.org); Windows MCP and Fetch need
+  [uv](https://docs.astral.sh/uv/).
+- **Import from Cursor / Claude Code…** offers the servers already set up in Cursor
+  (`~/.cursor/mcp.json`) or Claude Code (`~/.claude.json`); you choose which.
+- Values marked secret (tokens, `Authorization` headers) go to the Credential
+  Manager; `mcp.json` only keeps a `${secret:…}` placeholder. `${env:VAR}` and
+  `${userHome}` are expanded.
+- **Ask for everything** makes every tool of that server need a click, even the
+  ones it marks read-only.
+
+### Skills
+
+Mochi can write itself new tools: a small PowerShell, Python or Node script,
+or an MCP server command, packaged as a skill in `%APPDATA%\Coucou\skills\`.
+The full source is shown on an approval card before anything is written.
+**Settings… → Skills** turns them on and off or removes them.
+
+### Self-evolution
+
+Mochi can change its own source code to do what you ask, under supervision:
+
+1. it opens a git worktree on a new `evolve/…` branch (`.coucou-evolve/`, ignored by git);
+2. it edits files there and runs the checks (`cargo test`, `tsc`, the front-end build) — after a click;
+3. **the full diff** is shown on an approval card; on the click it commits, tags
+   the previous state `mochi-pre-…` and fast-forwards your branch;
+4. in a release build it can rebuild itself: the running exe is kept as
+   `coucou.prev.exe`, a watchdog starts the new one and puts the old one back if
+   it does not report healthy within a minute. `tauri dev` restarts on its own.
+
+The source checkout must have no uncommitted changes. `git reset --hard mochi-pre-…`
+undoes an evolution.
+
+### Protected core
+
+Some files cannot be changed by the assistant at all — not by `write_file`, not by
+an evolution: `CLAUDE.md`, `core-directive.md`, `build.rs`, `tauri.conf.json`,
+`capabilities/`, `policy.rs`, `secrets.rs`, `pipe.rs`, `selfmod/` and the
+`hook/` relay. `write_file` also refuses the app's own folder, its settings,
+`mcp.json`, the skills folder and the agents' hook files.
+
+`build.rs` records a SHA-256 of every protected file; at launch Coucou compares
+them (`core guard: N protected files verified` in the log) and, if one changed
+behind the build's back, refuses to evolve until you rebuild.
+**Settings… → Protected core** shows the state.
+
+## Keys and privacy
+
+Keys live in the **Windows Credential Manager**, never on disk and never in the
+interface — the island can only ask whether a key exists. Same for every
+integration and connection secret.
 
 No telemetry. The only network requests Coucou makes are to the services you
 configure yourself.
@@ -126,15 +271,35 @@ windows/
     island/            state machine, hooks, integrations
     views/             every island view
     settings/          the settings window
-  src-tauri/           Rust backend: window, named pipe, Claude API, pollers
-  hook/                coucou-hook.exe, the Claude Code relay
+  src-tauri/           Rust backend: window, named pipe, pollers
+    src/providers.rs   model providers, streaming
+    src/agent.rs       the assistant loop
+    src/tools/         built-in tools
+    src/policy.rs      approvals and audit
+    src/mcp.rs         MCP client
+    src/selfmod/       protected core, skills, self-evolution
+  core-directive.md    the assistant's ground rules
+  hook/                coucou-hook.exe, the agents' relay
   scripts/             icon generator
 ```
 
 ### Log
 
-`%LOCALAPPDATA%\Coucou\coucou.log` — hook events, permission decisions, poller
-problems. It stays on your machine.
+`%LOCALAPPDATA%\Coucou\coucou.log` — hook events, permission decisions, the
+assistant's tool calls, MCP connections, poller problems. It stays on your machine.
+
+### Tests
+
+```powershell
+cargo test --workspace
+# the live provider test, against a running Ollama:
+$env:COUCOU_TEST_OLLAMA_MODEL="qwen3.5:9b"; cargo test -p coucou ollama -- --ignored
+```
+
+If the lib test binary exits with `STATUS_ENTRYPOINT_NOT_FOUND`, it is missing the
+Common Controls v6 manifest. Copy `target\debug\deps\coucou_lib-*.exe` into a new
+folder outside `%TEMP%` (one hooks test points the home folder there), and put a
+`.manifest` next to it that depends on `Microsoft.Windows.Common-Controls` 6.0.0.0.
 
 ## What's different from the Mac version
 

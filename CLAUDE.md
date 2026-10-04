@@ -1,31 +1,35 @@
 # Coucou — guide for AI coding agents
 
-Coucou is a native macOS app (`NotchBuddy/`); `windows/` is the Tauri version for Windows and Linux. Mochi, a small animated character living in the MacBook notch, shows AI coding agent sessions (Claude Code, Gemini CLI, Antigravity and more) and a few integrations, and lets the user approve, answer, chat and drop files from the notch.
+This is an independent fork of Coucou (MIT, upstream by Louis Raille). Work happens on Windows, in `windows/` — the Tauri app. `NotchBuddy/` is the original macOS app: it stays as a reference and is not modified.
+
+Mochi lives at the top of the screen. It shows AI coding agent sessions (Claude Code, Cursor, Codex, Gemini CLI, Antigravity), lets the user approve, answer, chat and drop files, and is a full assistant: several AI providers (Anthropic, xAI Grok, OpenAI, Google, Ollama, LM Studio), local tools, MCP connections, skills it writes itself, and changes to its own code under supervision.
 
 ## Where things are
-- `NotchBuddy/Sources/App/` — Mac-only Swift code. `NotchBuddy/Sources/CoucouKit/` — code shared with the iPhone app (Mochi's BotEngine and outfits, pills, diff, models). `NotchBuddy/Sources/Phone/` — iPhone app (`CoucouPhone` target). `NotchBuddy/Resources/sounds/` — the 28 WAV sounds. `NotchBuddy/project.yml` — XcodeGen project (never edit the `.xcodeproj` by hand).
-- `NotchBuddy/Sources/CoucouKit/PillCatalog.swift` — single source of truth for all declared pills (workspace tools, agents, AI providers, services). Every pill ID, color, category and subtitle lives here.
-- `docs/SPEC.md`, `docs/INTEGRATIONS.md` — behaviour, views, states, integrations (in French).
-- `design/prototype/notch-buddy.html` — original prototype, the visual source of truth. `design/captures/` — target screenshots.
-- `windows/` — the Tauri app for Windows and Linux: Rust in `src-tauri/`, TypeScript in `src/`, the `coucou-hook` relay in `hook/`. `windows/README.md` lists what differs from the Mac.
-- `docs/*.html` — the GitHub Pages site (privacy, terms, support, legal notice).
+- `windows/src-tauri/` — Rust: `pipe.rs` (relay server), `hooks.rs` (agent hook installers), `providers.rs` (AI APIs), `agent.rs` (tool loop), `tools/` (local tools), `policy.rs` (approvals and audit), `mcp.rs` (MCP client), `selfmod/` (core guard, skills, self-evolution).
+- `windows/src/` — TypeScript, no framework: island, views, settings window, Mochi in `mochi/`.
+- `windows/hook/` — the `coucou-hook` relay every agent's hooks call.
+- `windows/core-directive.md` — Mochi's core directive. Protected.
+- `NotchBuddy/Sources/CoucouKit/PillCatalog.swift` — pill IDs, names and colours (reference for `windows/src/core/state.ts`).
+- `docs/AGENTS.md`, `windows/README.md` — agent integrations and Windows specifics.
 
 ## Build
 ```
-cd NotchBuddy && xcodegen && xcodebuild -scheme NotchBuddy -configuration Debug build
+cd windows && npm install && npm run tauri dev
+cargo test --workspace        # from windows/
+npx tsc --noEmit              # from windows/
 ```
-Windows and Linux: `cd windows && npm install && npm run tauri dev`
 
 ## Rules
-- Swift 6, SwiftUI + AppKit. No third-party dependencies unless truly unavoidable. The character is drawn in code (`Canvas` + `TimelineView`), no Rive/Lottie/images.
-- Secrets live in the Keychain, never on disk or in git.
+- No third-party dependencies unless truly unavoidable. The character is drawn in code, no Rive/Lottie/images.
+- Secrets live in the Windows Credential Manager, never on disk or in git.
 - No telemetry. Network calls only to services the user configured.
-- Never block Claude Code: if the app doesn't answer, the hook exits immediately.
-- Never overwrite `~/.claude/settings.json`: dated backup, merge, show the diff, write only after the user confirms.
-- Never send an email or approve a Claude Code or Codex permission without an explicit click.
+- Never block an agent: if the app doesn't answer, the hook exits immediately and the agent asks in its own UI.
+- Never overwrite an agent's config (`~/.claude/settings.json`, `~/.cursor/hooks.json`, `~/.codex/hooks.json`, `~/.gemini/settings.json`): dated backup, merge, show the diff, write only after the user confirms.
+- Nothing with side effects happens without an explicit click: sending an email, approving an agent's permission, running a command, writing a file, opening an app, installing a skill, applying a change to Mochi's own code.
+- The protected core cannot be changed by Mochi itself: `windows/core-directive.md`, `policy.rs`, `secrets.rs`, `pipe.rs`, `selfmod/`, `hook/`, `tauri.conf.json`, `capabilities/`, this file. Only a human edits them.
+- Every tool call the assistant makes is written to the audit log (`coucou.log`).
 - Performance: 0 % CPU when the island is hidden.
-- Keep the bundle identifier `fr.louisraille.NotchBuddy` (Keychain items, preferences and permissions depend on it).
-- Never restyle what already ships (pills, cards, Settings, chat…): existing views stay exactly as they are in `main`, which is the App Store build. Change the look of an existing view only when explicitly asked.
-- Pill IDs are stable contract values (Keychain, UserDefaults, hook routing): never rename an existing pill ID.
-- New views follow the existing app style. `design/prototype/notch-buddy.html` and `design/captures/` are references for new work, not a reason to change existing views.
-- Every release adds its CHANGELOG.md section, a row in the README Versions table, and commits the regenerated Info.plist with the new version.
+- Keep the identifier `fr.louisraille.coucou` until the rebrand (Credential Manager items and preferences depend on it); the rebrand migrates them.
+- Pill IDs are stable contract values (Credential Manager, settings, hook routing): never rename an existing pill ID.
+- New views follow the existing app style.
+- No public release or installer until the rebrand: the upstream character, sounds and icons need their own licence first. Keep the upstream MIT notice.

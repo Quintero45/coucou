@@ -126,6 +126,9 @@ pub fn no_console(cmd: &mut Command) -> &mut Command {
     cmd
 }
 
+/// Not done on Linux yet: the Cursor bridge shuts itself down when idle.
+pub fn tie_to_app(_pid: u32) {}
+
 pub fn open_url(url: &str) {
     let _ = Command::new("xdg-open").arg(url).spawn();
 }
@@ -133,6 +136,33 @@ pub fn open_url(url: &str) {
 pub fn reveal_folder(path: &str) {
     let _ = Command::new("xdg-open").arg(path).spawn();
 }
+
+/// Opens an app, a file, a folder or a URL. Only ever called after the owner
+/// approved exactly this target.
+pub fn shell_open(target: &str, args: Option<&str>) -> Result<(), String> {
+    let looks_like_app = !target.contains('/') && !target.contains(':') && find_on_path(target).is_some();
+    let mut cmd = if looks_like_app {
+        let mut c = Command::new(target);
+        if let Some(a) = args {
+            c.args(a.split_whitespace());
+        }
+        c
+    } else {
+        let mut c = Command::new("xdg-open");
+        c.arg(target);
+        c
+    };
+    cmd.spawn().map(|_| ()).map_err(|e| format!("could not open {target}: {e}"))
+}
+
+/// The shell the assistant's commands run in.
+pub fn shell_command(script: &str) -> tokio::process::Command {
+    let mut cmd = tokio::process::Command::new("sh");
+    cmd.args(["-c", script]);
+    cmd
+}
+
+pub const SHELL_NAME: &str = "sh";
 
 /// Our own `which`: the first executable file named `stem` on $PATH.
 pub fn find_on_path(stem: &str) -> Option<PathBuf> {
