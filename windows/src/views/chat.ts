@@ -7,6 +7,7 @@ import { h, svg, clear } from "./dom";
 import { ICONS } from "./icons";
 import { renderMarkdown } from "./markdown";
 import { Bridge, onEvent, type ChatContext } from "../core/bridge";
+import { sendToBot as sendToGrokBot } from "../core/botchat";
 import { Sound } from "../core/sound";
 import { State, aiProvider, type ChatMessage } from "../core/state";
 import type { ViewHost } from "./views";
@@ -136,11 +137,13 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     State.chatHistory.push(message);
     State.notify();
     onHeightChange();
-    try {
-      message.content = `✓ ${await Bridge.grokbotSend(target.bot, target.task)}`;
+    // Same path as the Bot's conversation, so it shows up there too.
+    const sent = await sendToGrokBot(target.bot, target.task);
+    if (sent.ok) {
+      message.content = `✓ ${sent.message}`;
       Sound.play("finish");
-    } catch (err) {
-      message.content = `⚠ ${String(err).replace(/^Error:\s*/, "")}`;
+    } else {
+      message.content = `⚠ ${sent.message}`;
       Sound.play("error");
     }
   }

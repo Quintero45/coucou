@@ -1,0 +1,96 @@
+/* Bot FX — opt-in classes for Grok Bot pills and cards.
+ *
+ * Nothing here applies on its own: add the classes where wanted (or use
+ * `botFx.play(el, name, color?)` from mochi/botfx.ts, which restarts one-shot
+ * effects and removes them on animationend).
+ *
+ *   .botfx-smooth   eases background / border / shadow / colour / opacity / transform changes
+ *   .botfx-enter    one-shot: fades + scales a pill in
+ *   .botfx-pop      one-shot: a small scale pop (e.g. the state word changed)
+ *   .botfx-pulse    looping soft glow in --botfx-color (e.g. while "trabajando")
+ *   .botfx-flash    one-shot: glow burst in --botfx-color (e.g. approval answered)
+ *   .botfx-shake    one-shot: decaying horizontal shake (e.g. "error")
+ *
+ * --botfx-color defaults to currentColor; set it to the bot's colour inline.
+ */
+
+.botfx-smooth {
+  transition:
+    background-color 220ms ease,
+    background 220ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    color 220ms ease,
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.botfx-enter {
+  animation: botfx-enter 280ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+
+.botfx-pop {
+  animation: botfx-pop 320ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+.botfx-pulse {
+  animation: botfx-pulse 1.6s ease-in-out infinite;
+}
+
+.botfx-flash {
+  animation: botfx-flash 700ms ease-out both;
+}
+
+.botfx-shake {
+  animation: botfx-shake 520ms ease-out both;
+}
+
+@keyframes botfx-enter {
+  from { opacity: 0; transform: translateY(4px) scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes botfx-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes botfx-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--botfx-color, currentColor) 0%, transparent); }
+  50%      { box-shadow: 0 0 10px 1px color-mix(in srgb, var(--botfx-color, currentColor) 45%, transparent); }
+}
+
+@keyframes botfx-flash {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--botfx-color, currentColor) 0%, transparent); filter: brightness(1); }
+  20%  { box-shadow: 0 0 14px 3px color-mix(in srgb, var(--botfx-color, currentColor) 70%, transparent); filter: brightness(1.25); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--botfx-color, currentColor) 0%, transparent); filter: brightness(1); }
+}
+
+@keyframes botfx-shake {
+  0%   { transform: translateX(0); }
+  12%  { transform: translateX(-4px); }
+  26%  { transform: translateX(3.5px); }
+  40%  { transform: translateX(-2.5px); }
+  54%  { transform: translateX(1.8px); }
+  68%  { transform: translateX(-1px); }
+  82%  { transform: translateX(0.5px); }
+  100% { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .botfx-smooth { transition-duration: 1ms; }
+  .botfx-enter { animation: botfx-fade 160ms ease-out both; }
+  .botfx-pop,
+  .botfx-shake { animation: none; }
+  .botfx-pulse {
+    animation: none;
+    box-shadow: 0 0 8px 0 color-mix(in srgb, var(--botfx-color, currentColor) 30%, transparent);
+  }
+  .botfx-flash { animation-duration: 400ms; }
+}
+
+@keyframes botfx-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

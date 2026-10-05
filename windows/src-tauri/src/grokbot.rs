@@ -165,47 +165,381 @@ pub fn remove(app: &AppHandle, id: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Starts a run of the Bot's routine with `message`. Ok means Grok Bot accepted
-/// it; the answer arrives later, in the Bot's chat and (if it follows its
-/// instructions) in the island.
-pub async fn send(app: &AppHandle, who: &str, message: &str) -> Result<String, String> {
-    let bot = find(app, who).ok_or_else(|| format!("No tienes ningún Bot llamado «{who}»."))?;
-    let message = message.trim();
-    if message.is_empty() {
-        return Err("El mensaje está vacío.".into());
+// ── Attachments ──────────────────────────────────────────────────────────────
+// Webhook bodies stay small: text is inlined up to TEXT_TOTAL across the
+// request, images travel as base64 within IMAGE_EACH / IMAGE_TOTAL (measured on
+// the encoded string, so the body stays under MAX_BODY), and anything else is
+// described by name, type, size and its path on this PC.
+
+/// Inline text budget across one request (bytes of UTF-8).
+pub(crate) const TEXT_TOTAL: usize = 200 * 1024;
+/// Largest single image, as base64 characters.
+pub(crate) const IMAGE_EACH: usize = 1024 * 1024;
+/// All images in one request, as base64 characters.
+pub(crate) const IMAGE_TOTAL: usize = 1536 * 1024;
+/// Hard ceiling for the serialized JSON body.
+pub(crate) const MAX_BODY: usize = 2 * 1024 * 1024;
+
+/// What the island may attach: an `ingestFiles` id, or pasted text / bytes.
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum AttachmentIn {
+    Inbox { id: String },
+    Text { name: String, mime: String, text: String },
+    Base64 { name: String, mime: String, base64: String },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Content {
+    /// Text to inline; `partial` when only the start of the file was read.
+    Text { text: String, partial: bool },
+    /// An image, already base64.
+    Image(String),
+    /// Nothing inlinable (other type, unreadable, invalid or missing).
+    None,
+}
+
+/// One attachment after reading, before the caps are applied.
+#[derive(Debug, Clone)]
+pub(crate) struct Item {
+    pub name: String,
+    pub mime: String,
+    pub size: u64,
+    /// Where the bytes are on this PC, when they are.
+    pub path: Option<String>,
+    pub content: Content,
+    /// Pasted bytes not yet on disk: written to the inbox only if the item
+    /// ends up described by path instead of inlined.
+    pub pending: Option<Vec<u8>>,
+}
+
+const CODE_EXTS: &[&str] = &[
+    "txt", "md", "csv", "json", "log", "rs", "ts", "tsx", "js", "jsx", "mjs", "py", "html", "htm", "css", "xml", "yaml",
+    "yml", "toml", "sql", "ini", "cfg", "conf", "sh", "ps1", "bat", "c", "h", "cpp", "hpp", "cs", "java", "kt", "go",
+    "rb", "php", "swift", "vue", "svelte", "svg",
+];
+
+pub(crate) fn is_text_like(name: &str, mime: &str) -> bool {
+    let mime = mime.to_ascii_lowercase();
+    let mime = mime.split(';').next().unwrap_or("").trim();
+    if mime.starts_with("text/") {
+        return true;
     }
-    let key = secrets::get(&key_name(&bot.id)).ok_or("Falta la clave del webhook de este Bot. Ábrelo en Ajustes → Mis Bots de Grok.")?;
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|e| e.to_string())?;
-    let t = crate::platform::local_time();
-    let body = json!({
+    let sub = mime.strip_prefix("application/").unwrap_or("");
+    if ["json", "xml", "yaml", "x-yaml", "toml", "sql", "javascript", "typescript", "x-sh"].contains(&sub)
+        || sub.ends_with("+json")
+        || sub.ends_with("+xml")
+    {
+        return true;
+    }
+    let ext = std::path::Path::new(name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    CODE_EXTS.contains(&ext.as_str())
+}
+
+pub(crate) fn is_image(mime: &str) -> bool {
+    matches!(
+        mime.to_ascii_lowercase().trim(),
+        "image/png" | "image/jpeg" | "image/jpg" | "image/gif" | "image/webp" | "image/bmp"
+    )
+}
+
+/// Pasted base64: drops a `data:…;base64,` prefix and whitespace, then checks
+/// the alphabet and padding. Returns the clean string and the decoded size.
+pub(crate) fn clean_base64(raw: &str) -> Option<(String, usize)> {
+    let raw = match raw.find(";base64,") {
+        Some(i) if raw.starts_with("data:") => &raw[i + 8..],
+        _ => raw,
+    };
+    let s: String = raw.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    if s.len() % 4 != 0 {
+        return None;
+    }
+    let body = s.trim_end_matches('=');
+    let pad = s.len() - body.len();
+    if pad > 2 || !body.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/') {
+        return None;
+    }
+    let size = s.len() / 4 * 3 - pad;
+    Some((s, size))
+}
+
+/// Decodes a string that `clean_base64` accepted.
+pub(crate) fn decode_base64(s: &str) -> Vec<u8> {
+    fn val(b: u8) -> u32 {
+        match b {
+            b'A'..=b'Z' => (b - b'A') as u32,
+            b'a'..=b'z' => (b - b'a' + 26) as u32,
+            b'0'..=b'9' => (b - b'0' + 52) as u32,
+            b'+' => 62,
+            _ => 63,
+        }
+    }
+    let bytes = s.trim_end_matches('=').as_bytes();
+    let mut out = Vec::with_capacity(bytes.len() * 3 / 4);
+    for chunk in bytes.chunks(4) {
+        let mut n = 0u32;
+        for (i, &b) in chunk.iter().enumerate() {
+            n |= val(b) << (18 - 6 * i);
+        }
+        out.push((n >> 16) as u8);
+        if chunk.len() > 2 {
+            out.push((n >> 8) as u8);
+        }
+        if chunk.len() > 3 {
+            out.push(n as u8);
+        }
+    }
+    out
+}
+
+/// The longest prefix of `s` that fits in `max` bytes without splitting a char.
+fn cut_at(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
+/// Applies the caps. Returns the outgoing attachment objects and the lines to
+/// append to the message. `meta_only` describes everything by path (413 retry).
+pub(crate) fn plan(items: &[Item], meta_only: bool) -> (Vec<Value>, Vec<String>) {
+    let mut text_used = 0usize;
+    let mut image_used = 0usize;
+    let mut out = Vec::new();
+    let mut lines = Vec::new();
+    for item in items {
+        let mut entry = json!({ "name": item.name, "mime": item.mime, "size": item.size });
+        let inlined = match (&item.content, meta_only) {
+            (_, true) | (Content::None, _) => false,
+            (Content::Text { text, partial }, false) => {
+                let room = TEXT_TOTAL.saturating_sub(text_used);
+                if room == 0 {
+                    false
+                } else {
+                    let kept = cut_at(text, room);
+                    text_used += kept.len();
+                    entry["text"] = json!(kept);
+                    if *partial || kept.len() < text.len() {
+                        entry["truncated"] = json!(true);
+                        if let Some(path) = &item.path {
+                            entry["path"] = json!(path);
+                        }
+                    }
+                    true
+                }
+            }
+            (Content::Image(b64), false) => {
+                if b64.len() <= IMAGE_EACH && image_used + b64.len() <= IMAGE_TOTAL {
+                    image_used += b64.len();
+                    entry["base64"] = json!(b64);
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+        if !inlined {
+            match &item.path {
+                Some(path) => {
+                    entry["path"] = json!(path);
+                    lines.push(format!("(Adjunto en el PC: {path})"));
+                }
+                None => lines.push(format!("(Adjunto no incluido: {})", item.name)),
+            }
+        }
+        out.push(entry);
+    }
+    (out, lines)
+}
+
+/// The webhook body. `attachments` is only present when there are some, so a
+/// plain task looks exactly as it always did.
+pub(crate) fn build_body(message: &str, lines: &[String], bot: &str, sent_at: &str, attachments: Vec<Value>) -> Value {
+    let message = match (message.trim(), lines.is_empty()) {
+        (m, true) => m.to_string(),
+        ("", false) => lines.join("\n"),
+        (m, false) => format!("{m}\n\n{}", lines.join("\n")),
+    };
+    let mut body = json!({
         "message": message,
         "from": "Coucou",
-        "bot": bot.name,
-        "sentAt": format!("{:04}-{:02}-{:02} {:02}:{:02}", t.year, t.month, t.day, t.hour, t.minute),
+        "bot": bot,
+        "sentAt": sent_at,
     });
-    let response = client
-        .post(&bot.url)
-        .bearer_auth(key)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("No se pudo contactar a Grok Bot: {e}"))?;
+    if !attachments.is_empty() {
+        body["attachments"] = Value::Array(attachments);
+    }
+    body
+}
+
+/// Reads what the island attached. Missing inbox ids and invalid base64 are
+/// kept as "not included" lines rather than failing the whole send.
+fn read_items(attachments: Vec<AttachmentIn>) -> Vec<Item> {
+    attachments
+        .into_iter()
+        .map(|a| match a {
+            AttachmentIn::Inbox { id } => {
+                let name = crate::files::display_name(&id);
+                let mime = crate::files::guess_mime(&name).to_string();
+                let Some(path) = crate::files::inbox_file(&id) else {
+                    return Item { name, mime, size: 0, path: None, content: Content::None, pending: None };
+                };
+                let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+                let content = if is_text_like(&name, &mime) {
+                    read_prefix(&path, TEXT_TOTAL)
+                        .map(|bytes| Content::Text {
+                            text: String::from_utf8_lossy(&bytes).into_owned(),
+                            partial: (bytes.len() as u64) < size,
+                        })
+                        .unwrap_or(Content::None)
+                } else if is_image(&mime) && (size as usize).div_ceil(3) * 4 <= IMAGE_EACH {
+                    std::fs::read(&path).map(|b| Content::Image(crate::claude::base64_for(&b))).unwrap_or(Content::None)
+                } else {
+                    Content::None
+                };
+                Item { name, mime, size, path: Some(display_path(&path)), content, pending: None }
+            }
+            AttachmentIn::Text { name, mime, text } => {
+                let size = text.len() as u64;
+                Item { name, mime, size, path: None, pending: Some(text.clone().into_bytes()), content: Content::Text { text, partial: false } }
+            }
+            AttachmentIn::Base64 { name, mime, base64 } => match clean_base64(&base64) {
+                Some((clean, size)) => {
+                    let content = if is_image(&mime) { Content::Image(clean.clone()) } else { Content::None };
+                    Item { name, mime, size: size as u64, path: None, content, pending: Some(decode_base64(&clean)) }
+                }
+                None => Item { name, mime, size: 0, path: None, content: Content::None, pending: None },
+            },
+        })
+        .collect()
+}
+
+fn read_prefix(path: &std::path::Path, max: usize) -> Option<Vec<u8>> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    std::fs::File::open(path).ok()?.take(max as u64).read_to_end(&mut buf).ok()?;
+    Some(buf)
+}
+
+/// Canonical Windows paths start with `\\?\`; the Bot gets the familiar form.
+fn display_path(path: &std::path::Path) -> String {
+    let s = path.to_string_lossy();
+    s.strip_prefix(r"\\?\").unwrap_or(&s).to_string()
+}
+
+/// Pasted items that the plan describes by path are written to the inbox first.
+fn persist_described(items: &mut [Item], meta_only: bool) {
+    let (planned, _) = plan(items, meta_only);
+    for (item, entry) in items.iter_mut().zip(planned) {
+        let described = entry.get("text").is_none() && entry.get("base64").is_none();
+        let truncated = entry.get("truncated").is_some();
+        if item.path.is_none() && (described || truncated) {
+            if let Some(bytes) = item.pending.take() {
+                match crate::files::save_to_inbox(&item.name, &bytes) {
+                    Ok(path) => item.path = Some(display_path(&path)),
+                    Err(e) => log::line(format!("grokbot: could not keep pasted {}: {e}", item.name)),
+                }
+            }
+        }
+    }
+}
+
+/// Serialized body for these items, or None when even that is over MAX_BODY.
+fn assemble(items: &mut [Item], meta_only: bool, message: &str, bot: &str, sent_at: &str) -> Option<String> {
+    persist_described(items, meta_only);
+    let (attachments, lines) = plan(items, meta_only);
+    let body = build_body(message, &lines, bot, sent_at, attachments).to_string();
+    (body.len() <= MAX_BODY).then_some(body)
+}
+
+/// Starts a run of the Bot's routine with `message` and any attachments. Ok
+/// means Grok Bot accepted it; the answer arrives later, in the Bot's chat and
+/// (if it follows its instructions) in the island.
+///
+/// Errors are codes for the island to word: `not_connected` (no such Bot, no
+/// URL or no key), `too_large`, `empty_message`, `http_<status>` (`http_0`
+/// when the webhook could not be reached at all).
+pub async fn send(app: &AppHandle, who: &str, message: &str, attachments: Vec<AttachmentIn>) -> Result<String, String> {
+    let bot = find(app, who).ok_or("not_connected")?;
+    if bot.url.trim().is_empty() {
+        return Err("not_connected".into());
+    }
+    let message = message.trim();
+    if message.is_empty() && attachments.is_empty() {
+        return Err("empty_message".into());
+    }
+    let key = secrets::get(&key_name(&bot.id)).ok_or("not_connected")?;
+    let t = crate::platform::local_time();
+    let sent_at = format!("{:04}-{:02}-{:02} {:02}:{:02}", t.year, t.month, t.day, t.hour, t.minute);
+    let count = attachments.len();
+    let mut items = read_items(attachments);
+
+    let mut meta_only = false;
+    let body = match assemble(&mut items, false, message, &bot.name, &sent_at) {
+        Some(body) => body,
+        None => {
+            meta_only = true;
+            assemble(&mut items, true, message, &bot.name, &sent_at).ok_or("too_large")?
+        }
+    };
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(if count == 0 { 30 } else { 60 }))
+        .build()
+        .map_err(|_| "http_0".to_string())?;
+    let post = |body: String| {
+        client
+            .post(&bot.url)
+            .bearer_auth(&key)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .send()
+    };
+    let unreachable = |e: reqwest::Error| {
+        log::line(format!("grokbot {}: webhook unreachable: {e}", bot.id));
+        "http_0".to_string()
+    };
+    let mut response = post(body).await.map_err(unreachable)?;
+    if response.status().as_u16() == 413 && count > 0 && !meta_only {
+        log::line(format!("grokbot {}: webhook answered 413, retrying without inline attachments", bot.id));
+        let body = assemble(&mut items, true, message, &bot.name, &sent_at).ok_or("too_large")?;
+        response = post(body).await.map_err(unreachable)?;
+    }
     let status = response.status();
     if status.is_success() {
-        log::line(format!("grokbot {}: task sent ({} chars)", bot.id, message.chars().count()));
+        log::line(format!(
+            "grokbot {}: task sent ({} chars, {count} attachments)",
+            bot.id,
+            message.chars().count()
+        ));
         return Ok(format!("Enviado a {}. Grok Bot inició la rutina; el resultado llegará a su chat y a la isla.", bot.name));
     }
-    let text: String = response.text().await.unwrap_or_default().chars().take(300).collect();
     log::line(format!("grokbot {}: webhook answered {status}", bot.id));
     Err(match status.as_u16() {
-        401 | 403 => format!("{}: la clave del webhook no es válida (¿la cambiaste en Grok Bot?).", bot.name),
-        404 => format!("{}: la URL del webhook no existe. Revisa que la rutina siga activa.", bot.name),
-        429 => format!("{}: Grok Bot está limitando las peticiones o se acabó el uso semanal.", bot.name),
-        _ => format!("{}: Grok Bot respondió {status}. {text}", bot.name),
+        413 => "too_large".to_string(),
+        code => format!("http_{code}"),
     })
+}
+
+/// Words `send`'s error codes for the assistant (the island words them itself).
+fn describe_error(bot: &str, code: &str) -> String {
+    match code {
+        "not_connected" => format!("{bot} is not connected: no such Grok Bot, or its webhook URL or key is missing."),
+        "too_large" => "The task is too large for the webhook.".into(),
+        "empty_message" => "The message is empty.".into(),
+        "http_0" => "Could not reach Grok Bot (network error or timeout).".into(),
+        "http_401" | "http_403" => format!("{bot}: the webhook key is not valid (was it changed in Grok Bot?)."),
+        "http_404" => format!("{bot}: the webhook URL does not exist; check that the routine is still active."),
+        "http_429" => format!("{bot}: Grok Bot is rate limiting or the weekly usage is used up."),
+        other => format!("{bot}: Grok Bot answered {other}."),
+    }
 }
 
 /// What to paste into the Bot's description in Grok Bot so it reports here.
@@ -281,9 +615,9 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Option<Outcome> {
             if !policy::approve(app, "send_to_grok_bot", &target).await {
                 return Some(Outcome::err("The owner declined sending this task."));
             }
-            Some(match send(app, &bot, &message).await {
+            Some(match send(app, &bot, &message, Vec::new()).await {
                 Ok(text) => Outcome::ok(text),
-                Err(e) => Outcome::err(e),
+                Err(e) => Outcome::err(describe_error(&bot, &e)),
             })
         }
         _ => None,
@@ -308,5 +642,146 @@ mod tests {
         assert!(valid_color("#38BDF8"));
         assert!(!valid_color("38BDF8"));
         assert!(!valid_color("#38BDFZ"));
+    }
+
+    fn item(name: &str, mime: &str, size: u64, path: Option<&str>, content: Content) -> Item {
+        Item { name: name.into(), mime: mime.into(), size, path: path.map(Into::into), content, pending: None }
+    }
+
+    fn text(s: &str) -> Content {
+        Content::Text { text: s.into(), partial: false }
+    }
+
+    #[test]
+    fn attachments_deserialize_untagged() {
+        let v: Vec<AttachmentIn> = serde_json::from_str(
+            r#"[{"id":"u1-a.txt"},{"name":"n.txt","mime":"text/plain","text":"hi"},{"name":"p.png","mime":"image/png","base64":"AAAA"}]"#,
+        )
+        .unwrap();
+        assert_eq!(v[0], AttachmentIn::Inbox { id: "u1-a.txt".into() });
+        assert!(matches!(&v[1], AttachmentIn::Text { text, .. } if text == "hi"));
+        assert!(matches!(&v[2], AttachmentIn::Base64 { base64, .. } if base64 == "AAAA"));
+    }
+
+    #[test]
+    fn text_like_and_images_are_recognised() {
+        assert!(is_text_like("a.bin", "text/plain; charset=utf-8"));
+        assert!(is_text_like("a", "application/json"));
+        assert!(is_text_like("a", "application/ld+json"));
+        assert!(is_text_like("main.rs", "application/octet-stream"));
+        assert!(!is_text_like("a.pdf", "application/pdf"));
+        assert!(is_image("image/PNG"));
+        assert!(is_image("image/bmp"));
+        assert!(!is_image("image/svg+xml"));
+    }
+
+    #[test]
+    fn base64_is_validated_and_decoded() {
+        assert_eq!(clean_base64("Zm9vYmFy"), Some(("Zm9vYmFy".into(), 6)));
+        assert_eq!(clean_base64("Zm9vYg=="), Some(("Zm9vYg==".into(), 4)));
+        assert_eq!(clean_base64("data:image/png;base64,Zm9v\r\nYmE="), Some(("Zm9vYmE=".into(), 5)));
+        assert_eq!(clean_base64("Zm9"), None);
+        assert_eq!(clean_base64("Zm9*"), None);
+        assert_eq!(clean_base64("Z==="), None);
+        for raw in [&b""[..], b"f", b"fo", b"foo", b"foob", b"fooba", b"foobar", &[0u8, 255, 128, 7]] {
+            let enc = crate::claude::base64_for(raw);
+            let (clean, size) = clean_base64(&enc).unwrap();
+            assert_eq!(size, raw.len());
+            assert_eq!(decode_base64(&clean), raw);
+        }
+    }
+
+    #[test]
+    fn text_is_capped_across_the_request() {
+        let big = "a".repeat(TEXT_TOTAL - 10);
+        let items = vec![
+            item("one.txt", "text/plain", big.len() as u64, Some("C:\\in\\one.txt"), text(&big)),
+            item("two.md", "text/markdown", 30, Some("C:\\in\\two.md"), text("ñ".repeat(15).as_str())),
+            item("three.txt", "text/plain", 5, Some("C:\\in\\three.txt"), text("hello")),
+        ];
+        let (out, lines) = plan(&items, false);
+        assert_eq!(out[0]["text"].as_str().unwrap().len(), TEXT_TOTAL - 10);
+        assert!(out[0].get("truncated").is_none());
+        // 10 bytes of room: five two-byte chars, never half of one.
+        assert_eq!(out[1]["text"], "ñññññ");
+        assert_eq!(out[1]["truncated"], true);
+        assert_eq!(out[1]["path"], "C:\\in\\two.md");
+        // No room left: described by path, and the message says where it is.
+        assert!(out[2].get("text").is_none());
+        assert_eq!(out[2]["path"], "C:\\in\\three.txt");
+        assert_eq!(lines, vec!["(Adjunto en el PC: C:\\in\\three.txt)".to_string()]);
+
+        let partial = vec![item("log.txt", "text/plain", 9_000_000, Some("p"), Content::Text { text: "x".into(), partial: true })];
+        assert_eq!(plan(&partial, false).0[0]["truncated"], true);
+    }
+
+    #[test]
+    fn images_are_capped_each_and_in_total() {
+        let small = "A".repeat(600 * 1024);
+        let huge = "A".repeat(IMAGE_EACH + 4);
+        let items = vec![
+            item("a.png", "image/png", 1, Some("pa"), Content::Image(small.clone())),
+            item("b.png", "image/png", 1, Some("pb"), Content::Image(huge)),
+            item("c.png", "image/png", 1, Some("pc"), Content::Image(small.clone())),
+            item("d.png", "image/png", 1, None, Content::Image(small)),
+            item("e.zip", "application/zip", 9, Some("pe"), Content::None),
+        ];
+        let (out, lines) = plan(&items, false);
+        assert!(out[0].get("base64").is_some());
+        assert!(out[1].get("base64").is_none(), "over the per-image cap");
+        assert!(out[2].get("base64").is_some());
+        assert!(out[3].get("base64").is_none(), "over the per-request cap");
+        assert!(out[4].get("base64").is_none() && out[4]["path"] == "pe");
+        assert_eq!(
+            lines,
+            vec![
+                "(Adjunto en el PC: pb)".to_string(),
+                "(Adjunto no incluido: d.png)".to_string(),
+                "(Adjunto en el PC: pe)".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn meta_only_describes_everything() {
+        let items = vec![
+            item("a.txt", "text/plain", 2, Some("pa"), text("hi")),
+            item("b.png", "image/png", 3, Some("pb"), Content::Image("AAAA".into())),
+        ];
+        let (out, lines) = plan(&items, true);
+        for entry in &out {
+            assert!(entry.get("text").is_none() && entry.get("base64").is_none());
+        }
+        assert_eq!(out[0], json!({ "name": "a.txt", "mime": "text/plain", "size": 2, "path": "pa" }));
+        assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn body_is_assembled() {
+        let plain = build_body("  hola  ", &[], "Investigador", "2026-10-04 20:00", Vec::new());
+        assert_eq!(
+            plain,
+            json!({ "message": "hola", "from": "Coucou", "bot": "Investigador", "sentAt": "2026-10-04 20:00" })
+        );
+        let items = vec![
+            item("a.txt", "text/plain", 2, Some("pa"), text("hi")),
+            item("z.zip", "application/zip", 9, Some("C:\\in\\z.zip"), Content::None),
+        ];
+        let (att, lines) = plan(&items, false);
+        let body = build_body("mira", &lines, "Bot", "t", att);
+        assert_eq!(body["message"], "mira\n\n(Adjunto en el PC: C:\\in\\z.zip)");
+        assert_eq!(body["attachments"][0], json!({ "name": "a.txt", "mime": "text/plain", "size": 2, "text": "hi" }));
+        assert_eq!(body["attachments"][1]["path"], "C:\\in\\z.zip");
+        let only = build_body("", &lines, "Bot", "t", Vec::new());
+        assert_eq!(only["message"], "(Adjunto en el PC: C:\\in\\z.zip)");
+        // The caps keep the worst case under the hard ceiling.
+        assert!(TEXT_TOTAL * 6 / 5 + IMAGE_TOTAL < MAX_BODY);
+    }
+
+    #[test]
+    fn errors_are_worded_for_the_assistant() {
+        assert!(describe_error("Bot", "http_401").contains("key"));
+        assert!(describe_error("Bot", "not_connected").contains("not connected"));
+        assert!(describe_error("Bot", "http_500").contains("http_500"));
     }
 }

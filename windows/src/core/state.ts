@@ -42,12 +42,16 @@ export interface ApprovalInfo {
   sessionId: string;
   tool: string;
   command: string;
-  /** The pill the request belongs to (Claude Code, Cursor, Codex). */
+  /** The pill the request belongs to (Claude Code, Cursor, Codex, a Grok Bot). */
   agentId: string;
   /** Claude Code when it suggested a rule; Mochi's own tools for the session. */
   allowAlways: boolean;
   /** Full text under review (a skill's code, a diff) — Mochi's requests only. */
   detail?: string | null;
+  /** Wrap the detail as prose (a Bot's question, its arguments) instead of code. */
+  detailWrap?: boolean;
+  /** The raw tool_input, for a Grok Bot's log line (botlog.ts sanitises it). */
+  toolInput?: Record<string, unknown> | null;
 }
 
 export interface QuestionOption {
@@ -181,6 +185,25 @@ export const BOT_PREFIX = "agent_bot-";
 
 export function botPillId(bot: GrokBot): string {
   return `${BOT_PREFIX}${bot.id}`;
+}
+
+/** How a Grok Bot pill names its state, in the island's words. */
+export function botPhase(state: BotStateName): { label: string; color: string } | null {
+  switch (state) {
+    case "working":
+    case "thinking":
+    case "searching":
+      return { label: "trabajando", color: "#60A5FA" };
+    case "approval":
+    case "question":
+      return { label: "pregunta", color: "#F5A524" };
+    case "finished":
+      return { label: "listo", color: "#22C55E" };
+    case "error":
+      return { label: "error", color: "#F4505E" };
+    default:
+      return null;
+  }
 }
 
 export const CURSOR_AGENT_ID = "agent_cursor";

@@ -33,6 +33,26 @@ pub struct CursorPayload {
     pub y: f64,
 }
 
+/// `drag-hover`: a press that started outside the island is now over it with the
+/// button still held, i.e. a file (or anything) is being dragged in. Sent once
+/// per drag, in window-logical px, so the page can open for it. `collapsed`:
+/// the island was folded to the wake strip when it happened.
+#[derive(Serialize, Clone)]
+pub struct DragHoverPayload {
+    pub x: f64,
+    pub y: f64,
+    pub collapsed: bool,
+}
+
+/// Around the wake strip, how far (logical px) a drag still counts as "at the
+/// notch" while the island is folded: the strip itself is only 6 px tall.
+pub(crate) const DRAG_CATCH_X: f64 = 60.0;
+pub(crate) const DRAG_CATCH_Y: f64 = 40.0;
+
+/// While folded, how often the poll thread looks at the left button (and only
+/// then at the cursor) to notice a drag heading for the notch.
+const FOLDED_DRAG_PERIOD: Duration = Duration::from_millis(100);
+
 #[derive(Serialize, Clone)]
 pub struct ScreenInfo {
     pub x: f64,
@@ -89,11 +109,23 @@ impl PollGate {
         self.cv.notify_all();
     }
 
-    fn wait_until_active(&self) {
+    /// Parks until the island is active. With a timeout, gives up after it and
+    /// returns false so the caller can do its cheap folded-state check.
+    fn wait_until_active(&self, timeout: Option<Duration>) -> bool {
         let mut guard = self.active.lock().unwrap();
         while !*guard {
-            guard = self.cv.wait(guard).unwrap();
+            match timeout {
+                None => guard = self.cv.wait(guard).unwrap(),
+                Some(t) => {
+                    let (g, res) = self.cv.wait_timeout(guard, t).unwrap();
+                    guard = g;
+                    if res.timed_out() {
+                        return *guard;
+                    }
+                }
+            }
         }
+        true
     }
 
     fn is_active(&self) -> bool {
@@ -190,11 +222,114 @@ fn current_screen_key(app: &AppHandle) -> Option<(i32, i32, u32, u32, u64)> {
     Some((p.x, p.y, size.width, size.height, m.scale_factor().to_bits()))
 }
 
+/// Where the current left-button press started, and whether it has since come
+/// over the island: the poll's view of a drag in flight. An OLE drag from
+/// Explorer is, to everyone but its source, just the left button held down
+/// while the cursor moves.
+#[derive(Default)]
+struct DragWatch {
+    was_down: bool,
+    /// The press began outside the island window: whatever is held is coming
+    /// from elsewhere (a file from Explorer, typically).
+    from_outside: bool,
+    /// That press is over the island now (`drag-hover` sent for it).
+    over: bool,
+}
+
+impl DragWatch {
+    /// One look at the button. Returns `(down, pressed_now)`.
+    fn button(&mut self, over_window: bool) -> (bool, bool) {
+        let down = left_button_down();
+        let pressed_now = down && !self.was_down;
+        if pressed_now {
+            self.from_outside = !over_window;
+            self.over = false;
+        }
+        if !down && self.was_down && self.over {
+            crate::log::line("drag-watch: button released over the island (dropped or cancelled)".to_string());
+        }
+        if !down {
+            self.from_outside = false;
+            self.over = false;
+        }
+        self.was_down = down;
+        (down, pressed_now)
+    }
+}
+
+/// Window origin (physical), scale and logical size, plus the cursor in
+/// window-logical px.
+fn cursor_in_window(win: &WebviewWindow) -> Option<(f64, f64, (f64, f64))> {
+    let origin = win.outer_position().ok()?;
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let (cx, cy) = cursor_physical()?;
+    let x = (cx - origin.x as f64) / scale;
+    let y = (cy - origin.y as f64) / scale;
+    let size = match win.inner_size() {
+        Ok(s) => (s.width as f64 / scale, s.height as f64 / scale),
+        Err(_) => (PANEL_W, PANEL_H),
+    };
+    Some((x, y, size))
+}
+
+/// Asks for the window to take the mouse (`accept`) or let it through.
+///
+/// Applied on the main thread, which is also where `set_collapsed` runs (a sync
+/// command), so the two can no longer race: a decision the poll took just
+/// before the island folded used to land *after* `set_collapsed` had made the
+/// wake strip take the mouse, and turned the strip click-through for good — the
+/// poll is parked while folded, so nothing ever turned it back. Hover-to-wake and
+/// every file drop onto the folded island died with it (WS_EX_TRANSPARENT hides
+/// the window from WindowFromPoint, so OLE finds no drop target). Now the folded
+/// strip simply never goes click-through.
+fn request_accept(app: &AppHandle, gate: &Arc<PollGate>, accept: bool, dragging: bool) {
+    if gate.ignoring.load(Ordering::Relaxed) != accept {
+        return; // already in that state
+    }
+    gate.ignoring.store(!accept, Ordering::Relaxed);
+    let gate = gate.clone();
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let collapsed = gate.collapsed.load(Ordering::Relaxed);
+        let ignore = !accept && !collapsed;
+        if !accept && collapsed {
+            gate.ignoring.store(false, Ordering::Relaxed);
+        }
+        if let Some(win) = window(&handle) {
+            let _ = win.set_ignore_cursor_events(ignore);
+        }
+        if dragging {
+            crate::log::line(format!(
+                "drag-watch: click-through {} (collapsed={collapsed})",
+                if ignore { "ON" } else { "OFF, window takes the mouse" }
+            ));
+            // On the main thread the flag is already applied: this is the chain
+            // OLE sees from now on.
+            #[cfg(windows)]
+            if !ignore {
+                crate::log::line(format!("drag-diag chain {}", platform::drop_chain_at_cursor()));
+            }
+        }
+    });
+}
+
+/// A press from outside just came over the island: tell the page, once.
+fn drag_entered(app: &AppHandle, x: f64, y: f64, collapsed: bool) {
+    crate::log::line(format!(
+        "drag-watch: held button from outside entered the island at ({x:.0}, {y:.0}) collapsed={collapsed} -> drag-hover"
+    ));
+    #[cfg(windows)]
+    crate::log::line(format!("drag-diag island windows: {}", platform::drop_targets_summary(app)));
+    let _ = app.emit_to(WINDOW_LABEL, "drag-hover", DragHoverPayload { x, y, collapsed });
+}
+
 /// Emits `cursor` (window-logical coordinates) at ~60 Hz while the island is
-/// visible. Parked on a condvar the rest of the time.
+/// visible. Parked on a condvar the rest of the time — except on Windows, where
+/// a folded island still looks at the left button ten times a second so a drag
+/// heading for the notch is noticed (one GetAsyncKeyState call when idle).
 pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
     std::thread::spawn(move || {
-        let mut was_down = false;
+        let mut drag = DragWatch::default();
         // Remembered across wakes so a display change while hidden is noticed the
         // moment the island comes back.
         let mut last_screen: Option<(i32, i32, u32, u32, u64)> = None;
@@ -202,12 +337,21 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
         // layout, and twice a second is plenty for that: waking at 60 Hz just to
         // find no cursor costs CPU for nothing.
         let (period, screen_every) = if platform::CURSOR_POLL { (16, 30) } else { (500, 1) };
+        let folded_period = if platform::CURSOR_POLL { Some(FOLDED_DRAG_PERIOD) } else { None };
         loop {
-            gate.wait_until_active();
+            if !gate.wait_until_active(folded_period) {
+                folded_drag_tick(&app, &gate, &mut drag);
+                continue;
+            }
             let mut last = (f64::MIN, f64::MIN);
             let mut ticks: u32 = 0;
             while gate.is_active() {
                 std::thread::sleep(Duration::from_millis(period));
+                // Folded while asleep: decide nothing from a window that has just
+                // shrunk to the wake strip.
+                if !gate.is_active() {
+                    break;
+                }
 
                 // Monitors get plugged in, unplugged, rearranged and rescaled, and
                 // an island pinned to coordinates that no longer exist is an island
@@ -227,16 +371,12 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
                 }
 
                 let Some(win) = window(&app) else { continue };
-                let Ok(origin) = win.outer_position() else { continue };
-                let scale = win.scale_factor().unwrap_or(1.0);
-                let Some((cx, cy)) = cursor_physical() else { continue };
-                let x = (cx - origin.x as f64) / scale;
-                let y = (cy - origin.y as f64) / scale;
-                let size = match win.inner_size() {
-                    Ok(s) => (s.width as f64 / scale, s.height as f64 / scale),
-                    Err(_) => (PANEL_W, PANEL_H),
-                };
-                if (x - last.0).abs() < 1.0 && (y - last.1).abs() < 1.0 {
+                let Some((x, y, size)) = cursor_in_window(&win) else { continue };
+                let over_window = x >= 0.0 && x <= size.0 && y >= 0.0 && y <= size.1;
+
+                let was_down = drag.was_down;
+                let (down, pressed_now) = drag.button(over_window);
+                if (x - last.0).abs() < 1.0 && (y - last.1).abs() < 1.0 && down == was_down {
                     continue;
                 }
                 last = (x, y);
@@ -260,29 +400,129 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
                 // the mouse, which also makes the drop zone as forgiving as the Mac's.
                 // A press may be the start of a drag: make sure the drop target is
                 // ours before the file arrives.
-                let down = left_button_down();
-                if down && !was_down {
+                if pressed_now {
+                    #[cfg(windows)]
+                    platform::drag_overlay_new_press();
                     let handle = app.clone();
                     let _ = app.run_on_main_thread(move || platform::unblock_webview_drops(&handle));
                 }
-                was_down = down;
 
-                let dragging = down
-                    && x >= 0.0
-                    && x <= size.0
-                    && y >= 0.0
-                    && y <= size.1;
-
-                let accept = on_island || dragging;
-                if gate.ignoring.load(Ordering::Relaxed) == accept {
-                    gate.ignoring.store(!accept, Ordering::Relaxed);
-                    let _ = win.set_ignore_cursor_events(!accept);
+                let dragging = down && over_window;
+                let incoming = dragging && drag.from_outside;
+                if incoming && !drag.over {
+                    drag.over = true;
+                    drag_entered(&app, x, y, false);
+                } else if drag.over && down && !over_window {
+                    drag.over = false;
+                    crate::log::line("drag-watch: held button left the island window".to_string());
                 }
+                // OLE does not reach wry's target through WebView2's windows: an
+                // overlay of our own takes the drop (platform/windows.rs).
+                #[cfg(windows)]
+                if incoming {
+                    platform::drag_overlay_request(&app);
+                }
+
+                request_accept(&app, &gate, on_island || dragging, drag.from_outside && down);
 
                 let _ = win.emit("cursor", CursorPayload { x, y });
             }
         }
     });
+}
+
+/// Folded (Windows only): the wake strip always takes the mouse, so OLE can
+/// already find it; this adds a hint for the page when a held button from
+/// elsewhere reaches the notch area, which is wider and taller than the strip.
+fn folded_drag_tick(app: &AppHandle, gate: &Arc<PollGate>, drag: &mut DragWatch) {
+    if !drag.was_down && !left_button_down() {
+        return; // the idle case: one GetAsyncKeyState call
+    }
+    let Some(win) = window(app) else { return };
+    let Some((x, y, size)) = cursor_in_window(&win) else { return };
+    let over_window = x >= 0.0 && x <= size.0 && y >= 0.0 && y <= size.1;
+    let (down, pressed_now) = drag.button(over_window);
+    if pressed_now {
+        #[cfg(windows)]
+        platform::drag_overlay_new_press();
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || platform::unblock_webview_drops(&handle));
+    }
+    let at_notch = x >= -DRAG_CATCH_X
+        && x <= size.0 + DRAG_CATCH_X
+        && y >= -DRAG_CATCH_Y
+        && y <= size.1 + DRAG_CATCH_Y;
+    if down && drag.from_outside && at_notch && !drag.over {
+        drag.over = true;
+        drag_entered(app, x, y, true);
+        // Belt and braces: whatever happened before, the folded strip takes the
+        // mouse now (request_accept never lets it go click-through).
+        gate.ignoring.store(true, Ordering::Relaxed);
+        request_accept(app, gate, true, true);
+    } else if drag.over && down && !at_notch {
+        drag.over = false; // may come back: notice it again
+    }
+    #[cfg(windows)]
+    if down && drag.from_outside && at_notch {
+        platform::drag_overlay_request(app);
+    }
+}
+
+/// Logs Tauri's own drag events for the island on the Rust side, so a live
+/// test tells "OLE never delivered anything" (no `drag-native` line) apart from
+/// "it arrived but the page did not react" (`drag-native` but no `ui drag`).
+pub fn watch_native_drags(win: &WebviewWindow) {
+    use std::sync::atomic::AtomicU32;
+    static OVERS: AtomicU32 = AtomicU32::new(0);
+    fn log_drag(source: &str, event: &tauri::DragDropEvent) {
+        match event {
+            tauri::DragDropEvent::Enter { paths, position } => {
+                OVERS.store(0, Ordering::Relaxed);
+                crate::log::line(format!(
+                    "drag-native {source} enter files={} pos=({:.0}, {:.0})",
+                    paths.len(),
+                    position.x,
+                    position.y
+                ));
+            }
+            tauri::DragDropEvent::Over { position } => {
+                // The first few only: OLE repeats DragOver continuously.
+                if OVERS.fetch_add(1, Ordering::Relaxed) < 3 {
+                    crate::log::line(format!("drag-native {source} over pos=({:.0}, {:.0})", position.x, position.y));
+                }
+            }
+            tauri::DragDropEvent::Drop { paths, position } => crate::log::line(format!(
+                "drag-native {source} drop files={} pos=({:.0}, {:.0})",
+                paths.len(),
+                position.x,
+                position.y
+            )),
+            tauri::DragDropEvent::Leave => crate::log::line(format!("drag-native {source} leave")),
+            _ => {}
+        }
+    }
+    win.on_webview_event(|event| {
+        if let tauri::WebviewEvent::DragDrop(e) = event {
+            log_drag("webview", e);
+        }
+    });
+    win.on_window_event(|event| {
+        if let tauri::WindowEvent::DragDrop(e) = event {
+            log_drag("window", e);
+        }
+    });
+}
+
+/// A few seconds after launch, once WebView2 has created its child windows,
+/// writes which island window holds which drop target.
+pub fn log_drop_targets_later(app: AppHandle) {
+    #[cfg(windows)]
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(5));
+        crate::log::line(format!("drag-diag island windows at start: {}", platform::drop_targets_summary(&app)));
+    });
+    #[cfg(not(windows))]
+    let _ = app;
 }
 
 /// Re-applies click-through after the window or the island changed shape.

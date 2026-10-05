@@ -8,6 +8,7 @@ mod grokbot;
 mod hooks;
 mod integrations;
 mod island;
+mod keyhold;
 mod log;
 mod mcp;
 mod memory;
@@ -182,6 +183,7 @@ fn open_in_vscode(path: Option<String>) -> bool {
 
 #[tauri::command]
 fn quit_app(app: AppHandle) {
+    keyhold::stop();
     app.exit(0);
 }
 
@@ -313,8 +315,13 @@ fn grokbot_remove(app: AppHandle, id: String) -> Result<(), String> {
 
 /// The owner typed the task and pressed send: that is the click.
 #[tauri::command]
-async fn grokbot_send(app: AppHandle, bot: String, message: String) -> Result<String, String> {
-    grokbot::send(&app, &bot, &message).await
+async fn grokbot_send(
+    app: AppHandle,
+    bot: String,
+    message: String,
+    attachments: Option<Vec<grokbot::AttachmentIn>>,
+) -> Result<String, String> {
+    grokbot::send(&app, &bot, &message, attachments.unwrap_or_default()).await
 }
 
 #[tauri::command]
@@ -432,6 +439,15 @@ fn ingest_file(path: String) -> Result<DroppedFile, String> {
     files::ingest(&path)
 }
 
+/// Copies several files into the inbox under unique ids (Grok Bot attachments).
+/// Off the main thread: big files take a moment to copy.
+#[tauri::command]
+async fn ingest_files(paths: Vec<String>) -> Result<Vec<files::IngestedFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || files::ingest_files(&paths))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// The island may only ask whether a key exists — never read it.
 #[tauri::command]
 fn secret_present(key: String) -> bool {
@@ -466,6 +482,18 @@ async fn refresh_integration(app: AppHandle, id: String) {
 #[tauri::command]
 fn log_line(message: String) {
     log::line(format!("ui  {message}"));
+}
+
+/// Read-only: the last Grok Bot approvals the island wrote to coucou.log
+/// (`bot-approval {json}` lines), oldest first. Nothing is written.
+#[tauri::command]
+fn bot_approvals() -> Vec<String> {
+    let path = settings::local_dir().join("coucou.log");
+    let Ok(bytes) = std::fs::read(path) else { return Vec::new() };
+    let text = String::from_utf8_lossy(&bytes);
+    let lines: Vec<&str> = text.lines().filter(|l| l.contains("bot-approval {")).collect();
+    let from = lines.len().saturating_sub(20);
+    lines[from..].iter().map(|l| l.to_string()).collect()
 }
 
 // ── Settings window ───────────────────────────────────────────────────────────
@@ -569,6 +597,7 @@ pub fn run() {
             approval_ack,
             approval_decline,
             log_line,
+            bot_approvals,
             chat_send,
             chat_reset,
             chat_stop,
@@ -594,6 +623,7 @@ pub fn run() {
             core_status,
             open_data_folder,
             ingest_file,
+            ingest_files,
             secret_present,
             secret_set,
             secret_clear,
@@ -610,6 +640,7 @@ pub fn run() {
 
             if let Some(win) = island::window(&handle) {
                 platform::make_non_activating(&win);
+                island::watch_native_drags(&win);
                 island::apply_geometry(&handle, &loaded.screen, false);
                 let _ = win.show();
             }
@@ -621,6 +652,7 @@ pub fn run() {
             }
             gate.set_active(true);
             island::spawn_cursor_poll(handle.clone(), gate.clone());
+            island::log_drop_targets_later(handle.clone());
 
             log::line(format!("--- Coucou {} started ---", env!("CARGO_PKG_VERSION")));
             selfmod::guard::verify_at_startup();
@@ -630,6 +662,8 @@ pub fn run() {
             cursor::init(handle.clone());
             memory::ensure();
             shortcuts::apply(&handle, loaded.shortcuts_enabled);
+            // Hold Space to show the island (honours shortcuts_enabled at fire time).
+            keyhold::start(handle.clone());
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             Ok(())

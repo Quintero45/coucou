@@ -107,7 +107,10 @@ export const Bridge = {
     callOrThrow<GrokBot>("grokbot_save", bot),
   grokbotRemove: (id: string) => callOrThrow<void>("grokbot_remove", { id }),
   /** Starts the Bot's routine with this task. Spends the owner's Grok Bot usage. */
-  grokbotSend: (bot: string, message: string) => callOrThrow<string>("grokbot_send", { bot, message }),
+  grokbotSend: (bot: string, message: string, attachments?: AttachmentIn[]) =>
+    callOrThrow<string>("grokbot_send", { bot, message, attachments: attachments ?? null }),
+  /** Read-only: the last `bot-approval` lines of coucou.log, oldest first. */
+  botApprovals: () => call<string[]>("bot_approvals"),
   grokbotInstructions: (id: string) => callOrThrow<string>("grokbot_instructions", { id }),
   /** The Cursor engine (sdk-bridge): installed, and which version. */
   cursorStatus: () => call<{ installed: boolean; version: string | null }>("cursor_status"),
@@ -133,6 +136,8 @@ export const Bridge = {
 
   /** Copies a dropped file into the inbox. */
   ingestFile: (path: string) => callOrThrow<DroppedFile>("ingest_file", { path }),
+  /** Copies several files into the inbox; the ids can be sent as Grok Bot attachments. */
+  ingestFiles: (paths: string[]) => callOrThrow<IngestedFile[]>("ingest_files", { paths }),
   /** Only ever tells you whether a key exists — never its value. */
   secretPresent: (key: string) => call<boolean>("secret_present", { key }),
   secretSet: (key: string, value: string) => callOrThrow<void>("secret_set", { key, value }),
@@ -157,6 +162,20 @@ export interface IntegrationUpdate {
 export type ChatContext =
   | { kind: "file"; name: string; path: string }
   | { kind: "window"; appName: string; title: string; url?: string };
+
+/** A file copied into the inbox by `ingestFiles`. `id` is the inbox file name. */
+export interface IngestedFile {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+}
+
+/** A Grok Bot attachment: an ingested inbox file, or pasted text / base64 bytes. */
+export type AttachmentIn =
+  | { id: string }
+  | { name: string; mime: string; text: string }
+  | { name: string; mime: string; base64: string };
 
 export interface DroppedFile {
   name: string;

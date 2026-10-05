@@ -75,6 +75,10 @@ async function main() {
         if (State.mode === "expanded") island.collapse();
         else island.alert(State.defaultView());
         break;
+      case "reveal":
+        // Hold Space (keyhold.rs): opens like "toggle" does, never folds.
+        if (State.mode !== "expanded") island.alert(State.defaultView());
+        break;
       case "mute":
         island.actions.toggleSound();
         break;

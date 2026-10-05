@@ -2,6 +2,7 @@
 // Each canvas owns a BotEngine; the island's frame loop ticks every live one.
 
 import { BotEngine, hexToRGB } from "./engine";
+import { gestureFor, isBotTask, tickBotFx, type BotGestureFx } from "./botfx";
 import type { AgentTask } from "../core/state";
 
 interface MiniBot {
@@ -9,6 +10,8 @@ interface MiniBot {
   engine: BotEngine;
   cssSize: number;
   taskId: string;
+  /** Grok Bots only: state gestures shared by every canvas of that bot (botfx.ts). */
+  fx: BotGestureFx | null;
 }
 
 const live = new Map<HTMLCanvasElement, MiniBot>();
@@ -40,6 +43,14 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
   const engine = new BotEngine();
   engine.isMini = true;
   engine.bodyColor = hexToRGB(task.color);
+  // Grok Bots gesture by state. The gesture state outlives this canvas, so a
+  // pill rebuilt on a state change eases out of its previous pose.
+  const fx = isBotTask(task.id) ? gestureFor(task.id) : null;
+  if (fx) {
+    fx.setColor(task.color);
+    fx.setState(task.state);
+    engine.gesture = fx;
+  }
   engine.setState(task.state, true);
   if (task.emote) engine.setPermanentEmote(task.emote);
   if (task.miniEye) {
@@ -48,7 +59,7 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
     engine.eyeOverrideUntil = Number.POSITIVE_INFINITY;
   }
 
-  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id });
+  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id, fx });
   return slot;
 }
 
@@ -67,6 +78,8 @@ export function syncMiniBotStates(tasks: AgentTask[]) {
   for (const mb of live.values()) {
     const task = tasks.find((t) => t.id === mb.taskId);
     if (!task) continue;
+    mb.fx?.setColor(task.color);
+    mb.fx?.setState(task.state);
     mb.engine.setState(task.state);
     mb.engine.bodyColor = hexToRGB(task.color);
   }
@@ -74,6 +87,9 @@ export function syncMiniBotStates(tasks: AgentTask[]) {
 
 export function tickMiniBots(dt: number) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const botIds = new Set<string>();
+  for (const mb of live.values()) if (mb.fx) botIds.add(mb.taskId);
+  tickBotFx(dt, botIds);
   for (const mb of live.values()) {
     const ctx = mb.canvas.getContext("2d");
     if (!ctx) continue;

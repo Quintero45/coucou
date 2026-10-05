@@ -6,6 +6,7 @@ import {
   Bridge, onEvent,
   type GrokBotStatus, type McpImportCandidate, type McpServerConfig, type McpStatus, type SkillInfo,
 } from "../core/bridge";
+import { DECISION_LABELS, loadBotApprovals, type BotApproval } from "../core/botlog";
 import { AI_PROVIDERS, aiProvider, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
 
@@ -248,13 +249,60 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
 
 // ── Grok Bots ─────────────────────────────────────────────────────────────────
 
+/** "14:05" today, "03/10 14:05" before. `at` is the log's local "YYYY-MM-DD HH:MM:SS". */
+function shortTime(at: string | undefined): string {
+  if (!at) return "";
+  const [date, time] = at.split(" ");
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const hm = (time ?? "").slice(0, 5);
+  if (date === today) return hm;
+  const [, m, d] = date.split("-");
+  return `${d}/${m} ${hm}`;
+}
+
+/** Last ~20 permission requests from the Bots: who, which tool, what was decided, when. Read-only. */
+function botHistory(colorOf: (bot: string) => string): { el: HTMLElement; refresh(): Promise<void> } {
+  const rows = h("div", { class: "bot-history" });
+  const refreshBtn = h("button", { text: "Actualizar" });
+  const el = h("div", { style: "display:flex;flex-direction:column;gap:8px" },
+    h("div", { class: "row" }, h("label", { text: "Permisos recientes" }), h("span", { class: "spacer" }), refreshBtn),
+    rows,
+  );
+  async function refresh() {
+    const entries: BotApproval[] = await loadBotApprovals();
+    clear(rows);
+    if (entries.length === 0) {
+      rows.append(h("div", { class: "hint", text: "Ningún Bot pidió permiso todavía." }));
+      return;
+    }
+    for (const e of entries) {
+      const verdict = DECISION_LABELS[e.decision];
+      rows.append(h("div", { class: "entry", title: e.target },
+        dot(colorOf(e.bot)),
+        h("span", { class: "who", text: e.name }),
+        h("span", { class: "tool", text: e.tool }),
+        h("span", { class: "target", text: e.target }),
+        h("span", { class: "verdict", style: `color:${verdict.color};background:${verdict.color}24`, text: verdict.text }),
+        h("time", { text: shortTime(e.at) }),
+      ));
+    }
+  }
+  refreshBtn.addEventListener("click", () => void refresh());
+  return { el, refresh };
+}
+
 export async function grokBotsSection(): Promise<HTMLElement> {
   const list = h("div", { style: "display:flex;flex-direction:column;gap:8px" });
   const form = h("div", { style: "display:flex;flex-direction:column;gap:8px" });
   const feedback = h("div", {});
+  const colors = new Map<string, string>();
+  const history = botHistory((bot) => colors.get(bot) ?? "#6b7079");
 
   async function drawList() {
     const bots: GrokBotStatus[] = (await Bridge.grokbotList()) ?? [];
+    colors.clear();
+    for (const b of bots) colors.set(b.id, b.color);
     clear(list);
     if (bots.length === 0) {
       list.append(h("div", { class: "hint", text: "Todavía no conectaste ningún Bot." }));
@@ -356,7 +404,10 @@ export async function grokBotsSection(): Promise<HTMLElement> {
 
   await drawList();
   drawForm();
-  void onEvent("settings-changed", () => void drawList());
+  await history.refresh();
+  void onEvent("settings-changed", () => void drawList().then(history.refresh));
+  // The window lives hidden between visits: catch up each time it comes back.
+  window.addEventListener("focus", () => void history.refresh());
   return h(
     "section",
     {},
@@ -370,6 +421,7 @@ export async function grokBotsSection(): Promise<HTMLElement> {
     list,
     feedback,
     form,
+    history.el,
   );
 }
 

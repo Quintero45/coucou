@@ -18,7 +18,8 @@
 //!
 //! Usage: `coucou-hook [--agent <name>] [--approve] [--ask] [<EventName>]`
 //! (the event name is also read from the JSON). See normalize.rs for the
-//! per-agent dialects, and bot.rs for `--bot`, which Grok Bots use.
+//! per-agent dialects, bot.rs for `--bot`, which Grok Bots use, and tool.rs for
+//! `coucou-hook tool …`, through which they call Mochi's tools.
 
 use std::io::{Read, Write};
 use std::sync::mpsc;
@@ -26,6 +27,7 @@ use std::time::Duration;
 
 mod bot;
 mod normalize;
+mod tool;
 use normalize::{Context, Kind};
 
 /// Budget for getting a pipe connection. Beyond this the agent wins, always.
@@ -58,6 +60,11 @@ mod unix;
 use unix::connect;
 
 fn main() {
+    // A Grok Bot calling one of Mochi's tools. Checked before --bot, which a
+    // tool call also carries.
+    if let Some(code) = tool::run() {
+        std::process::exit(code);
+    }
     // A Grok Bot reporting in: arguments only, never stdin.
     if let Some(code) = bot::run() {
         std::process::exit(code);

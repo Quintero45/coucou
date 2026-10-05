@@ -162,6 +162,60 @@ function starPath(x: CanvasRenderingContext2D, ro: number, ri: number) {
 
 const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif`;
 
+// ── Gesture layer (mini Grok Bots) ────────────────────────────────────────────
+// Optional, additive: an engine whose `gesture` is null (Mochi, every
+// non-bot pill) draws and behaves exactly as before.
+
+/** Geometry handed to gesture hooks for the frame being drawn. */
+export interface GestureFrame {
+  readonly engine: BotEngine;
+  /** Body radius unit, in CSS pixels. */
+  readonly R: number;
+  readonly rx: number;
+  readonly ry: number;
+  /** Body centre in canvas coordinates (gesture offsets included). */
+  readonly cx: number;
+  readonly cy: number;
+}
+
+/** Point on the face (body-local), as the eyes are placed. */
+export interface FacePoint {
+  x: number;
+  y: number;
+  /** Horizontal / vertical foreshortening (0.18…1). */
+  fx: number;
+  fy: number;
+}
+
+/**
+ * Pose and overlay hooks layered on top of the engine's own animation.
+ * Offsets are in units of R; `rot` is radians added to the tilt; `sx`/`sy`
+ * multiply the body scale.
+ */
+export interface BotGesture {
+  readonly dx: number;
+  readonly dy: number;
+  readonly rot: number;
+  readonly sx: number;
+  readonly sy: number;
+  /** Look target (−1…1) replacing the mini wander, or null to keep it. */
+  readonly look: readonly [number, number] | null;
+  /** Eye shape used when no emote/override is active, or null for the state's. */
+  readonly eye: EyeShape | null;
+  /** Eyelid cap 0…1 (1 = no effect). */
+  readonly open: number;
+  /** Replaces the built-in state-entry animations while the gesture is attached. */
+  onState?(next: BotStateName, prev: BotStateName): void;
+  /** Canvas coordinates, before the body. */
+  drawUnder?(x: CanvasRenderingContext2D, f: GestureFrame): void;
+  /** Body-local coordinates (rotated/scaled), right after the body fill. */
+  drawBody?(x: CanvasRenderingContext2D, body: Path2D, f: GestureFrame): void;
+  /** Body-local coordinates, after the eyes. */
+  drawFace?(x: CanvasRenderingContext2D, body: Path2D, f: GestureFrame): void;
+  /** Canvas coordinates, after badge and particles. */
+  drawOver?(x: CanvasRenderingContext2D, f: GestureFrame): void;
+}
+
 // ── Engine ────────────────────────────────────────────────────────────────────
 
 export class BotEngine {
@@ -220,6 +274,9 @@ export class BotEngine {
   /** Fired when three slaps land inside 1.7 s (→ dizzy + confused view). */
   onDizzy: (() => void) | null = null;
 
+  /** Optional gesture layer (mini Grok Bots). Null = the plain engine. */
+  gesture: BotGesture | null = null;
+
   // ── Public API ──────────────────────────────────────────────────────────────
 
   setState(next: BotStateName, force = false) {
@@ -231,6 +288,11 @@ export class BotEngine {
     if (!this.locks.has("tint")) this.tint = this.cfg.tint;
     if (!this.locks.has("tilt")) this.tgTilt = this.cfg.tilt;
     this.setBadge(this.cfg.badge);
+
+    if (this.gesture) {
+      this.gesture.onState?.(next, prev);
+      return;
+    }
 
     switch (next) {
       case "finished":
@@ -530,6 +592,11 @@ export class BotEngine {
       ty = this.miniLookTarget.x * 0.62;
       tp = this.miniLookTarget.y * 0.5;
     }
+    const gLook = this.gesture?.look;
+    if (gLook) {
+      ty = gLook[0] * 0.62;
+      tp = gLook[1] * 0.5;
+    }
 
     this.tgYaw = ty;
     this.tgPitch = tp;
@@ -644,18 +711,29 @@ export class BotEngine {
     const R = W * 0.3;
     const rx = R * 1.14;
     const ry = R * 0.88;
-    const cx = W / 2 + this.ox * R;
-    const cy = H / 2 + this.particleOverhang / 2 + this.oy * R + R * 0.06;
+    const g = this.gesture;
+    let cx = W / 2 + this.ox * R;
+    let cy = H / 2 + this.particleOverhang / 2 + this.oy * R + R * 0.06;
+    let frame: GestureFrame | null = null;
+    if (g) {
+      cx += g.dx * R;
+      cy += g.dy * R;
+      frame = { engine: this, R, rx, ry, cx, cy };
+      g.drawUnder?.(x, frame);
+    }
 
     this.drawHandsBehind(x, R, rx, ry, cx, cy);
 
     x.save();
     x.translate(cx, cy);
     if (this.tilt !== 0) x.rotate(this.tilt);
+    if (g && g.rot !== 0) x.rotate(g.rot);
     x.scale(this.sx, this.sy);
+    if (g) x.scale(g.sx, g.sy);
 
     const body = this.bodyPath(rx, ry, R);
     this.drawBody(x, body, R, rx, ry);
+    if (g && frame) g.drawBody?.(x, body, frame);
 
     const blushVal = Math.max(this.blush, this.tint * 0.5) * (1 - this.morph);
     if (blushVal > 0.01) {
@@ -671,7 +749,15 @@ export class BotEngine {
       x.restore();
     }
 
-    this.drawEyes(x, body, R, rx, ry);
+    if (g && frame) {
+      const open0 = this.open;
+      this.open = Math.min(this.open, g.open);
+      this.drawEyes(x, body, R, rx, ry);
+      this.open = open0;
+      g.drawFace?.(x, body, frame);
+    } else {
+      this.drawEyes(x, body, R, rx, ry);
+    }
     if (this.morph > 0.05) this.drawMouth(x, body, R);
 
     x.restore();
@@ -680,7 +766,30 @@ export class BotEngine {
       this.drawBadge(x, this.badge, R, cx, cy);
     }
     this.drawParticles(x, R, cx, cy);
+    if (g && frame) g.drawOver?.(x, frame);
   }
+
+  /**
+   * Body-local position of a point on the face `yawOffset` radians from its
+   * centre line (±EYE_SP are the eyes), placed exactly like the eyes are.
+   * Null when that point is turned away. For gesture overlays.
+   */
+  facePoint(yawOffset: number, rx: number, ry: number): FacePoint | null {
+    const pYaw = yawOffset + this.yaw;
+    let pPitch = EYE_P + this.pitch + this.roll;
+    pPitch = (((pPitch + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    const cp = Math.cos(pPitch);
+    if (Math.cos(pYaw) * cp <= 0.04) return null;
+    return {
+      x: Math.sin(pYaw) * cp * rx,
+      y: -Math.sin(pPitch) * ry + (this.morph > 0 ? ry * 0.14 * this.morph : 0),
+      fx: lerp(Math.max(0.18, Math.cos(pYaw)), 1, this.morph * 0.7),
+      fy: lerp(Math.max(0.18, cp), 1, this.morph * 0.7),
+    };
+  }
+
+  /** Eye spacing (yaw offset of each eye), for gesture overlays. */
+  static readonly EYE_SPACING = EYE_SP;
 
   private bodyPath(rx: number, ry: number, R: number): Path2D {
     const n = 72;
@@ -747,7 +856,7 @@ export class BotEngine {
   }
 
   private drawEyes(x: CanvasRenderingContext2D, body: Path2D, R: number, rx: number, ry: number) {
-    let shape: EyeShape = this.eyeOverride ?? this.cfg.eye;
+    let shape: EyeShape = this.eyeOverride ?? this.gesture?.eye ?? this.cfg.eye;
     if (this.morph > 0.5) {
       if (this.isChewing) shape = "happy";
       else if (this.slotHTarget > 0.05 || this.slotH > 0.1) shape = "cup";

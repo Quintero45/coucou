@@ -95,6 +95,21 @@ pub fn specs(app: &AppHandle) -> Vec<ToolSpec> {
     out
 }
 
+/// What a Grok Bot may call through `coucou-hook tool` (pipe.rs): the built-in
+/// tools only. Not memory (it is Mochi's), not MCP, skills, self-evolution or
+/// send_to_grok_bot — those keep their own gates and stay with Mochi.
+pub fn for_bots() -> Vec<Tool> {
+    builtins()
+        .into_iter()
+        .filter(|t| !matches!(t.name, "remember" | "forget") && available(t.name))
+        .collect()
+}
+
+/// One of `for_bots()`, by name.
+pub fn for_bot(name: &str) -> Option<Tool> {
+    for_bots().into_iter().find(|t| t.name == name)
+}
+
 /// Tools that need something configured first stay hidden until it is.
 fn available(name: &str) -> bool {
     match name {
@@ -152,8 +167,14 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Outcome {
             }
         }
     }
-    let input = &call.input;
-    match call.name.as_str() {
+    execute(&call.name, &call.input).await
+}
+
+/// Runs a built-in tool once its gate has been passed: policy::audit for a
+/// read, an owner's click for a side effect. `run` above and pipe.rs's Grok
+/// Bot route are the only callers; never call it without that gate.
+pub async fn execute(name: &str, input: &Value) -> Outcome {
+    match name {
         "remember" => match memory::remember(input["note"].as_str().unwrap_or_default()) {
             Ok(()) => Outcome::ok("Saved to memory."),
             Err(e) => Outcome::err(e),

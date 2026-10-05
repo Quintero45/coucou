@@ -6,10 +6,14 @@
 // relay (windows/hook/src/normalize.rs) and are told apart by `coucou_agent`.
 
 import { Bridge, onEvent } from "../core/bridge";
+import { BotChat } from "../core/botchat";
+import { recordBotApproval, type BotDecision } from "../core/botlog";
 import { buildFileDiff } from "../core/diff";
 import { setApprovalDetail, setQuestionHeight } from "../core/layout";
 import { Sound } from "../core/sound";
 import { BOT_PREFIX, State, botPillId, catalogAgent, isHiddenAgent, type QuestionItem } from "../core/state";
+import { botDetail } from "../views/views";
+import { botReplyBusy } from "../views/integrations";
 import type { Island } from "./island";
 
 const CLAUDE_ID = "integration_claude";
@@ -159,6 +163,51 @@ function approvalTarget(tool: string, input: Record<string, unknown>): string {
   return tool;
 }
 
+/** `coucou-hook --bot … --status ask` arrives as this tool, its question in `command`. */
+const BOT_QUESTION_TOOL = "Pregunta";
+
+/** Longest string kept per argument, and for the whole block, on a Bot's card. */
+const ARG_MAX = 400;
+const ARGS_MAX = 2400;
+
+/** A Bot's tool arguments, pretty-printed and cut to something a card can show. */
+function botArgs(input: Record<string, unknown>): string | null {
+  if (Object.keys(input).length === 0) return null;
+  const text = JSON.stringify(
+    input,
+    (_k, v: unknown) =>
+      typeof v === "string" && v.length > ARG_MAX ? `${v.slice(0, ARG_MAX)}… (+${v.length - ARG_MAX})` : v,
+    2,
+  );
+  if (!text) return null;
+  return text.length > ARGS_MAX ? `${text.slice(0, ARGS_MAX)}\n…` : text;
+}
+
+/** The Bot's display name: the one in Settings, else what the relay sent. */
+function botName(agentId: string, fallback?: string): string {
+  return (
+    State.settings.grokBots.find((b) => botPillId(b) === agentId)?.name ??
+    State.tasks.find((t) => t.id === agentId)?.name ??
+    (fallback?.trim().slice(0, 40) || agentId.slice(BOT_PREFIX.length))
+  );
+}
+
+/** A Bot's request that never reached a card still belongs in its history. */
+function logBotDecline(payload: HookPayload, decision: BotDecision) {
+  const agent = validateAgent(payload.coucou_agent);
+  if (payload.hook_event_name !== "PermissionRequest" || !agent?.startsWith("bot-")) return;
+  const agentId = `agent_${agent}`;
+  const tool = payload.tool_name ?? "Tool";
+  recordBotApproval({
+    bot: agent.slice(4),
+    name: botName(agentId, payload.coucou_bot),
+    tool,
+    decision,
+    target: approvalTarget(tool, payload.tool_input ?? {}),
+    input: payload.tool_input ?? null,
+  });
+}
+
 /** AskUserQuestion's tool_input.questions, validated. At most four, as on macOS. */
 function parseQuestions(input: Record<string, unknown>): QuestionItem[] {
   const raw = Array.isArray(input.questions) ? (input.questions as Record<string, unknown>[]) : [];
@@ -223,6 +272,7 @@ function handleHook(island: Island, payload: HookPayload) {
     // for a decision from an island that had already decided not to look. Say so,
     // and the terminal takes the question immediately.
     if (payload.request_id) void Bridge.approvalDecline(payload.request_id);
+    logBotDecline(payload, "paused");
     return;
   }
 
@@ -275,6 +325,12 @@ function handleHook(island: Island, payload: HookPayload) {
 
   const task = () => State.tasks.find((x) => x.id === agentId);
 
+  // A Grok Bot whose conversation is open on screen: its news goes there
+  // instead of switching the island to another card.
+  const isBotPill = agentId.startsWith(BOT_PREFIX);
+  const botSlug = agentId.slice(BOT_PREFIX.length);
+  const inChat = isBotPill && botDetail.id === agentId && State.view === "overview" && State.mode === "expanded";
+
   // AskUserQuestion from Claude Code: an interactive card, answered from here.
   if (payload.coucou_kind === "ask_user_question") {
     const requestId = payload.request_id ?? "";
@@ -325,6 +381,7 @@ function handleHook(island: Island, payload: HookPayload) {
       const tool = payload.tool_name ?? "Tool";
       if (tool === "AskUserQuestion") break; // the --ask hook owns this one
       State.appendStep(agentId, stepLabel(tool, payload.tool_input ?? {}));
+      if (isBotPill) BotChat.add(botSlug, { kind: "step", text: stepLabel(tool, payload.tool_input ?? {}) });
       surface("overview", false);
       break;
     }
@@ -423,20 +480,35 @@ function handleHook(island: Island, payload: HookPayload) {
       ensurePill();
       const message = (payload.message ?? "").trim();
       const t = task();
+      // The conversation: what it says when it finishes, needs you or fails is
+      // a message; "working" updates are steps.
+      if (message) {
+        const status = payload.bot_status ?? "working";
+        if (status === "working") BotChat.add(botSlug, { kind: "step", text: message });
+        else BotChat.add(botSlug, { kind: "bot", text: message, status });
+      }
       switch (payload.bot_status) {
         case "done":
           State.updateTask(agentId, "finished");
           if (t && message) t.lastMessage = message;
           if (message) State.appendStep(agentId, message.replace(/\s+/g, " ").slice(0, 80));
           Sound.play("finish");
-          if (focused) surface("finished", true);
+          if (inChat) {
+            // Already on screen, in the conversation.
+          } else if (focused) surface("finished", true);
           else {
             State.setPillBadge(agentId, "finished");
             island.reveal();
           }
-          window.setTimeout(() => {
-            if (task()?.state === "finished") State.endSession(agentId);
-          }, 8000);
+          {
+            // Back to idle after 8 s, unless the owner is answering it right there.
+            const settle = () => {
+              if (task()?.state !== "finished") return;
+              if (botReplyBusy(agentId)) window.setTimeout(settle, 2000);
+              else State.endSession(agentId);
+            };
+            window.setTimeout(settle, 8000);
+          }
           break;
         case "needs":
           State.updateTask(agentId, "question");
@@ -449,8 +521,10 @@ function handleHook(island: Island, payload: HookPayload) {
           break;
         case "error":
           State.updateTask(agentId, "error");
+          if (t && message) t.lastMessage = message;
           if (message) State.appendStep(agentId, `⚠ ${message.slice(0, 78)}`);
           Sound.play("error");
+          if (inChat) break;
           if (focused) surface("error", true);
           else State.setPillBadge(agentId, "error");
           break;
@@ -476,21 +550,34 @@ function handleHook(island: Island, payload: HookPayload) {
       // a decision nobody can give. Hand it straight back to the terminal.
       if (State.pendingQuestion || (State.pendingApproval && State.pendingApproval.requestId !== requestId)) {
         if (requestId) void Bridge.approvalDecline(requestId);
+        logBotDecline(payload, "busy");
         break;
       }
       ensurePill();
       if (pendingTimeout != null) window.clearTimeout(pendingTimeout);
-      setApprovalDetail(false);
       const tool = payload.tool_name ?? "Tool";
       const input = payload.tool_input ?? {};
       const suggestions = Array.isArray(payload.permission_suggestions) ? payload.permission_suggestions : [];
+      // A Grok Bot: the same card, generic on tool_name / tool_input, whether
+      // it came from `--status ask` or from a tool call. A question reads as
+      // prose; a tool shows its arguments in full under the target line.
+      const isBot = agentId.startsWith(BOT_PREFIX);
+      const asked = typeof input.command === "string" ? input.command : (payload.message ?? "");
+      const isQuestion = isBot && tool === BOT_QUESTION_TOOL;
+      let detail: string | null = null;
+      if (isQuestion) detail = asked.length > 70 ? asked.slice(0, ARGS_MAX) : null;
+      else if (isBot) detail = botArgs(input);
+      setApprovalDetail(!!detail);
       State.pendingApproval = {
         requestId,
         sessionId: payload.session_id ?? "",
         tool,
-        command: approvalTarget(tool, input),
+        command: isQuestion ? asked.replace(/\s+/g, " ").trim() : approvalTarget(tool, input),
         agentId,
         allowAlways: agentId === CLAUDE_ID && suggestions.length > 0,
+        detail,
+        detailWrap: isBot,
+        toolInput: isBot ? input : null,
       };
       // The relay's short ack window closes in 800 ms; everything below this
       // line is synchronous, so the card really is up by the time it lands.
@@ -498,7 +585,9 @@ function handleHook(island: Island, payload: HookPayload) {
       State.updateTask(agentId, "approval");
       State.isPinned = true;
       Sound.play("approval");
-      if (focused) {
+      if (inChat) {
+        // Answered right in the conversation (Permitir / Denegar inline).
+      } else if (focused) {
         island.alert("approval");
       } else {
         // Another agent holds the view, so the card would yank it away. The badge
@@ -511,7 +600,14 @@ function handleHook(island: Island, payload: HookPayload) {
       // taken over and the card would be lying.
       pendingTimeout = window.setTimeout(() => {
         pendingTimeout = null;
-        if (State.pendingApproval?.requestId !== requestId) return;
+        const req = State.pendingApproval;
+        if (req?.requestId !== requestId) return;
+        if (isBot) {
+          recordBotApproval({
+            bot: agentId.slice(BOT_PREFIX.length), name: botName(agentId), tool: req.tool,
+            decision: "timeout", target: req.command, input: req.toolInput,
+          });
+        }
         releaseCard(island, agentId);
       }, 110_000);
       break;

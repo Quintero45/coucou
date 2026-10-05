@@ -2,7 +2,7 @@
 // Mirrors IslandRootView.swift + IslandWindowController.swift.
 
 import { Tracked, Spring, clamp } from "../core/anim";
-import { Bridge, IS_TAURI, onDragDrop } from "../core/bridge";
+import { Bridge, IS_TAURI, onDragDrop, onEvent } from "../core/bridge";
 import {
   EXPANDED_CORNER, EXPANDED_W, NOTCH_W, PANEL_H, PANEL_W,
   ROUNDED_CORNER, VIEW_LAYOUTS, botGlowColor, botGlowOpacity, botPosition, chatPromptHeight,
@@ -10,19 +10,33 @@ import {
   type IslandMode, type IslandViewName,
 } from "../core/layout";
 import { Sound } from "../core/sound";
-import { ASSISTANT_ID, State } from "../core/state";
+import { recordBotApproval } from "../core/botlog";
+import { Outbox, attachPaths } from "../core/attachments";
+import { ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { Greeting } from "../mochi/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
-import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
+import { botDetail, buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
+import { botCanReply } from "../views/integrations";
+import { botFx } from "../mochi/botfx";
 import { h } from "../views/dom";
 import { IslandStateMachine } from "./fsm";
 
 const BOT_OVERHANG = 40;
 /** Same margin as the Rust hit test (src-tauri/src/island.rs). */
 const HIT_MARGIN = 14;
+/** Extra height while a Bot's quick-reply box is under its message. */
+const REPLY_GROW = 34;
+/** And a little more while files wait above it. */
+const REPLY_CHIPS = 22;
+/** Dragging over the overview but not over a Bot this long hands the file to Mochi. */
+const DROP_DWELL_MS = 700;
+/** The island just opened itself for a drag: this long to reach a Bot's pill first. */
+const DROP_OPEN_GRACE_MS = 1500;
+/** A drag that opened the island and left without dropping: fold back after this. */
+const DROP_LEAVE_FOLD_MS = 1000;
 
 /** The three views the drop sequence owns; leaving them stops the engine. */
 const UPLOAD_VIEWS: ReadonlySet<IslandViewName> = new Set(["upload", "uploading", "choose"]);
@@ -31,6 +45,16 @@ const UPLOAD_VIEWS: ReadonlySet<IslandViewName> = new Set(["upload", "uploading"
 const PRE_PROGRESS = USC.T_PROG_START - USC.T_DROP;
 
 const modeOrder = (m: IslandMode) => (m === "hidden" ? 0 : m === "compact" ? 1 : 2);
+
+/** The open Grok Bot detail takes the chat's geometry: same size, same Mochi spot. */
+function layoutView(): IslandViewName {
+  return botDetail.id && State.view === "overview" ? "prompt" : State.view;
+}
+
+/** A Bot's card was answered: a short glow on its mascot (mochi/botfx.ts). */
+function flashBot(agentId: string) {
+  botFx.flash(agentId);
+}
 
 export class Island {
   readonly fsm = new IslandStateMachine();
@@ -84,6 +108,17 @@ export class Island {
   private confusedRecovery: number | null = null;
   private prevViewBeforeConfused: IslandViewName = "overview";
   private lastSyncedView: IslandViewName | null = null;
+  /** A quick-reply box has the cursor: the island keeps the keyboard and stays open. */
+  private replyHold = false;
+  private lastReplyGrow = 0;
+  /** "bots": a file is being dragged over the overview, looking for a Bot. */
+  private dragMode: "bots" | null = null;
+  private dropBot: string | null = null;
+  private dropDwell: number | null = null;
+  /** When a drag opened the island by itself (performance.now()), else null. */
+  private dragOpenedAt: number | null = null;
+  private dragFoldTimer: number | null = null;
+  private lastOverLog = 0;
 
   /** Drop sequence bookkeeping: last tick played, and whether the ✓ has fired. */
   private uploadTens = 0;
@@ -135,6 +170,26 @@ export class Island {
       openUrl: (url) => {
         if (url) void Bridge.openUrl(url);
       },
+      // A tap on a Grok Bot: the island grows exactly as it does for the chat
+      // (layoutView() below sizes the overview as "prompt" while it is open).
+      openBotDetail: (id) => {
+        botDetail.id = id;
+        State.setFocus(id);
+        State.lastActivity = performance.now();
+        Sound.play("blip");
+        this.animateGeometry(false);
+        // The conversation has a text box: like the chat, the island takes the keyboard.
+        void Bridge.focusWindow(true);
+        State.notify();
+      },
+      closeBotDetail: () => {
+        if (!botDetail.id) return;
+        botDetail.id = null;
+        this.animateGeometry(true);
+        if (State.view !== "prompt" && !this.replyHold) void Bridge.focusWindow(false);
+        State.notify();
+      },
+      botReplyFocus: (on) => this.holdForReply(on),
       decide: (d) => {
         const req = State.pendingApproval;
         void Bridge.log(`decide ${d} req=${req?.requestId ?? "none"}`);
@@ -142,6 +197,17 @@ export class Island {
         if (d === "always" && !req.allowAlways) return;
         Sound.play(d === "deny" ? "blip" : "approve");
         void Bridge.approvalDecision(req.requestId, d);
+        if (req.agentId.startsWith(BOT_PREFIX)) {
+          recordBotApproval({
+            bot: req.agentId.slice(BOT_PREFIX.length),
+            name: State.tasks.find((t) => t.id === req.agentId)?.name ?? req.agentId.slice(BOT_PREFIX.length),
+            tool: req.tool,
+            decision: d,
+            target: req.command,
+            input: req.toolInput,
+          });
+          flashBot(req.agentId);
+        }
         State.pendingApproval = null;
         State.isPinned = false;
         this.fsm.pinned = false;
@@ -328,6 +394,11 @@ export class Island {
   }
 
   setView(view: IslandViewName) {
+    // The Bot detail belongs to the overview; any other view closes it.
+    if (view !== "overview" && botDetail.id) {
+      botDetail.id = null;
+      if (view !== "prompt") void Bridge.focusWindow(false);
+    }
     this.stopSequenceIfLeaving(view);
     if (State.mode !== "expanded") {
       this.fsm.forceHome();
@@ -354,9 +425,46 @@ export class Island {
 
   /** Alert from the hook server: open on this view. Pinned alerts never auto-close. */
   alert(view: IslandViewName) {
-    this.fsm.pinned = State.isPinned;
+    this.fsm.pinned = State.isPinned || this.replyHold;
     this.fsm.forceHome();
     this.expand(view);
+  }
+
+  /**
+   * A Bot's quick-reply box got or lost the cursor. While it has it the island
+   * takes the keyboard (as the chat does) and does not fold on its own; after,
+   * it gives the keyboard back and the usual auto-close resumes.
+   */
+  private holdForReply(on: boolean) {
+    if (on) {
+      void Bridge.focusWindow(true);
+      if (this.replyHold) return;
+      this.replyHold = true;
+      this.fsm.pinned = true;
+      if (this.fsm.state === "home") this.fsm.cancelTimers();
+      this.homeCollapseAt = null;
+      return;
+    }
+    if (!this.replyHold) return;
+    this.replyHold = false;
+    this.fsm.pinned = State.isPinned;
+    if (State.view !== "prompt" && !botDetail.id) void Bridge.focusWindow(false);
+    // The mouse left while typing: start the countdown it would have started.
+    if (!this.wasInIsland && this.fsm.state === "home" && !State.isPinned) {
+      this.fsm.mouseLeft();
+      this.homeCollapseAt = performance.now() + State.settings.autoCloseInterval * 1000;
+    }
+  }
+
+  /** How much the island grows for a Bot's quick-reply box (0 when there is none). */
+  private replyGrow(): number {
+    if (State.mode !== "expanded") return 0;
+    const v = State.view;
+    const where = v === "finished" || v === "error" || (v === "overview" && !botDetail.id);
+    const task = State.focusTask;
+    if (!where || !botCanReply(task)) return 0;
+    const slug = task.id.slice(BOT_PREFIX.length);
+    return REPLY_GROW + (Outbox.list(slug).length > 0 || Outbox.notice(slug) ? REPLY_CHIPS : 0);
   }
 
   reveal() {
@@ -370,22 +478,35 @@ export class Island {
 
   // ── File drop ───────────────────────────────────────────────────────────────
 
-  private onDragDrop(e: { type: string; paths?: string[] }) {
-    if (e.type !== "over") void Bridge.log(`drag ${e.type} ${e.paths?.length ?? 0} file(s)`);
+  private onDragDrop(e: { type: string; paths?: string[]; position?: { x: number; y: number } }) {
+    this.logDrag(e);
     if (State.paused) return;
     switch (e.type) {
       case "enter":
       case "over": {
+        this.cancelDragFold();
         if (State.fileDragOver) return;
-        State.fileDragOver = true;
-        this.engine.animateMorph(1);
-        // enterZone must run before the island expands, so the sequence is
-        // already active by the time the view becomes `upload`.
-        UploadSeq.enterZone(State.mouseInIsland.x, State.mouseInIsland.y);
-        this.alert("upload");
+        // There are Bots to drop on: open the island on the overview (even from
+        // folded) and let the drag find one, lit in its colour, before Mochi
+        // takes the file.
+        if (this.dragMode === "bots" || this.hasBotTargets()) {
+          if (this.dragMode !== "bots") this.openForDrag();
+          this.dragMode = "bots";
+          const [x, y] = this.dragPoint(e);
+          this.trackDropTarget(x, y);
+          break;
+        }
+        this.startMochiDrag();
         break;
       }
       case "leave": {
+        if (this.dragMode === "bots") {
+          const opened = this.dragOpenedAt != null;
+          this.endBotDrag();
+          // It opened by itself for this drag: fold back unless the mouse stays.
+          if (opened) this.scheduleDragFold();
+          return;
+        }
         if (!State.fileDragOver) return;
         State.fileDragOver = false;
         this.engine.animateMorph(0);
@@ -395,6 +516,18 @@ export class Island {
         break;
       }
       case "drop": {
+        this.cancelDragFold();
+        if (this.dragMode === "bots") {
+          const [x, y] = this.dragPoint(e);
+          const id = this.botUnder(x, y) ?? this.dropBot;
+          this.endBotDrag();
+          if (id && e.paths?.length) {
+            this.dropOnBot(id, e.paths);
+            return;
+          }
+          // Not on a Bot: Mochi eats it, exactly as before.
+          if (e.paths?.length) this.startMochiDrag();
+        }
         State.fileDragOver = false;
         const path = e.paths?.[0];
         if (!path) {
@@ -406,6 +539,147 @@ export class Island {
         break;
       }
     }
+  }
+
+  /** Mochi's drop sequence takes the drag (the island opens on `upload`). */
+  private startMochiDrag() {
+    State.fileDragOver = true;
+    this.engine.animateMorph(1);
+    // enterZone must run before the island expands, so the sequence is
+    // already active by the time the view becomes `upload`.
+    UploadSeq.enterZone(State.mouseInIsland.x, State.mouseInIsland.y);
+    this.alert("upload");
+  }
+
+  /** "ui drag …" lines in coucou.log; over at most twice a second. */
+  private logDrag(e: { type: string; paths?: string[]; position?: { x: number; y: number } }) {
+    const now = performance.now();
+    if (e.type === "over") {
+      if (now - this.lastOverLog < 500) return;
+      this.lastOverLog = now;
+    }
+    const p = e.position ? `${Math.round(e.position.x)},${Math.round(e.position.y)}` : "-";
+    const line = `drag ${e.type} files=${e.paths?.length ?? 0} pos=${p} mode=${State.mode} view=${State.view} drag=${this.dragMode ?? (State.fileDragOver ? "mochi" : "none")} bot=${this.dropBot ?? "-"}`;
+    console.debug(`[coucou] ${line}`);
+    void Bridge.log(line);
+  }
+
+  /** A Bot is (or will be, once the island opens on the overview) on screen to drop on. */
+  private hasBotTargets(): boolean {
+    if (State.mode === "expanded" && State.view === "overview" && botDetail.id) return true;
+    const focus = State.focusTask;
+    if (focus?.id.startsWith(BOT_PREFIX)) return true;
+    return State.otherTasks.slice(0, 4).some((t) => t.id.startsWith(BOT_PREFIX));
+  }
+
+  /**
+   * Opens the island on the overview for a drag, with the usual expand
+   * animation (as an alert does), unless it already shows it.
+   */
+  private openForDrag() {
+    // Already on the overview: keep the time a drag-hover may have just opened it.
+    if (State.mode === "expanded" && State.view === "overview") return;
+    this.dragOpenedAt = performance.now();
+    void Bridge.log(`drag open-overview from=${State.mode}/${State.view}`);
+    // Folded or compact: the same opening an alert gets. Already open on
+    // another view: just switch to the overview.
+    if (State.mode !== "expanded") this.alert("overview");
+    else this.setView("overview");
+  }
+
+  /** drag-hover from Rust: the same opening as the enter, a moment earlier. */
+  private onDragHover(p: { x?: number; y?: number; collapsed?: boolean }) {
+    void Bridge.log(`drag hover-evt collapsed=${p?.collapsed ?? "?"} pos=${Math.round(p?.x ?? 0)},${Math.round(p?.y ?? 0)} mode=${State.mode} view=${State.view}`);
+    if (State.paused || State.fileDragOver || this.dragMode) return;
+    if (!this.hasBotTargets()) return;
+    this.cancelDragFold();
+    this.openForDrag();
+    // No enter followed (the drag went elsewhere): forget this opening.
+    const at = this.dragOpenedAt;
+    if (at != null) {
+      window.setTimeout(() => {
+        if (this.dragMode == null && this.dragOpenedAt === at) this.dragOpenedAt = null;
+      }, 4000);
+    }
+  }
+
+  private scheduleDragFold() {
+    this.cancelDragFold();
+    this.dragFoldTimer = window.setTimeout(() => {
+      this.dragFoldTimer = null;
+      if (this.dragMode || State.fileDragOver || this.replyHold) return;
+      if (this.wasInIsland || State.mode !== "expanded") return;
+      void Bridge.log("drag fold (left without dropping)");
+      this.collapse();
+    }, DROP_LEAVE_FOLD_MS);
+  }
+
+  private cancelDragFold() {
+    if (this.dragFoldTimer != null) window.clearTimeout(this.dragFoldTimer);
+    this.dragFoldTimer = null;
+  }
+
+  /** Drag position in window-logical px: the event's own, else the cursor poll. */
+  private dragPoint(e: { position?: { x: number; y: number } }): [number, number] {
+    const p = e.position;
+    if (p && (p.x !== 0 || p.y !== 0)) {
+      const dpr = window.devicePixelRatio || 1;
+      return [p.x / dpr, p.y / dpr];
+    }
+    return [State.mouse.x, State.mouse.y];
+  }
+
+  /** The Bot (pill, focused card or open conversation) under a point, if any. */
+  private botUnder(x: number, y: number): string | null {
+    const hit = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-bot-drop]");
+    return hit?.dataset.botDrop ?? null;
+  }
+
+  /** Lights the Bot under the drag; off any Bot for a while, Mochi takes over. */
+  private trackDropTarget(x: number, y: number) {
+    const id = this.botUnder(x, y);
+    if (id !== this.dropBot) {
+      this.dropBot = id;
+      this.viewsEl.querySelectorAll(".bot-drop-target").forEach((el) => el.classList.remove("bot-drop-target"));
+      if (id) {
+        this.viewsEl
+          .querySelectorAll(`[data-bot-drop="${CSS.escape(id)}"]`)
+          .forEach((el) => el.classList.add("bot-drop-target"));
+      }
+    }
+    if (id) {
+      if (this.dropDwell != null) window.clearTimeout(this.dropDwell);
+      this.dropDwell = null;
+    } else if (this.dropDwell == null) {
+      // Right after the island opened by itself, give time to reach the pill.
+      const sinceOpen = this.dragOpenedAt == null ? Infinity : performance.now() - this.dragOpenedAt;
+      const wait = Math.max(DROP_DWELL_MS, DROP_OPEN_GRACE_MS - sinceOpen);
+      this.dropDwell = window.setTimeout(() => {
+        this.dropDwell = null;
+        if (this.dragMode !== "bots" || this.dropBot) return;
+        this.endBotDrag();
+        this.startMochiDrag();
+      }, wait);
+    }
+  }
+
+  private endBotDrag() {
+    if (this.dropDwell != null) window.clearTimeout(this.dropDwell);
+    this.dropDwell = null;
+    this.dropBot = null;
+    this.dragMode = null;
+    this.dragOpenedAt = null;
+    this.viewsEl.querySelectorAll(".bot-drop-target").forEach((el) => el.classList.remove("bot-drop-target"));
+  }
+
+  /** Files dropped on a Bot: into the inbox, then chips in its conversation. */
+  private dropOnBot(id: string, paths: string[]) {
+    const slug = id.slice(BOT_PREFIX.length);
+    if (botDetail.id !== id) this.actions.openBotDetail(id);
+    else void Bridge.focusWindow(true);
+    void attachPaths(slug, paths).then(() => {
+      window.setTimeout(() => this.views.get("overview")?.focus?.(), 60);
+    });
   }
 
   /**
@@ -479,9 +753,12 @@ export class Island {
   // ── Geometry ────────────────────────────────────────────────────────────────
 
   private targetSize(): { w: number; h: number; r: number } {
-    const { w, h } = islandSize(State.mode, State.view, State.chatHistory.length);
+    // A Bot conversation takes the chat's full-grown size (chatPromptHeight's cap).
+    const chatCount = botDetail.id && State.view === "overview" ? 99 : State.chatHistory.length;
+    const { w, h } = islandSize(State.mode, layoutView(), chatCount);
     const r = State.mode === "expanded" ? EXPANDED_CORNER : ROUNDED_CORNER;
-    return { w, h, r };
+    const grow = this.replyGrow();
+    return { w, h: grow ? Math.min(PANEL_H, h + grow) : h, r };
   }
 
   private animateGeometry(shrinking: boolean) {
@@ -587,6 +864,9 @@ export class Island {
     });
 
     void onDragDrop((e) => this.onDragDrop(e));
+    // Rust's early notice of a drag (once, before Tauri's enter), sent even
+    // while the island is folded: open on the Bots in time.
+    void onEvent<{ x?: number; y?: number; collapsed?: boolean }>("drag-hover", (p) => this.onDragHover(p));
 
     // Outside Tauri (plain browser) drive the cursor from DOM events so the
     // island can be inspected with `npm run dev`.
@@ -611,6 +891,8 @@ export class Island {
     State.mouse = { x, y };
     const rect = this.islandRect();
     State.mouseInIsland = { x: x - rect.x, y: y - rect.y };
+    // Windows may send no position with the drag itself: follow the poll.
+    if (this.dragMode === "bots") this.trackDropTarget(x, y);
 
     // Windows sends no cursor position with an OLE drag, so the drop sequence is
     // fed from the Win32 cursor poll instead — it runs throughout the drag.
@@ -781,7 +1063,7 @@ export class Island {
   };
 
   private updateBotTargets() {
-    const p = botPosition(State.mode, State.view, this.height.value, State.uploadProgress);
+    const p = botPosition(State.mode, layoutView(), this.height.value, State.uploadProgress);
     this.botCx.target = p.cx;
     this.botCy.target = p.cy;
     this.botSize.target = p.diameter / 0.6;
@@ -911,6 +1193,14 @@ export class Island {
         }
         pruneMiniBots();
       }
+    }
+
+    // A quick-reply box appearing or going away resizes the island.
+    const grow = this.replyGrow();
+    if (grow !== this.lastReplyGrow) {
+      const shrinking = grow < this.lastReplyGrow;
+      this.lastReplyGrow = grow;
+      this.animateGeometry(shrinking);
     }
 
     syncMiniBotStates(State.tasks);

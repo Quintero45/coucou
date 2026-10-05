@@ -5,19 +5,23 @@
 import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
 import { Ticker } from "./ticker";
-import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, MOCHI_TASK, State, aiProvider, type AgentTask } from "../core/state";
+import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, MOCHI_TASK, State, aiProvider, botPhase, type AgentTask } from "../core/state";
 import { setQuestionHeight, washRGBA, type IslandViewName, type Wash } from "../core/layout";
 import { createMiniBot, pruneMiniBots } from "../mochi/minibots";
 import { buildPrompt } from "./chat";
-import { buildChoose, buildUpload, buildUploading } from "./upload";
-import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
+import {
+  botCanReply, createBotChat, createBotReply, reducedMotion, renderIntegrationCard,
+  type BotReplyHandlers, type IntegrationCardHooks,
+} from "./integrations";
+import { sendWithOutbox } from "../core/botchat";
+import { loadBotApprovals, type BotApproval } from "../core/botlog";
 
 export interface ViewActions {
   setView(v: IslandViewName): void;
   collapse(): void;
   setFocus(id: string): void;
   openTerminal(): void;
-  /** The ↗ button: opens whatever the focused pill points at. */
+  /** The ↗ button: opens whatever the focused pill points at (not on Grok Bots). */
   openTarget(): void;
   openUrl(url: string): void;
   decide(d: "allow" | "deny" | "always"): void;
@@ -29,7 +33,20 @@ export interface ViewActions {
   setAutoClose(seconds: number): void;
   openSettingsWindow(): void;
   blip(): void;
+  /** A tap on a Grok Bot (its pill or its card): grow the island to the chat's size and open the conversation. */
+  openBotDetail(id: string): void;
+  /** Back to the overview's normal size. */
+  closeBotDetail(): void;
+  /** A quick-reply box got (true) or lost (false) the cursor: keyboard + stay open. */
+  botReplyFocus(on: boolean): void;
 }
+
+/**
+ * The Grok Bot whose detail is open (overview only). The island reads it to
+ * size itself exactly like the chat; the overview reads it to draw the
+ * conversation with that Bot.
+ */
+export const botDetail: { id: string | null } = { id: null };
 
 export interface ViewHost {
   el: HTMLElement;
@@ -83,7 +100,6 @@ function stack(padLeft: number, padRight: number, ...children: Node[]): HTMLElem
 export function buildHeader(actions: ViewActions): ViewHost {
   const tabHome = h("button", { class: "tab", title: "Resumen", onclick: () => go("overview") }, svg(ICONS.house, 13));
   const tabChat = h("button", { class: "tab", title: "Preguntar", onclick: () => go("prompt") }, svg(ICONS.bubble, 13));
-  const tabDrop = h("button", { class: "tab", title: "Soltar archivos", onclick: () => go("upload") }, svg(ICONS.plus, 13));
 
   const gearBtn = h("button", { title: "Ajustes", onclick: () => go("settings") }, svg(ICONS.gear, 14));
   const soundBtn = h("button", { title: "Silenciar", onclick: () => actions.toggleSound() }, svg(ICONS.speakerOn, 14));
@@ -96,7 +112,7 @@ export function buildHeader(actions: ViewActions): ViewHost {
   const el = h(
     "div",
     { id: "header" },
-    h("div", { class: "tabs" }, tabHome, tabChat, tabDrop),
+    h("div", { class: "tabs" }, tabHome, tabChat),
     h("div", { class: "header-actions" }, gearBtn, soundBtn),
   );
 
@@ -106,7 +122,6 @@ export function buildHeader(actions: ViewActions): ViewHost {
       const v = State.view;
       tabHome.classList.toggle("on", v === "overview" || v === "empty");
       tabChat.classList.toggle("on", v === "prompt");
-      tabDrop.classList.toggle("on", v === "upload");
       gearBtn.classList.toggle("on", v === "settings");
       clear(gearBtn);
       gearBtn.append(svg(v === "settings" ? ICONS.gearFill : ICONS.gear, 14));
@@ -126,23 +141,76 @@ function buildOverview(actions: ViewActions): ViewHost {
   const leftBody = h("div", { class: "left-body" });
   const jump = h(
     "button",
-    { class: "icon-btn jump", title: "Abrir", onclick: () => actions.openTarget() },
+    {
+      class: "icon-btn jump",
+      title: "Abrir",
+      // Grok Bots have no ↗: their whole card opens the conversation.
+      onclick: () => actions.openTarget(),
+    },
     svg(ICONS.arrowUpRight, 8),
   );
-  const left = card(null, leftBody, jump);
+  // Answering a Bot's message right under it, without opening the conversation.
+  const reply = createBotReply(replyHandlers(actions));
+  const replySlot = h("div", { class: "bot-reply-slot" }, reply.el);
+  replySlot.style.display = "none";
+  const left = card(null, leftBody, jump, replySlot);
+  // The whole card of a focused Grok Bot opens its conversation; the buttons
+  // and boxes inside it keep their own clicks.
+  left.addEventListener("click", (e) => {
+    const id = State.focusTask?.id;
+    if (!id?.startsWith(BOT_PREFIX) || botDetail.id) return;
+    if ((e.target as Element).closest("button, a, input, textarea, select, .bot-reply")) return;
+    actions.openBotDetail(id);
+  });
   const pills = h("div", { class: "pills" });
   const right = card(null, pills);
+
+  // The expanded Grok Bot detail sits over the overview while it is open.
+  const detail = createBotChat({
+    back: () => closeDetailAnimated(),
+    send: (slug, text) => void sendWithOutbox(slug, text),
+    // Exactly the approval card's decide(): audit line, botFx flash, sound.
+    decide: (d) => actions.decide(d),
+  });
+  const layer = h("div", { class: "bot-detail-layer" }, detail.el);
+  layer.style.display = "none";
 
   const el = h("div", { class: "view overview" },
     h("div", { class: "left" }, left),
     h("div", { class: "right" }, right),
+    layer,
   );
+
+  let closing: number | null = null;
+  /** Plays the way out, then lets the island shrink back. */
+  function closeDetailAnimated() {
+    if (closing != null) return;
+    if (reducedMotion()) {
+      actions.closeBotDetail();
+      return;
+    }
+    layer.classList.add("out");
+    closing = window.setTimeout(() => {
+      closing = null;
+      actions.closeBotDetail();
+    }, 170);
+  }
 
   let pillIds = "";
   let detailOpen = false;
   let lastFocus: string | null = null;
   let mode: "ticker" | "card" | null = null;
   let cardKey = "";
+  let botApprovals: BotApproval[] | null = null;
+  /** Bot state + steps the approvals were last read for. */
+  let approvalsFor = "";
+
+  function refreshBotApprovals() {
+    void loadBotApprovals().then((list) => {
+      botApprovals = list;
+      State.notify();
+    });
+  }
 
   const hooks: IntegrationCardHooks = {
     get detailOpen() {
@@ -159,14 +227,14 @@ function buildOverview(actions: ViewActions): ViewHost {
       State.notify();
     },
     openSettings: () => actions.openSettingsWindow(),
-    askBot(name: string) {
-      State.chatDraft = `@${name} `;
-      actions.setView("prompt");
-    },
   };
 
   return {
     el,
+    /** Files dropped on a Bot: the cursor goes to the open conversation's box. */
+    focus() {
+      if (layer.style.display !== "none") detail.focus();
+    },
     tick(nowMs: number) {
       if (mode === "ticker") ticker.tick(nowMs);
     },
@@ -183,6 +251,58 @@ function buildOverview(actions: ViewActions): ViewHost {
       // every other pill shows its own card, exactly like IntegrationCardView.
       const isAgent = task?.id === "integration_claude" || task?.source === "agent";
       const sessionActive = isAgent && !!task && (task.state !== "idle" || task.steps.length > 0);
+      const isBot = !!task?.id.startsWith(BOT_PREFIX);
+
+      // The expanded Bot detail: only for the focused Bot, only while expanded.
+      const openId = botDetail.id;
+      if (openId && (openId !== task?.id || State.mode !== "expanded")) {
+        // Focus moved or the island folded: close without waiting for a frame.
+        queueMicrotask(() => actions.closeBotDetail());
+      }
+      const showDetail = !!openId && openId === task?.id && State.mode === "expanded";
+      if (showDetail && task) {
+        if (layer.style.display === "none") {
+          // Fresh entrance: reload everything and replay the way in.
+          botApprovals = null;
+          approvalsFor = "";
+          layer.classList.remove("out");
+          layer.style.display = "";
+          el.classList.add("bot-detail-open");
+        }
+        // Live: a new step or state re-reads the permissions (a click may have landed).
+        const k = `${task.id}:${task.state}:${task.steps.length}`;
+        if (k !== approvalsFor) {
+          approvalsFor = k;
+          refreshBotApprovals();
+        }
+        const entering = !el.classList.contains("bot-detail-live");
+        el.classList.add("bot-detail-live");
+        detail.sync(task, botApprovals);
+        if (entering) window.setTimeout(() => detail.focus(), 140);
+      } else if (layer.style.display !== "none") {
+        if (closing != null) {
+          window.clearTimeout(closing);
+          closing = null;
+        }
+        layer.style.display = "none";
+        layer.classList.remove("out");
+        el.classList.remove("bot-detail-open", "bot-detail-live");
+        detail.detach();
+      }
+
+      // The focused card wears a Grok Bot's colour, like its pill does.
+      left.style.borderColor = isBot && task ? `${task.color}99` : "";
+      left.style.background = isBot && task ? `linear-gradient(${task.color}1F, ${task.color}1F), var(--card)` : "";
+      left.classList.toggle("bot-tap", isBot && !showDetail);
+      if (isBot && task) left.style.setProperty("--bot", task.color);
+      else left.style.removeProperty("--bot");
+      // Files dragged over this card go to the Bot (island.ts reads data-bot-drop).
+      if (isBot && task && !showDetail) left.dataset.botDrop = task.id;
+      else delete left.dataset.botDrop;
+
+      const replying = isBot && !showDetail && botCanReply(task);
+      replySlot.style.display = replying ? "" : "none";
+      if (replying && task) reply.sync(task);
 
       if (task && sessionActive) {
         if (mode !== "ticker") {
@@ -194,7 +314,7 @@ function buildOverview(actions: ViewActions): ViewHost {
         clear(who);
         who.append(
           dot(task.color, 7),
-          h("span", { class: "name", text: task.name }),
+          h("span", { class: "name", text: task.name, style: isBot ? `color:${task.color}` : undefined }),
           h("span", { class: "tool", text: toolLabel(task) }),
         );
         if (task.steps.length > 1) {
@@ -217,6 +337,7 @@ function buildOverview(actions: ViewActions): ViewHost {
         const info = State.integrations[task.id];
         const key = [
           task.id, detailOpen, task.state, task.steps.join("|"),
+          isBot ? task.lastMessage ?? "" : "",
           info?.loaded, info?.error, info?.configured,
           JSON.stringify(info?.data ?? {}),
         ].join("~");
@@ -228,11 +349,14 @@ function buildOverview(actions: ViewActions): ViewHost {
         }
       }
 
-      jump.style.display = detailOpen ? "none" : "";
+      jump.style.display = detailOpen || isBot ? "none" : "";
 
       const others = State.otherTasks.slice(0, 4);
       const noBots = State.settings.grokBots.length === 0;
-      const pillKey = others.map((t) => `${t.id}:${t.pillBadge ?? ""}`).join("|") + (noBots ? "|+bot" : "");
+      // A Bot pill also redraws when its state word changes.
+      const pillKey = others
+        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}` : ""}`)
+        .join("|") + (noBots ? "|+bot" : "");
       if (pillKey !== pillIds) {
         pillIds = pillKey;
         clear(pills);
@@ -247,6 +371,10 @@ function buildOverview(actions: ViewActions): ViewHost {
 /** Which agent a session pill belongs to, for the grey label. */
 function toolLabel(task: AgentTask): string {
   if (task.source === "claudeCode") return "Claude Code";
+  if (task.id.startsWith(BOT_PREFIX)) {
+    const phase = botPhase(task.state);
+    return phase ? `Bot de Grok · ${phase.label}` : "Bot de Grok";
+  }
   if (task.source === "agent") return task.name;
   return "n8n";
 }
@@ -260,24 +388,48 @@ function agentName(task: AgentTask | null): string {
 function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   const label = task.id === "integration_claude" ? "VS Code" : task.name;
   const canvas = createMiniBot(task, 24);
+  // Grok Bots say what they are doing under their name: trabajando, pregunta,
+  // listo, error. Nothing when idle.
+  const phase = task.id.startsWith(BOT_PREFIX) ? botPhase(task.state) : null;
+  const lbl = phase
+    ? h("span", { class: "lbl two" },
+        h("span", { class: "lbl-name", text: label, style: `color:${task.color}` }),
+        h("span", { class: "pill-state" }, h("i", { style: `background:${phase.color}` }), phase.label))
+    : h("span", { class: "lbl", text: label, style: task.id.startsWith(BOT_PREFIX) ? `color:${task.color}` : undefined });
   const pill = h(
     "div",
-    { class: "pill", onclick: () => actions.setFocus(task.id) },
+    {
+      class: task.id.startsWith(BOT_PREFIX) ? "pill pill-bot" : "pill",
+      title: phase ? `${label} · ${phase.label}` : label,
+      // A Grok Bot's pill opens its conversation straight away.
+      onclick: () => (task.id.startsWith(BOT_PREFIX) ? actions.openBotDetail(task.id) : actions.setFocus(task.id)),
+    },
     canvas,
-    h("span", { class: "lbl", text: label }),
+    lbl,
   );
-  pill.style.borderColor = `${task.color}24`;
+  // A Grok Bot pill wears its own colour (Mis Bots de Grok); the state word stays neutral.
+  if (task.id.startsWith(BOT_PREFIX)) {
+    pill.style.borderColor = `${task.color}99`;
+    pill.style.background = `${task.color}1F`;
+    // A file dragged over the pill lights it up in the Bot's colour (island.ts).
+    pill.dataset.botDrop = task.id;
+    pill.style.setProperty("--bot", task.color);
+  } else {
+    pill.style.borderColor = `${task.color}24`;
+  }
   pill.addEventListener("mouseenter", () => {
     pill.style.background = `${task.color}2e`;
     pill.style.borderColor = `${task.color}8c`;
     pill.style.boxShadow = `0 2px 10px ${task.color}59`;
     (pill.querySelector(".lbl") as HTMLElement).style.color = lighten(task.color, 0.3);
   });
+  const isBotPill = task.id.startsWith(BOT_PREFIX);
   pill.addEventListener("mouseleave", () => {
-    pill.style.background = "";
-    pill.style.borderColor = `${task.color}24`;
+    pill.style.background = isBotPill ? `${task.color}1F` : "";
+    pill.style.borderColor = isBotPill ? `${task.color}99` : `${task.color}24`;
     pill.style.boxShadow = "";
-    (pill.querySelector(".lbl") as HTMLElement).style.color = "";
+    // An idle Bot pill's name is the .lbl itself: give its colour back.
+    (pill.querySelector(".lbl") as HTMLElement).style.color = isBotPill && !phase ? task.color : "";
   });
 
   if (task.pillBadge) {
@@ -342,8 +494,14 @@ function buildApproval(actions: ViewActions): ViewHost {
     sync() {
       const req = State.pendingApproval;
       clear(who);
+      const isBot = !!req?.agentId.startsWith(BOT_PREFIX);
       if (req?.agentId === ASSISTANT_ID) {
         who.append(agentWho({ ...MOCHI_TASK }, `quiere usar ${req.tool.replace(/_/g, " ")}`));
+      } else if (req && isBot) {
+        // A Grok Bot: its name and colour, then what it wants — a yes/no
+        // question (`--status ask`) or a tool on this PC with its arguments.
+        const owner = State.tasks.find((t) => t.id === req.agentId) ?? null;
+        who.append(agentWho(owner, req.tool === "Pregunta" ? "Bot de Grok · pregunta" : `Bot de Grok · quiere usar ${req.tool}`));
       } else {
         const owner = State.tasks.find((t) => t.id === req?.agentId) ?? State.focusTask;
         who.append(agentWho(owner, "pide permiso"));
@@ -357,16 +515,17 @@ function buildApproval(actions: ViewActions): ViewHost {
         detailFor = req?.requestId ?? "";
         detail.textContent = req?.detail ?? "";
         detail.style.display = req?.detail ? "" : "none";
+        detail.classList.toggle("wrap", !!req?.detailWrap);
         detail.scrollTop = 0;
       }
       // Built once per request shape. Rebuilding them between a mouse-down and a
       // mouse-up would swallow the click. "Always" only exists when Claude Code
       // suggested a rule to remember — Codex and Cursor have no such thing.
-      const key = req?.allowAlways ? "always" : "plain";
+      const key = req?.allowAlways ? "always" : isBot ? "bot" : "plain";
       if (rowKey === key) return;
       rowKey = key;
       clear(row);
-      row.append(btn("Rechazar", "secondary", () => actions.decide("deny"), "N"));
+      row.append(btn(isBot ? "Denegar" : "Rechazar", "secondary", () => actions.decide("deny"), "N"));
       if (req?.allowAlways) row.append(btn("Siempre", "secondary", () => actions.decide("always"), "A"));
       row.append(btn("Permitir", "primary", () => actions.decide("allow"), "Y"));
     },
@@ -517,11 +676,12 @@ function buildError(actions: ViewActions): ViewHost {
   const who = h("div");
   const title = h("div", { class: "title", text: "El flujo se detuvo." });
   const detail = h("div", { class: "detail" });
+  const reply = createBotReply(replyHandlers(actions));
   const row = h("div", { class: "actions" },
     btn("Reintentar", "primary", () => actions.setView(State.defaultView())),
     btn("Abrir en n8n", "secondary", () => actions.openUrl("")),
   );
-  const el = h("div", { class: "view" }, card("red", stack(116, 16, who, title, detail, row)));
+  const el = h("div", { class: "view" }, card("red", stack(116, 16, who, title, detail, reply.el, row)));
   return {
     el,
     sync() {
@@ -530,6 +690,9 @@ function buildError(actions: ViewActions): ViewHost {
       who.append(agentWho(task, task?.source === "n8n" ? "n8n" : agentName(task)));
       title.textContent = task?.source === "n8n" ? "El flujo se detuvo." : "La sesión se detuvo por un error.";
       detail.textContent = task?.steps.at(-1) ?? "Sin más detalles.";
+      const can = botCanReply(task);
+      reply.el.style.display = can ? "" : "none";
+      if (can) reply.sync(task);
     },
   };
 }
@@ -544,7 +707,8 @@ function buildFinished(actions: ViewActions): ViewHost {
     terminal,
     btn("OK", "secondary", () => actions.collapse()),
   );
-  const el = h("div", { class: "view" }, card("green", stack(116, 16, who, title, row)));
+  const reply = createBotReply(replyHandlers(actions));
+  const el = h("div", { class: "view" }, card("green", stack(116, 16, who, title, reply.el, row)));
   return {
     el,
     sync() {
@@ -552,8 +716,23 @@ function buildFinished(actions: ViewActions): ViewHost {
       terminal.style.display = State.focusTask?.id.startsWith(BOT_PREFIX) ? "none" : "";
       clear(who);
       who.append(agentWho(State.focusTask, `${agentName(State.focusTask)} terminó`));
-      title.textContent = State.focusTask?.steps.at(-1) ?? "Sesión terminada";
+      const task = State.focusTask;
+      const isBot = !!task?.id.startsWith(BOT_PREFIX);
+      // A Bot's answer is the message itself, whole, not the step it left.
+      title.textContent = (isBot ? task?.lastMessage : null) ?? task?.steps.at(-1) ?? "Sesión terminada";
+      title.classList.toggle("bot-reply-msg", isBot);
+      const can = botCanReply(task);
+      reply.el.style.display = can ? "" : "none";
+      if (can) reply.sync(task);
     },
+  };
+}
+
+/** The quick reply sends like the conversation does and holds the island while typing. */
+function replyHandlers(actions: ViewActions): BotReplyHandlers {
+  return {
+    send: (slug, text) => sendWithOutbox(slug, text),
+    focus: (on) => actions.botReplyFocus(on),
   };
 }
 
@@ -678,9 +857,6 @@ export function buildViews(
   map.set("note", buildNote());
   map.set("settings", buildSettings(actions));
   map.set("prompt", buildPrompt(onChatHeightChange));
-  map.set("upload", buildUpload());
-  map.set("uploading", buildUploading());
-  map.set("choose", buildChoose(actions));
   // Not in the Windows v1: sending a file by email, window attach + web result.
   map.set("mail", buildPlaceholder("Enviar por correo no está en esta versión.", ""));
   map.set("searching", buildPlaceholder("Buscando…", ""));
