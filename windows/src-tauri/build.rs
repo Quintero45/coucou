@@ -46,7 +46,27 @@ fn write_core_hashes() {
     std::fs::write(out, body).unwrap();
 }
 
+/// Unit-test executables get no application manifest (tauri-build embeds one
+/// in the app binary only), so Windows resolves comctl32 to v5, which lacks
+/// TaskDialogIndirect, and the test exe dies at load with
+/// STATUS_ENTRYPOINT_NOT_FOUND. Cargo has no link-arg instruction for a lib's
+/// unit tests (`rustc-link-arg-tests` is for `tests/` targets only), and a
+/// second embedded manifest would clash with tauri-build's resource in the app.
+/// So, in debug builds only: delay-load comctl32. Tests never call into it and
+/// load fine; the app still gets v6 (its manifest's activation context applies
+/// when the DLL loads on first use). Release builds are unchanged.
+fn delay_load_comctl32_in_debug() {
+    let windows = std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows");
+    let msvc = std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc");
+    let debug = std::env::var("PROFILE").as_deref() == Ok("debug");
+    if windows && msvc && debug {
+        println!("cargo:rustc-link-arg=/DELAYLOAD:comctl32.dll");
+        println!("cargo:rustc-link-arg=delayimp.lib");
+    }
+}
+
 fn main() {
     write_core_hashes();
+    delay_load_comctl32_in_debug();
     tauri_build::build()
 }

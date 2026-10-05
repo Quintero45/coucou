@@ -231,6 +231,12 @@ pub fn left_button_down() -> bool {
     unsafe { (GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000) != 0 }
 }
 
+/// For the island's click-outside-to-close: a right click counts too.
+pub fn right_button_down() -> bool {
+    use ::windows::Win32::UI::Input::KeyboardAndMouse::VK_RBUTTON;
+    unsafe { (GetAsyncKeyState(VK_RBUTTON.0 as i32) as u16 & 0x8000) != 0 }
+}
+
 // ── Island window ─────────────────────────────────────────────────────────────
 
 fn hwnd_of(win: &WebviewWindow) -> Option<HWND> {
@@ -561,6 +567,11 @@ impl OverlayLogic {
 static OVERLAY_VISIBLE: AtomicBool = AtomicBool::new(false);
 static OVERLAY_BLOCKED: AtomicBool = AtomicBool::new(false);
 static OVERLAY_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// The drag overlay is up: a drag is in progress, whatever the poll thread saw.
+pub fn drag_overlay_visible() -> bool {
+    OVERLAY_VISIBLE.load(Ordering::Relaxed) || OVERLAY_PENDING.load(Ordering::Relaxed)
+}
 
 /// A new left-button press: a fresh drag may use the overlay again.
 pub fn drag_overlay_new_press() {
@@ -911,10 +922,19 @@ unsafe extern "system" fn overlay_wndproc(hwnd: HWND, msg: u32, wparam: ::window
 /// `DragDropPayload` (`paths` omitted when absent, `position` physical px
 /// relative to the window); leave carries `null`.
 #[derive(Clone)]
+/// `shift`: Shift was held (OLE's grfKeyState & MK_SHIFT). An extra field on
+/// top of tauri's shape; tauri's JS wrapper drops it, so `drag-keys` carries it
+/// too (see emit_drag).
 enum DragPayload {
-    Files { paths: Vec<std::path::PathBuf>, x: f64, y: f64 },
-    Position { x: f64, y: f64 },
+    Files { paths: Vec<std::path::PathBuf>, x: f64, y: f64, shift: bool },
+    Position { x: f64, y: f64, shift: bool },
     None,
+}
+
+const MK_SHIFT: u32 = 0x0004;
+
+fn shift_held(keys: u32) -> bool {
+    keys & MK_SHIFT != 0
 }
 
 impl serde::Serialize for DragPayload {
@@ -926,15 +946,17 @@ impl serde::Serialize for DragPayload {
             y: f64,
         }
         match self {
-            DragPayload::Files { paths, x, y } => {
-                let mut m = s.serialize_map(Some(2))?;
+            DragPayload::Files { paths, x, y, shift } => {
+                let mut m = s.serialize_map(Some(3))?;
                 m.serialize_entry("paths", paths)?;
                 m.serialize_entry("position", &Pos { x: *x, y: *y })?;
+                m.serialize_entry("shift", shift)?;
                 m.end()
             }
-            DragPayload::Position { x, y } => {
-                let mut m = s.serialize_map(Some(1))?;
+            DragPayload::Position { x, y, shift } => {
+                let mut m = s.serialize_map(Some(2))?;
                 m.serialize_entry("position", &Pos { x: *x, y: *y })?;
+                m.serialize_entry("shift", shift)?;
                 m.end()
             }
             DragPayload::None => s.serialize_unit(),
@@ -944,14 +966,25 @@ impl serde::Serialize for DragPayload {
 
 /// Emits like tauri's `emit_to_webview`: to the island's webview / webview
 /// window. Queued on the event loop, i.e. outside the incoming COM call.
+/// Enter/over/drop are preceded by `drag-keys` {shift}, in the same closure so
+/// it always arrives first: `getCurrentWebview().onDragDropEvent` rebuilds the
+/// payload and loses `shift`, so bridge.ts' onDragDrop puts it back from there.
 fn emit_drag(app: &AppHandle, event: &'static str, payload: DragPayload) {
     use tauri::{Emitter, EventTarget};
+    let shift = match &payload {
+        DragPayload::Files { shift, .. } | DragPayload::Position { shift, .. } => Some(*shift),
+        DragPayload::None => None,
+    };
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
-        let _ = handle.emit_filter(event, payload, |target| match target {
+        let island = |target: &EventTarget| match target {
             EventTarget::Webview { label } | EventTarget::WebviewWindow { label } => label == WINDOW_LABEL,
             _ => false,
-        });
+        };
+        if let Some(shift) = shift {
+            let _ = handle.emit_filter("drag-keys", serde_json::json!({ "shift": shift }), island);
+        }
+        let _ = handle.emit_filter(event, payload, island);
     });
 }
 
@@ -1078,7 +1111,7 @@ fn island_point(pt: ::windows::Win32::Foundation::POINTL) -> (f64, f64) {
     (p.x as f64, p.y as f64)
 }
 
-unsafe extern "system" fn dt_drag_enter(_this: *mut c_void, data: *mut c_void, _keys: u32, pt: ::windows::Win32::Foundation::POINTL, effect: *mut u32) -> ::windows::core::HRESULT {
+unsafe extern "system" fn dt_drag_enter(_this: *mut c_void, data: *mut c_void, keys: u32, pt: ::windows::Win32::Foundation::POINTL, effect: *mut u32) -> ::windows::core::HRESULT {
     let paths = unsafe { dropped_files(data) };
     let (x, y) = island_point(pt);
     let valid = !paths.is_empty();
@@ -1097,12 +1130,12 @@ unsafe extern "system" fn dt_drag_enter(_this: *mut c_void, data: *mut c_void, _
     }
     crate::log::line(format!("drag-overlay enter files={} pos=({x:.0}, {y:.0})", paths.len()));
     if let (true, Some(app)) = (valid, app) {
-        emit_drag(&app, "tauri://drag-enter", DragPayload::Files { paths, x, y });
+        emit_drag(&app, "tauri://drag-enter", DragPayload::Files { paths, x, y, shift: shift_held(keys) });
     }
     ::windows::Win32::Foundation::S_OK
 }
 
-unsafe extern "system" fn dt_drag_over(_this: *mut c_void, _keys: u32, pt: ::windows::Win32::Foundation::POINTL, effect: *mut u32) -> ::windows::core::HRESULT {
+unsafe extern "system" fn dt_drag_over(_this: *mut c_void, keys: u32, pt: ::windows::Win32::Foundation::POINTL, effect: *mut u32) -> ::windows::core::HRESULT {
     let (x, y) = island_point(pt);
     let state = OVERLAY.with(|o| {
         o.borrow_mut().as_mut().map(|o| {
@@ -1120,7 +1153,7 @@ unsafe extern "system" fn dt_drag_over(_this: *mut c_void, _keys: u32, pt: ::win
         if n <= 3 {
             crate::log::line(format!("drag-overlay over pos=({x:.0}, {y:.0})"));
         }
-        emit_drag(&app, "tauri://drag-over", DragPayload::Position { x, y });
+        emit_drag(&app, "tauri://drag-over", DragPayload::Position { x, y, shift: shift_held(keys) });
     }
     ::windows::Win32::Foundation::S_OK
 }
@@ -1144,7 +1177,7 @@ unsafe extern "system" fn dt_drag_leave(_this: *mut c_void) -> ::windows::core::
     ::windows::Win32::Foundation::S_OK
 }
 
-unsafe extern "system" fn dt_drop(_this: *mut c_void, data: *mut c_void, _keys: u32, pt: ::windows::Win32::Foundation::POINTL, effect: *mut u32) -> ::windows::core::HRESULT {
+unsafe extern "system" fn dt_drop(_this: *mut c_void, data: *mut c_void, keys: u32, pt: ::windows::Win32::Foundation::POINTL, effect: *mut u32) -> ::windows::core::HRESULT {
     let paths = unsafe { dropped_files(data) };
     let (x, y) = island_point(pt);
     let state = OVERLAY.with(|o| {
@@ -1156,12 +1189,13 @@ unsafe extern "system" fn dt_drop(_this: *mut c_void, data: *mut c_void, _keys: 
     if !effect.is_null() {
         unsafe { *effect = if paths.is_empty() { DROPEFFECT_NONE } else { DROPEFFECT_COPY } };
     }
-    crate::log::line(format!("drag-overlay drop files={} pos=({x:.0}, {y:.0})", paths.len()));
+    let shift = shift_held(keys);
+    crate::log::line(format!("drag-overlay drop files={} pos=({x:.0}, {y:.0}) shift={shift}", paths.len()));
     if let Some((ended, app)) = state {
         // Even if the overlay had already timed out: a drop that reached us
         // carries files the owner meant to give.
         if !paths.is_empty() {
-            emit_drag(&app, "tauri://drag-drop", DragPayload::Files { paths, x, y });
+            emit_drag(&app, "tauri://drag-drop", DragPayload::Files { paths, x, y, shift });
         }
         if let Some((why, _)) = ended {
             overlay_hide(why, false);
@@ -1281,10 +1315,15 @@ mod overlay_tests {
 
     #[test]
     fn drag_payload_matches_tauri_shape() {
-        let files = DragPayload::Files { paths: vec!["C:\\a.txt".into()], x: 3.0, y: 4.0 };
-        assert_eq!(serde_json::to_string(&files).unwrap(), r#"{"paths":["C:\\a.txt"],"position":{"x":3.0,"y":4.0}}"#);
-        let over = DragPayload::Position { x: 1.5, y: 2.0 };
-        assert_eq!(serde_json::to_string(&over).unwrap(), r#"{"position":{"x":1.5,"y":2.0}}"#);
+        let files = DragPayload::Files { paths: vec!["C:\\a.txt".into()], x: 3.0, y: 4.0, shift: true };
+        assert_eq!(
+            serde_json::to_string(&files).unwrap(),
+            r#"{"paths":["C:\\a.txt"],"position":{"x":3.0,"y":4.0},"shift":true}"#
+        );
+        let over = DragPayload::Position { x: 1.5, y: 2.0, shift: false };
+        assert_eq!(serde_json::to_string(&over).unwrap(), r#"{"position":{"x":1.5,"y":2.0},"shift":false}"#);
+        assert!(shift_held(0x0004 | 0x0001));
+        assert!(!shift_held(0x0001 | 0x0008));
         assert_eq!(serde_json::to_string(&DragPayload::None).unwrap(), "null");
     }
 }

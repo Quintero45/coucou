@@ -58,6 +58,8 @@ export const PANEL_H = 320;
 export const NOTCH_W = 184;
 export const NOTCH_H = 32;
 export const COMPACT_W = 288; // NOTCH_W + 104
+/** Height of the folded notch: the Rust wake strip is 6 px tall (island.rs STRIP_H). */
+export const HIDDEN_NOTCH_H = 6;
 export const EXPANDED_W = 640;
 
 export const ROUNDED_CORNER = 14; // hidden / compact
@@ -118,9 +120,10 @@ export function islandSize(
 ): { w: number; h: number } {
   switch (mode) {
     case "hidden":
-      // No notch to hide inside on a PC: the island retracts to zero height and
-      // slides into the top edge of the screen instead of sitting there as a bar.
-      return { w: NOTCH_W, h: 0 };
+      // Folded, the notch stays in sight as a slim bar along the top edge (the
+      // wake strip's height, so the collapsed window still holds it); hovering
+      // or clicking it opens the island.
+      return { w: NOTCH_W, h: HIDDEN_NOTCH_H };
     case "compact":
       return { w: COMPACT_W, h: NOTCH_H };
     case "expanded": {

@@ -2,13 +2,17 @@
 //
 // Reading is free; anything with a side effect waits for a click on the island's
 // approval card. No click in time, a paused island or a card already in use all
-// mean no. "Always" lasts until the chat is reset, and only for that one tool.
+// mean no. "Permitir siempre" creates an allow rule (see `AllowRule`): for a
+// file-writing tool, a folder (canonical path prefix); for any other tool, that
+// tool for that caller (Mochi or one Bot). Rules expire (1 h by default, or at
+// app restart), live in memory only, are logged when added, used and expired,
+// and never cover a shell (run_powershell & co.): those always ask.
 // Every call — free, approved, refused — is written to the audit log.
 
-use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
@@ -31,12 +35,151 @@ pub enum Risk {
     Act,
 }
 
-static ALWAYS: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+/// Default life of a "Permitir siempre" rule.
+pub const RULE_TTL: Duration = Duration::from_secs(60 * 60);
+/// Who asks when it is Mochi (Bots are `bot-<slug>`).
+pub const MOCHI: &str = "mochi";
+
+/// Tools a standing approval may never cover: anything that runs a command.
+const NEVER_ALWAYS: &[&str] = &["run_powershell", "powershell", "shell", "run_shell", "run_command", "bash", "cmd", "terminal"];
+/// Tools whose rules are scoped to a folder rather than to the tool.
+const WRITE_TOOLS: &[&str] = &["write_file"];
+
+pub fn never_always(tool: &str) -> bool {
+    let t = tool.to_ascii_lowercase();
+    NEVER_ALWAYS.contains(&t.as_str()) || t.contains("shell") || t.contains("powershell")
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuleScope {
+    /// Files under this folder (canonical, case-folded on Windows), write tools only.
+    Folder(PathBuf),
+    /// Every call of the tool.
+    Tool,
+}
+
+#[derive(Debug, Clone)]
+pub struct AllowRule {
+    /// `mochi` or `bot-<slug>`: a rule never crosses callers.
+    pub who: String,
+    pub tool: String,
+    pub scope: RuleScope,
+    /// None = until the app restarts.
+    pub expires: Option<Instant>,
+}
+
+impl AllowRule {
+    fn describe(&self) -> String {
+        let scope = match &self.scope {
+            RuleScope::Folder(p) => format!("folder:{}", p.display()),
+            RuleScope::Tool => "tool".to_string(),
+        };
+        let until = match self.expires {
+            Some(t) => format!("{}s", t.saturating_duration_since(Instant::now()).as_secs()),
+            None => "restart".to_string(),
+        };
+        format!("who={} tool={} scope={scope} expires_in={until}", self.who, self.tool)
+    }
+}
+
+static RULES: LazyLock<Mutex<Vec<AllowRule>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 static COUNTER: AtomicU64 = AtomicU64::new(1);
 
-/// Forgets every "Always" — called when the chat is reset.
+/// Forgets every rule — called when the chat is reset (more conservative than
+/// the expiry alone; drop this call to let rules outlive a chat reset).
 pub fn reset_session() {
-    ALWAYS.lock().unwrap().clear();
+    let n = std::mem::take(&mut *RULES.lock().unwrap()).len();
+    if n > 0 {
+        log::line(format!("policy allow-rules cleared ({n}) — chat reset"));
+    }
+}
+
+/// Canonical, case-folded form used for prefix checks. A file that does not
+/// exist yet (write_file creating it) is resolved through its parent folder.
+pub fn canonical(path: &Path) -> Option<PathBuf> {
+    let resolved = match std::fs::canonicalize(path) {
+        Ok(p) => p,
+        Err(_) => std::fs::canonicalize(path.parent()?).ok()?.join(path.file_name()?),
+    };
+    let s = resolved.to_string_lossy().to_string();
+    Some(PathBuf::from(if cfg!(windows) { s.to_lowercase() } else { s }))
+}
+
+/// write_file's target as `tools::describe` writes it: "<path> (N chars, overwrite|append)".
+pub fn write_target_path(target: &str) -> Option<PathBuf> {
+    let path = target.rsplit_once(" (").map(|(p, _)| p).unwrap_or(target).trim();
+    let p = PathBuf::from(path);
+    p.is_absolute().then_some(p)
+}
+
+/// The rule "Permitir siempre" would create for this call, or None when no
+/// standing approval is allowed (a shell, or a write without a usable path).
+pub fn rule_for(who: &str, tool: &str, target: &str, ttl: Option<Duration>) -> Option<AllowRule> {
+    if never_always(tool) {
+        return None;
+    }
+    let scope = if WRITE_TOOLS.contains(&tool) {
+        let file = canonical(&write_target_path(target)?)?;
+        RuleScope::Folder(file.parent()?.to_path_buf())
+    } else {
+        RuleScope::Tool
+    };
+    Some(AllowRule { who: who.to_string(), tool: tool.to_string(), scope, expires: ttl.map(|d| Instant::now() + d) })
+}
+
+/// Pure check, for tests and for `allowed_by_rule`.
+pub fn rule_covers(rule: &AllowRule, who: &str, tool: &str, target: &str, now: Instant) -> bool {
+    if rule.who != who || rule.tool != tool || never_always(tool) {
+        return false;
+    }
+    if rule.expires.is_some_and(|t| now >= t) {
+        return false;
+    }
+    match &rule.scope {
+        RuleScope::Tool => true,
+        // Component-wise prefix: C:\a\b covers C:\a\b\c.txt, not C:\a\bc\x.txt.
+        RuleScope::Folder(dir) => write_target_path(target)
+            .and_then(|p| canonical(&p))
+            .is_some_and(|file| file.starts_with(dir)),
+    }
+}
+
+/// Drops expired rules (logging them) and reports whether one covers this call.
+pub fn allowed_by_rule(who: &str, tool: &str, target: &str) -> bool {
+    let now = Instant::now();
+    let mut rules = RULES.lock().unwrap();
+    rules.retain(|r| {
+        let alive = r.expires.is_none_or(|t| now < t);
+        if !alive {
+            log::line(format!("policy allow-rule expired {}", r.describe()));
+        }
+        alive
+    });
+    match rules.iter().find(|r| rule_covers(r, who, tool, target, now)) {
+        Some(r) => {
+            log::line(format!("policy allow-rule used {} target={}", r.describe(), audit_target(target)));
+            true
+        }
+        None => false,
+    }
+}
+
+/// The owner answered "always…". Decisions: `always` (1 h), `always-session`
+/// (until restart). Returns false when no rule may be made (the call itself is
+/// still allowed once).
+pub fn remember_always(who: &str, tool: &str, target: &str, decision: &str) -> bool {
+    let ttl = if decision == "always-session" { None } else { Some(RULE_TTL) };
+    match rule_for(who, tool, target, ttl) {
+        Some(rule) => {
+            log::line(format!("policy allow-rule added {}", rule.describe()));
+            RULES.lock().unwrap().push(rule);
+            true
+        }
+        None => {
+            log::line(format!("policy allow-rule refused who={who} tool={tool} (never for shells / no folder) — allowed once"));
+            false
+        }
+    }
 }
 
 pub fn audit(tool: &str, verdict: &str, target: &str) {
@@ -275,8 +418,8 @@ pub async fn approve(app: &AppHandle, tool: &str, target: &str) -> bool {
 /// Same, with the full text under review (a skill's code, a diff) shown in a
 /// scrollable box on the card. "Always" is never offered for these.
 pub async fn approve_with_detail(app: &AppHandle, tool: &str, target: &str, detail: Option<&str>) -> bool {
-    if detail.is_none() && ALWAYS.lock().unwrap().contains(tool) {
-        audit(tool, "allowed (always)", target);
+    if detail.is_none() && allowed_by_rule(MOCHI, tool, target) {
+        audit(tool, "allowed (rule)", target);
         return true;
     }
     let id = format!("assistant-{}", COUNTER.fetch_add(1, Ordering::Relaxed));
@@ -290,7 +433,7 @@ pub async fn approve_with_detail(app: &AppHandle, tool: &str, target: &str, deta
             "tool": tool,
             "command": target,
             "detail": detail,
-            "allowAlways": detail.is_none(),
+            "allowAlways": detail.is_none() && !never_always(tool),
         }),
     );
 
@@ -304,9 +447,9 @@ pub async fn approve_with_detail(app: &AppHandle, tool: &str, target: &str, deta
             audit(tool, "allowed", target);
             true
         }
-        Some("always") if detail.is_none() => {
-            ALWAYS.lock().unwrap().insert(tool.to_string());
-            audit(tool, "allowed (always from now on)", target);
+        Some(d @ ("always" | "always-session")) if detail.is_none() => {
+            let made = remember_always(MOCHI, tool, target, d);
+            audit(tool, if made { "allowed (rule added)" } else { "allowed (once; no rule for this tool)" }, target);
             true
         }
         Some(_) => {
@@ -334,7 +477,51 @@ async fn wait(rx: &mut mpsc::Receiver<Reply>, timeout: Duration) -> Option<Strin
 
 #[cfg(test)]
 mod tests {
-    use super::{audit_target, redact};
+    use super::*;
+
+    fn tmpdir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("coucou-policy-{tag}-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("sub")).unwrap();
+        d
+    }
+
+    #[test]
+    fn shells_never_get_a_rule() {
+        assert!(rule_for(MOCHI, "run_powershell", "Get-ChildItem", Some(RULE_TTL)).is_none());
+        assert!(rule_for("bot-a", "Shell", "ls", None).is_none());
+        let forged = AllowRule { who: MOCHI.into(), tool: "run_powershell".into(), scope: RuleScope::Tool, expires: None };
+        assert!(!rule_covers(&forged, MOCHI, "run_powershell", "x", Instant::now()));
+    }
+
+    #[test]
+    fn folder_rules_cover_the_folder_only() {
+        let d = tmpdir("folder");
+        let target = |p: &Path| format!("{} (10 chars, overwrite)", p.display());
+        let rule = rule_for(MOCHI, "write_file", &target(&d.join("a.txt")), Some(RULE_TTL)).unwrap();
+        let now = Instant::now();
+        assert!(rule_covers(&rule, MOCHI, "write_file", &target(&d.join("new.txt")), now));
+        assert!(rule_covers(&rule, MOCHI, "write_file", &target(&d.join("sub").join("b.txt")), now));
+        assert!(!rule_covers(&rule, MOCHI, "write_file", &target(&d.parent().unwrap().join("x.txt")), now));
+        let sibling = PathBuf::from(format!("{}x", d.display())).join("y.txt");
+        assert!(!rule_covers(&rule, MOCHI, "write_file", &target(&sibling), now), "prefix is per component");
+        let detour = d.join("sub").join("..").join("..").join("escape.txt");
+        assert!(!rule_covers(&rule, MOCHI, "write_file", &target(&detour), now), "canonicalized");
+        assert!(!rule_covers(&rule, "bot-a", "write_file", &target(&d.join("a.txt")), now), "never across callers");
+        assert!(rule_for(MOCHI, "write_file", "relative.txt (1 chars, append)", None).is_none());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn tool_rules_are_per_caller_and_expire() {
+        let rule = rule_for("bot-ventas", "open_url", "https://example.com", Some(Duration::from_secs(60))).unwrap();
+        let now = Instant::now();
+        assert!(rule_covers(&rule, "bot-ventas", "open_url", "https://other.example", now));
+        assert!(!rule_covers(&rule, "bot-otro", "open_url", "https://example.com", now));
+        assert!(!rule_covers(&rule, "bot-ventas", "open_app", "notepad", now));
+        assert!(!rule_covers(&rule, "bot-ventas", "open_url", "x", now + Duration::from_secs(61)));
+        let forever = rule_for(MOCHI, "clipboard_write", "x", None).unwrap();
+        assert!(rule_covers(&forever, MOCHI, "clipboard_write", "y", now + Duration::from_secs(86_400)));
+    }
 
     #[test]
     fn authorization_header_keeps_the_name() {

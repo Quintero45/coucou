@@ -5,11 +5,14 @@
 
 import { Bridge, type AttachmentIn } from "./bridge";
 import { State } from "./state";
+import { cmdErrorText } from "./botcmds";
 
 export type PendingAttachment =
   | { key: string; kind: "file"; id: string; name: string; mime: string; size: number }
   | { key: string; kind: "text"; name: string; mime: string; text: string; size: number }
-  | { key: string; kind: "image"; name: string; mime: string; base64: string; size: number };
+  | { key: string; kind: "image"; name: string; mime: string; base64: string; size: number }
+  /** A piece of captured context (window, selection, clipboard): goes inside the message text. */
+  | { key: string; kind: "note"; name: string; text: string; size: number };
 
 type NewAttachment = PendingAttachment extends infer A ? (A extends PendingAttachment ? Omit<A, "key"> : never) : never;
 
@@ -55,6 +58,7 @@ export const Outbox = {
 /** What grokbot_send receives: inbox files by id, pasted things inline. */
 export function toWire(a: PendingAttachment): AttachmentIn {
   if (a.kind === "file") return { id: a.id };
+  if (a.kind === "note") return { name: a.name, mime: "text/plain", text: a.text };
   if (a.kind === "text") return { name: a.name, mime: a.mime, text: a.text };
   return { name: a.name, mime: a.mime, base64: a.base64 };
 }
@@ -136,5 +140,36 @@ export function handleBotPaste(e: ClipboardEvent, slug: string) {
       text,
       size: new Blob([text]).size,
     });
+  }
+}
+
+/**
+ * "Contexto": asks Rust what is on screen (capture_context sends nothing) and
+ * lays it out as chips in the Bot's tray — the screenshot as a file, the
+ * window, selection and clipboard as notes — for the owner to review, trim or
+ * pull into the box before sending.
+ */
+export async function attachContext(slug: string): Promise<string | null> {
+  Outbox.setNotice(slug, "Capturando el contexto…");
+  try {
+    const c = await Bridge.captureContext().catch((err: unknown) => {
+      throw new Error(cmdErrorText(err));
+    });
+    Outbox.setNotice(slug, null);
+    const note = (name: string, text: string | null | undefined) => {
+      const t = (text ?? "").trim();
+      if (t) Outbox.add(slug, { kind: "note", name, text: t, size: new Blob([t]).size });
+    };
+    const win = [c.window_title, c.process_name ? `(${c.process_name})` : ""].filter(Boolean).join(" ");
+    note("Ventana", win);
+    note("Texto seleccionado", c.selected_text);
+    note("Portapapeles", c.clipboard_text);
+    const shot = c.screenshot;
+    if (shot?.id) Outbox.add(slug, { kind: "file", id: shot.id, name: shot.name, mime: shot.mime, size: shot.size });
+    return null;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    Outbox.setNotice(slug, `Contexto: ${msg}`);
+    return msg;
   }
 }

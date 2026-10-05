@@ -24,6 +24,9 @@ tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "pr
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [target.'cfg(windows)'.dependencies]
+# Voice and meetings (voice.rs, meeting.rs): WASAPI capture incl. loopback, WAV playback.
+cpal = "0.15"
+rodio = { version = "0.20", default-features = false, features = ["wav"] }
 keyring = { version = "3", features = ["windows-native"] }
 windows = { version = "0.61", features = [
   "Win32_Foundation",

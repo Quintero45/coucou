@@ -3,6 +3,8 @@
 
 import "./settings.css";
 import { assistantSection, connectionsSection, coreSection, grokBotsSection, skillsSection } from "./assistant";
+import { voiceSection } from "./voice";
+import { saveSettingsMerged } from "../core/savesettings";
 import { Bridge, onEvent, type HookStatus, type HookTarget } from "../core/bridge";
 import { AGENT_PILLS, DEFAULT_SETTINGS, isHiddenAgent, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
@@ -13,7 +15,7 @@ let version = "";
 const root = document.getElementById("settings-root")!;
 
 async function save() {
-  await Bridge.saveSettings(settings);
+  await saveSettingsMerged(settings);
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
@@ -515,6 +517,7 @@ async function main() {
     h("h1", {}, h("span", { text: "Coucou" }), h("span", { class: "version", text: version })),
     assistant,
     bots,
+    voiceSection(settings.grokBots, settings.voices ?? {}, { get: () => settings, save }),
     connections,
     skills,
     ...shownAgents.map((def, i) => hooksSection(def, statuses[i])),

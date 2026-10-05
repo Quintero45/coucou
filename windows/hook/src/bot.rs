@@ -6,6 +6,13 @@
 //! error, ask/pregunta. `ask` waits for Allow / Deny in the island and prints
 //! `allow`, `deny` or `sin-respuesta` (exit codes 0, 1, 2) so the Bot knows
 //! what the owner decided. Every other status is fire-and-forget.
+//!
+//! Cards on the pill:
+//! - `coucou-hook --step "<text>" --bot <name>`: a progress step (fire and
+//!   forget, exit 0). The app redacts it and keeps ~200 characters.
+//! - `coucou-hook --attach <path> --bot <name> [--caption "<text>"]`: a file
+//!   card. The app checks the file exists; prints `ok` (exit 0), or the reason
+//!   on stderr (exit 1); exit 2 when Coucou is not running.
 
 use std::sync::mpsc;
 
@@ -86,9 +93,125 @@ fn parse(args: &[String]) -> Option<Result<BotArgs, String>> {
     Some(Ok(BotArgs { name: name.trim().to_string(), status, message }))
 }
 
+#[derive(Debug, PartialEq)]
+enum Card {
+    Step { name: String, text: String },
+    Attach { name: String, path: String, caption: Option<String> },
+}
+
+/// `--step` / `--attach` calls. None when neither flag is present.
+fn parse_card(args: &[String]) -> Option<Result<Card, String>> {
+    let has = |f: &str| args.iter().any(|a| a == f);
+    if !has("--step") && !has("--attach") {
+        return None;
+    }
+    if has("--step") && has("--attach") {
+        return Some(Err("usa --step o --attach, no los dos".into()));
+    }
+    let mut name = None;
+    let mut step = None;
+    let mut path = None;
+    let mut caption = None;
+    let mut words = Vec::new();
+    let mut it = args.iter();
+    while let Some(arg) = it.next() {
+        match arg.as_str() {
+            "--bot" => name = it.next().cloned(),
+            "--step" => step = it.next().cloned(),
+            "--attach" => path = it.next().cloned(),
+            "--caption" => caption = it.next().cloned(),
+            // A status means nothing on a card; do not let it leak into the text.
+            "--status" => {
+                it.next();
+            }
+            _ => words.push(arg.clone()),
+        }
+    }
+    let name = name.unwrap_or_default().trim().to_string();
+    if slug(&name).is_empty() {
+        return Some(Err("falta el nombre del Bot: --bot \"Nombre\"".into()));
+    }
+    if let Some(first) = step {
+        // An unquoted step arrives as several words: keep them all.
+        let mut all = vec![first];
+        all.extend(words);
+        let text: String = all.join(" ").trim().chars().take(2000).collect();
+        if text.is_empty() {
+            return Some(Err("--step necesita un texto".into()));
+        }
+        return Some(Ok(Card::Step { name, text }));
+    }
+    let path = path.unwrap_or_default().trim().to_string();
+    if path.is_empty() {
+        return Some(Err("--attach necesita la ruta del archivo".into()));
+    }
+    let caption = caption.map(|c| c.trim().chars().take(2000).collect::<String>()).filter(|c| !c.is_empty());
+    Some(Ok(Card::Attach { name, path, caption }))
+}
+
+fn card_payload(card: &Card) -> serde_json::Value {
+    match card {
+        Card::Step { name, text } => json!({
+            "coucou_kind": "bot_step",
+            "coucou_agent": format!("bot-{}", slug(name)),
+            "coucou_bot": name,
+            "text": text,
+        }),
+        Card::Attach { name, path, caption } => {
+            // The app wants an absolute path; resolve a relative one here, where
+            // the working directory is the Bot's.
+            let abs = std::path::absolute(path).map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| path.clone());
+            let mut v = json!({
+                "coucou_kind": "bot_attach",
+                "coucou_agent": format!("bot-{}", slug(name)),
+                "coucou_bot": name,
+                "path": abs,
+            });
+            if let Some(c) = caption {
+                v["caption"] = json!(c);
+            }
+            v
+        }
+    }
+}
+
+fn run_card(card: Card) -> i32 {
+    let waits = matches!(card, Card::Attach { .. });
+    let mut line = card_payload(&card).to_string();
+    line.push('\n');
+    let (tx, rx) = mpsc::channel::<Option<String>>();
+    std::thread::spawn(move || {
+        let _ = tx.send(talk(&line, waits));
+    });
+    let answer = rx.recv_timeout(FIRE_AND_FORGET_BUDGET + std::time::Duration::from_secs(1)).ok().flatten();
+    if !waits {
+        return 0;
+    }
+    let Some(answer) = answer else {
+        eprintln!("coucou-hook: Coucou no respondió (¿está abierto?)");
+        return 2;
+    };
+    let v: serde_json::Value = serde_json::from_str(answer.trim()).unwrap_or_default();
+    if v["ok"] == json!(true) {
+        println!("ok");
+        0
+    } else {
+        eprintln!("coucou-hook: {}", v["error"].as_str().unwrap_or("Coucou rechazó el archivo"));
+        1
+    }
+}
+
 /// None when this is not a `--bot` call; otherwise the process exit code.
 pub fn run() -> Option<i32> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    match parse_card(&args) {
+        Some(Ok(card)) => return Some(run_card(card)),
+        Some(Err(e)) => {
+            eprintln!("coucou-hook: {e}");
+            return Some(64);
+        }
+        None => {}
+    }
     let bot = match parse(&args)? {
         Ok(b) => b,
         Err(e) => {
@@ -165,6 +288,45 @@ mod tests {
         assert_eq!(b.message, "Terminé el informe");
         let b = parse(&args(&["--bot", "Ventas", "Revisando", "correos"])).unwrap().unwrap();
         assert_eq!(b.status, "working");
+    }
+
+    #[test]
+    fn parses_steps() {
+        let c = parse_card(&args(&["--step", "Leyendo correos", "--bot", "Ventas"])).unwrap().unwrap();
+        assert_eq!(c, Card::Step { name: "Ventas".into(), text: "Leyendo correos".into() });
+        let c = parse_card(&args(&["--bot", "Ventas", "--step", "Leyendo", "correos"])).unwrap().unwrap();
+        assert_eq!(c, Card::Step { name: "Ventas".into(), text: "Leyendo correos".into() });
+        let v = card_payload(&c);
+        assert_eq!(v["coucou_kind"], "bot_step");
+        assert_eq!(v["coucou_agent"], "bot-ventas");
+        assert_eq!(v["text"], "Leyendo correos");
+        assert!(parse_card(&args(&["--bot", "Ventas", "hola"])).is_none(), "a plain status call");
+    }
+
+    #[test]
+    fn parses_attachments() {
+        let c = parse_card(&args(&["--attach", "C:\\x\\informe.pdf", "--bot", "Ventas", "--caption", "El informe"]))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            c,
+            Card::Attach { name: "Ventas".into(), path: "C:\\x\\informe.pdf".into(), caption: Some("El informe".into()) }
+        );
+        let v = card_payload(&c);
+        assert_eq!(v["coucou_kind"], "bot_attach");
+        assert_eq!(v["caption"], "El informe");
+        let c = parse_card(&args(&["--bot", "V", "--attach", "informe.pdf"])).unwrap().unwrap();
+        let v = card_payload(&c);
+        assert!(std::path::Path::new(v["path"].as_str().unwrap()).is_absolute(), "relative paths are resolved");
+        assert!(v.get("caption").is_none());
+    }
+
+    #[test]
+    fn rejects_bad_cards() {
+        assert!(parse_card(&args(&["--step", "x"])).unwrap().is_err(), "no bot");
+        assert!(parse_card(&args(&["--bot", "V", "--step"])).unwrap().is_err(), "no text");
+        assert!(parse_card(&args(&["--bot", "V", "--attach"])).unwrap().is_err(), "no path");
+        assert!(parse_card(&args(&["--bot", "V", "--step", "a", "--attach", "b"])).unwrap().is_err());
     }
 
     #[test]

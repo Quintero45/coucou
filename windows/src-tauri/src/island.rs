@@ -257,6 +257,83 @@ impl DragWatch {
     }
 }
 
+/// Island sizes from src/core/layout.ts: anything this wide and tall is the
+/// expanded panel (the notch is 184×32, compact 288×32, expanded 640 wide).
+const EXPANDED_MIN_W: f64 = 400.0;
+const EXPANDED_MIN_H: f64 = 60.0;
+/// A click this soon after the panel opened is the click that opened it.
+const OUTSIDE_CLICK_GRACE_MS: u64 = 300;
+/// A press that travels farther than this is a drag, not a click.
+const OUTSIDE_CLICK_SLOP: f64 = 10.0;
+
+pub(crate) fn looks_expanded(r: &IslandRect) -> bool {
+    r.w >= EXPANDED_MIN_W && r.h >= EXPANDED_MIN_H
+}
+
+/// One poll tick, as seen by [`OutsideClick`].
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ClickTick {
+    pub now_ms: u64,
+    pub expanded: bool,
+    /// Left or right button held.
+    pub down: bool,
+    pub x: f64,
+    pub y: f64,
+    pub on_island: bool,
+    /// A drag is being watched (drag-hover sent) or the drag overlay is up.
+    pub dragging: bool,
+    pub approval_pending: bool,
+}
+
+/// Click outside the expanded island → fold it. The island never takes focus
+/// (WS_EX_NOACTIVATE), so a lost-focus event cannot tell us; the poll thread
+/// watches the buttons instead. A click counts when it is pressed and released
+/// outside the island shape without travelling, at least
+/// `OUTSIDE_CLICK_GRACE_MS` after the panel opened, with no drag in progress
+/// and nothing waiting for the owner's answer.
+#[derive(Default)]
+pub(crate) struct OutsideClick {
+    was_down: bool,
+    press: Option<(f64, f64)>,
+    opened_at: Option<u64>,
+}
+
+impl OutsideClick {
+    /// True when this tick completes an outside click.
+    pub fn tick(&mut self, t: ClickTick) -> bool {
+        let was_down = std::mem::replace(&mut self.was_down, t.down);
+        if !t.expanded {
+            self.opened_at = None;
+            self.press = None;
+            return false;
+        }
+        let opened_at = *self.opened_at.get_or_insert(t.now_ms);
+        if t.down && !was_down {
+            let settled = t.now_ms.saturating_sub(opened_at) >= OUTSIDE_CLICK_GRACE_MS;
+            self.press = (settled && !t.on_island && !t.dragging).then_some((t.x, t.y));
+            return false;
+        }
+        if t.down {
+            if let Some((px, py)) = self.press {
+                let moved = (t.x - px).abs() > OUTSIDE_CLICK_SLOP || (t.y - py).abs() > OUTSIDE_CLICK_SLOP;
+                if moved || t.on_island || t.dragging {
+                    self.press = None;
+                }
+            }
+            return false;
+        }
+        if was_down {
+            return self.press.take().is_some() && !t.approval_pending && !t.dragging && !t.on_island;
+        }
+        false
+    }
+}
+
+#[derive(Serialize, Clone)]
+pub struct IslandClosePayload {
+    pub reason: &'static str,
+}
+
 /// Window origin (physical), scale and logical size, plus the cursor in
 /// window-logical px.
 fn cursor_in_window(win: &WebviewWindow) -> Option<(f64, f64, (f64, f64))> {
@@ -345,6 +422,8 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
             }
             let mut last = (f64::MIN, f64::MIN);
             let mut ticks: u32 = 0;
+            let mut outside = OutsideClick::default();
+            let started = std::time::Instant::now();
             while gate.is_active() {
                 std::thread::sleep(Duration::from_millis(period));
                 // Folded while asleep: decide nothing from a window that has just
@@ -359,6 +438,8 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
                 // is already running, so this costs one monitor query.
                 ticks = ticks.wrapping_add(1);
                 if ticks % screen_every == 0 {
+                    // Whose window the owner is in, for capture_context.
+                    crate::context::remember_foreground();
                     let now = current_screen_key(&app);
                     if now.is_some() && now != last_screen {
                         let first = last_screen.is_none();
@@ -376,10 +457,10 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
 
                 let was_down = drag.was_down;
                 let (down, pressed_now) = drag.button(over_window);
-                if (x - last.0).abs() < 1.0 && (y - last.1).abs() < 1.0 && down == was_down {
-                    continue;
-                }
-                last = (x, y);
+                #[cfg(windows)]
+                let right_down = platform::right_button_down();
+                #[cfg(not(windows))]
+                let right_down = false;
 
                 // Click-through: the window only takes the mouse over the island
                 // shape. A small entry margin means the flag is already off by the
@@ -390,6 +471,44 @@ pub fn spawn_cursor_poll(app: AppHandle, gate: Arc<PollGate>) {
                     && x <= r.x + r.w + HIT_MARGIN
                     && y >= r.y - HIT_MARGIN
                     && y <= r.y + r.h + HIT_MARGIN;
+
+                // Before the "nothing moved" shortcut: a click is a button change
+                // with the cursor still.
+                #[cfg(windows)]
+                let overlay_up = platform::drag_overlay_visible();
+                #[cfg(not(windows))]
+                let overlay_up = false;
+                let any_down = down || right_down;
+                let expanded = looks_expanded(&r);
+                // Only consult the pending map on a release that might close.
+                let releasing = !any_down && outside.was_down && outside.press.is_some();
+                let closes = outside.tick(ClickTick {
+                    now_ms: started.elapsed().as_millis() as u64,
+                    expanded,
+                    down: any_down,
+                    x,
+                    y,
+                    on_island,
+                    dragging: drag.over || overlay_up,
+                    approval_pending: releasing && crate::pipe::approval_pending(&app),
+                });
+                if closes {
+                    crate::log::line("island close reason=outside-click".to_string());
+                    // The fold itself is the page's: the same `shortcut` "toggle"
+                    // the global shortcut sends, which main.ts turns into
+                    // island.collapse() when expanded (only fired while the
+                    // shape is the expanded panel). `island-close` names the
+                    // reason for a listener that wants it.
+                    let _ = app.emit_to(WINDOW_LABEL, "shortcut", "toggle");
+                    let _ = app.emit_to(WINDOW_LABEL, "island-close", IslandClosePayload { reason: "outside-click" });
+                } else if releasing && expanded {
+                    crate::log::line("island stays open: outside click while an approval is pending or a drag is active".to_string());
+                }
+
+                if (x - last.0).abs() < 1.0 && (y - last.1).abs() < 1.0 && down == was_down {
+                    continue;
+                }
+                last = (x, y);
 
                 // A file being dragged has to be able to find us. WS_EX_TRANSPARENT
                 // — what click-through is on Windows — hides the window from
@@ -561,5 +680,99 @@ pub fn refresh_click_through(app: &AppHandle, gate: &PollGate) {
 pub fn set_ignore_cursor(app: &AppHandle, ignore: bool) {
     if let Some(win) = window(app) {
         let _ = win.set_ignore_cursor_events(ignore);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn t(now_ms: u64, down: bool, x: f64, y: f64, on_island: bool) -> ClickTick {
+        ClickTick { now_ms, expanded: true, down, x, y, on_island, dragging: false, approval_pending: false }
+    }
+
+    /// Opens at `t0`, then a press and release outside at `at`.
+    fn click(o: &mut OutsideClick, at: u64, edit: impl Fn(&mut ClickTick)) -> bool {
+        let mut ticks = [t(at, true, 10.0, 300.0, false), t(at + 16, true, 12.0, 301.0, false), t(at + 32, false, 12.0, 301.0, false)];
+        for k in ticks.iter_mut() {
+            edit(k);
+        }
+        ticks.iter().map(|k| o.tick(*k)).last().unwrap()
+    }
+
+    fn opened() -> OutsideClick {
+        let mut o = OutsideClick::default();
+        assert!(!o.tick(t(0, false, 0.0, 0.0, false)));
+        o
+    }
+
+    #[test]
+    fn an_outside_click_closes() {
+        let mut o = opened();
+        assert!(click(&mut o, 1000, |_| {}));
+        // Right button too: the tick only sees "a button is down".
+        assert!(click(&mut o, 2000, |_| {}));
+    }
+
+    #[test]
+    fn not_right_after_opening() {
+        let mut o = opened();
+        assert!(!click(&mut o, 100, |_| {}));
+        assert!(click(&mut o, 400, |_| {}));
+    }
+
+    #[test]
+    fn clicks_on_the_island_do_not_close() {
+        let mut o = opened();
+        assert!(!click(&mut o, 1000, |k| k.on_island = true));
+    }
+
+    #[test]
+    fn not_while_an_approval_is_pending() {
+        let mut o = opened();
+        assert!(!click(&mut o, 1000, |k| k.approval_pending = true));
+    }
+
+    #[test]
+    fn not_during_a_drag() {
+        let mut o = opened();
+        assert!(!click(&mut o, 1000, |k| k.dragging = true));
+        // The drag starts after the press (file picked up outside).
+        let mut o = opened();
+        o.tick(t(1000, true, 10.0, 300.0, false));
+        o.tick(ClickTick { dragging: true, ..t(1016, true, 11.0, 300.0, false) });
+        assert!(!o.tick(t(1032, false, 11.0, 300.0, false)));
+    }
+
+    #[test]
+    fn a_press_that_travels_is_not_a_click() {
+        let mut o = opened();
+        o.tick(t(1000, true, 10.0, 300.0, false));
+        o.tick(t(1016, true, 40.0, 300.0, false));
+        assert!(!o.tick(t(1032, false, 40.0, 300.0, false)));
+    }
+
+    #[test]
+    fn folded_island_never_closes() {
+        let mut o = OutsideClick::default();
+        assert!(!click(&mut o, 5000, |k| k.expanded = false));
+        // Opening restarts the grace period.
+        assert!(!click(&mut o, 6000, |_| {}), "the first tick of an expanded island is its opening");
+        assert!(click(&mut o, 6400, |_| {}));
+    }
+
+    #[test]
+    fn a_press_held_from_before_opening_does_not_count() {
+        let mut o = OutsideClick::default();
+        o.tick(ClickTick { expanded: false, ..t(0, true, 10.0, 300.0, false) });
+        o.tick(t(500, true, 10.0, 300.0, false));
+        assert!(!o.tick(t(516, false, 10.0, 300.0, false)));
+    }
+
+    #[test]
+    fn expanded_means_the_big_panel() {
+        assert!(!looks_expanded(&IslandRect { x: 0.0, y: 0.0, w: 184.0, h: 32.0 }));
+        assert!(!looks_expanded(&IslandRect { x: 0.0, y: 0.0, w: 288.0, h: 32.0 }));
+        assert!(looks_expanded(&IslandRect { x: 0.0, y: 0.0, w: 640.0, h: 220.0 }));
     }
 }

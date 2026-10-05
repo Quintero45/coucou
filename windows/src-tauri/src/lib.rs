@@ -1,7 +1,9 @@
 // Coucou for Windows — app wiring and the commands the island calls.
 
 mod agent;
+mod botcards;
 mod claude;
+mod context;
 mod cursor;
 mod files;
 mod grokbot;
@@ -11,6 +13,7 @@ mod island;
 mod keyhold;
 mod log;
 mod mcp;
+mod meeting;
 mod memory;
 mod pipe;
 mod platform;
@@ -22,6 +25,7 @@ mod settings;
 mod shortcuts;
 mod tools;
 mod tray;
+mod voice;
 
 use std::process::Command;
 use std::sync::atomic::Ordering;
@@ -127,6 +131,10 @@ fn set_island_rect(app: AppHandle, shared: State<Shared>, x: f64, y: f64, width:
 #[tauri::command]
 fn focus_window(app: AppHandle, focused: bool) {
     let Some(win) = island::window(&app) else { return };
+    if focused {
+        // The owner's window is still in front: remember it for capture_context.
+        context::remember_foreground();
+    }
     platform::set_activating(&win, focused);
     if focused {
         let _ = win.set_focus();
@@ -573,6 +581,8 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .plugin(shortcuts::plugin())
+        // Ends a screen share when the app quits (context.rs).
+        .plugin(context::exit_plugin())
         .manage(Shared {
             settings: Mutex::new(loaded.clone()),
             gate: gate.clone(),
@@ -624,6 +634,10 @@ pub fn run() {
             open_data_folder,
             ingest_file,
             ingest_files,
+            botcards::open_attachment,
+            context::capture_context,
+            context::start_screen_share,
+            context::stop_screen_share,
             secret_present,
             secret_set,
             secret_clear,
@@ -631,6 +645,18 @@ pub fn run() {
             open_n8n,
             open_settings_window,
             set_paused,
+            voice::speak,
+            voice::stop_speaking,
+            voice::list_voices,
+            voice::set_bot_voice,
+            voice::preview_voice,
+            voice::install_voice,
+            voice::set_tts_key,
+            voice::tts_key_status,
+            meeting::start_dictation,
+            meeting::stop_dictation,
+            meeting::start_meeting,
+            meeting::stop_meeting,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -666,6 +692,7 @@ pub fn run() {
             keyhold::start(handle.clone());
             pipe::start(handle.clone());
             integrations::start(handle.clone());
+            voice::resume_pending(handle.clone());
             Ok(())
         })
         .run(tauri::generate_context!())

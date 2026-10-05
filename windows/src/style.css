@@ -2321,3 +2321,404 @@ input[type="range"]::-webkit-slider-thumb {
     transform: none;
   }
 }
+
+/* ── Grok Bots, second batch: live steps, files back, voice, meeting, screen ──
+   Live step line, file cards, the conversation's tools, the answer toast and
+   the notch's meeting / screen-share marks. */
+
+/* The live step replaces "trabajando" under a working Bot's name. */
+.pill .pill-state {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.pill-step {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bot-card-md .md p {
+  margin: 0;
+}
+
+.bot-card-md,
+.title.bot-reply-msg .md {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bot-detail-bubble .md p {
+  margin: 0 0 4px;
+}
+
+.bot-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bot-speak {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--dim-3);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.bot-speak:hover,
+.bot-speak.on {
+  color: var(--bot);
+  background: color-mix(in srgb, var(--bot) 18%, transparent);
+}
+
+/* Live step: dots + the latest step, grey, at the end of the timeline. */
+.bot-detail-live {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.bot-detail-live .bot-detail-typing {
+  align-self: center;
+  padding: 5px 8px;
+}
+
+.bot-detail-live-text {
+  font: 400 10.5px var(--font);
+  color: #aeb2b9;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.bot-detail-step.transcript {
+  color: #c3c6cc;
+}
+
+.bot-detail-step.transcript .bot-detail-perm-kind {
+  flex: 0 0 auto;
+}
+
+/* A file the Bot sent back (or a meeting transcript). */
+.bot-detail-file {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 85%;
+  padding: 6px 10px 6px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bot) 12%, rgba(255, 255, 255, 0.04));
+  border: 1px solid color-mix(in srgb, var(--bot) 35%, transparent);
+  cursor: pointer;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+.bot-detail-file:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--bot) 25%, transparent);
+}
+
+.bot-detail-file-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bot) 25%, transparent);
+  color: var(--bot);
+  flex: 0 0 auto;
+}
+
+.bot-detail-file-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font: 400 9.5px var(--font);
+  color: var(--dim-3);
+}
+
+.bot-detail-file-body b {
+  font: 600 11px var(--font);
+  color: var(--ink);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bot-detail-file .time {
+  font: 400 9.5px var(--font);
+  color: var(--dim-3);
+  margin-left: 4px;
+}
+
+/* Conversation tools: context + microphone in the box, meeting + screen up top. */
+.bot-detail-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.bot-tool {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--dim-2);
+  cursor: pointer;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-bottom: 1px;
+  transition: color 0.15s, background 0.15s, transform 0.12s;
+  touch-action: none;
+}
+
+.bot-tool:hover:not(:disabled) {
+  color: var(--bot);
+  background: color-mix(in srgb, var(--bot) 18%, transparent);
+}
+
+.bot-tool:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.bot-tool:disabled,
+.bot-tool-pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bot-tool.live {
+  color: #fff;
+  background: #f4505e;
+  animation: notch-pulse 1.2s ease-in-out infinite;
+}
+
+.bot-tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--dim-2);
+  font: 600 9.5px var(--font);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.bot-tool-pill:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--bot) 50%, transparent);
+}
+
+.bot-tool-pill.on {
+  color: #fff;
+  border-color: #f4505e;
+  background: rgba(244, 80, 94, 0.25);
+}
+
+.bot-switch {
+  width: 18px;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.18);
+  position: relative;
+  transition: background 0.15s;
+}
+
+.bot-switch::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.bot-switch.on {
+  background: #22c55e;
+}
+
+.bot-switch.on::after {
+  transform: translateX(8px);
+}
+
+.bot-tool-pill:has(.bot-switch.on) {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.18);
+  color: #fff;
+}
+
+.bot-chip.note {
+  cursor: pointer;
+  border-style: dashed;
+}
+
+/* ── Answer toast next to the notch ─────────────────────────────────────── */
+
+#bot-toast {
+  --bot: #8e939c;
+  position: absolute;
+  left: 50%;
+  top: 40px;
+  width: 300px;
+  box-sizing: border-box;
+  display: none;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: #0b0c0e;
+  border: 1px solid color-mix(in srgb, var(--bot) 60%, transparent);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 14px color-mix(in srgb, var(--bot) 25%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
+#bot-toast.on {
+  display: flex;
+  animation: bot-toast-in 0.28s cubic-bezier(0.3, 1.2, 0.4, 1) backwards;
+}
+
+.bot-toast-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--bot);
+  box-shadow: 0 0 6px var(--bot);
+  flex: 0 0 auto;
+}
+
+.bot-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bot-toast-name {
+  font: 600 11.5px var(--font);
+  color: var(--bot);
+}
+
+.bot-toast-text {
+  font: 400 11.5px/1.35 var(--font);
+  color: #d5d7db;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@keyframes bot-toast-in {
+  from { opacity: 0; transform: translate(-50%, -6px) scale(0.97); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+
+/* ── Notch marks: meeting (red, pulsing) and screen sharing ─────────────── */
+
+#island.meeting-live {
+  box-shadow: 0 0 0 1.5px #f4505e;
+  animation: notch-pulse 1.6s ease-in-out infinite;
+}
+
+#island.sharing-live:not(.meeting-live) {
+  box-shadow: 0 0 0 1.5px #22c55e;
+}
+
+@keyframes notch-pulse {
+  0%, 100% { box-shadow: 0 0 0 1.5px #f4505e, 0 0 0 0 rgba(244, 80, 94, 0.5); }
+  50% { box-shadow: 0 0 0 1.5px #f4505e, 0 0 10px 2px rgba(244, 80, 94, 0.45); }
+}
+
+#notch-live {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  font: 600 8.5px var(--font);
+  color: #fff;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.notch-rec,
+.notch-rec-time {
+  display: none;
+}
+
+#island.meeting-live .notch-rec {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f4505e;
+  animation: notch-dot 1.2s ease-in-out infinite;
+}
+
+#island.meeting-live .notch-rec-time {
+  display: inline;
+  font-variant-numeric: tabular-nums;
+}
+
+.notch-share {
+  display: none;
+  color: #22c55e;
+}
+
+#island.sharing-live .notch-share {
+  display: inline;
+}
+
+@keyframes notch-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bot-toast.on,
+  #island.meeting-live,
+  #island.meeting-live .notch-rec,
+  .bot-tool.live {
+    animation: none;
+  }
+  .bot-detail-file,
+  .bot-tool,
+  .bot-switch::after {
+    transition: none;
+  }
+}

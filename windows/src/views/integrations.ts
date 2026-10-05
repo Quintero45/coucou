@@ -9,7 +9,21 @@ import { ICONS } from "./icons";
 import { BOT_PREFIX, State, botPhase, type AgentTask } from "../core/state";
 import { DECISION_LABELS, type BotApproval } from "../core/botlog";
 import { BotChat, type BotChatEntry } from "../core/botchat";
-import { Outbox, formatSize, handleBotPaste } from "../core/attachments";
+import { Outbox, attachContext, formatSize, handleBotPaste } from "../core/attachments";
+import { BotLive } from "../core/botlive";
+import { CMD, callCmd, cmdErrorText, speak } from "../core/botcmds";
+import { renderMarkdown } from "./markdown";
+
+/** Small icons for the conversation's tools (24×24 paths, like ICONS). */
+const TOOL_ICONS = {
+  mic: "M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z",
+  meeting: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM9 13c-3 0-6 1.5-6 4v2h12v-2c0-2.5-3-4-6-4zm7 0c-.5 0-1 .05-1.5.13A4.6 4.6 0 0 1 17 17v2h4v-2c0-2.3-2.6-4-5-4z",
+  screen: "M3 5h18v11H3V5zm2 2v7h14V7H5zm3 11h8v2H8v-2z",
+  context: "M11 3h2v3h-2V3zm0 15h2v3h-2v-3zM3 11h3v2H3v-2zm15 0h3v2h-3v-2zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
+  speaker: "M4 9h4l5-4v14l-5-4H4V9zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z",
+  file: "M6 2h8l6 6v14H6V2zm7 1.5V9h5.5L13 3.5z",
+  image: "M4 5h16v14H4V5zm2 2v8l3.5-3.5 2.5 2.5 3-3L18 14V7H6zm3 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z",
+} as const;
 import { createMiniBot, pruneMiniBots } from "../mochi/minibots";
 import { Bridge } from "../core/bridge";
 
@@ -388,7 +402,9 @@ function botCard(task: AgentTask, hooks: IntegrationCardHooks): HTMLElement {
     { class: "int-card" },
     head,
     h("div", { class: "int-status" }, dot(color, 5),
-      h("span", { text: last ?? "En reposo. Toca la tarjeta para hablar con él." })),
+      task.lastMessage
+        ? h("span", { class: "bot-card-md" }, renderMarkdown(task.lastMessage))
+        : h("span", { text: last ?? "En reposo. Toca la tarjeta para hablar con él." })),
     h("div", { class: "int-actions" },
       h("button", { class: "link-btn", style: "color:#8e939c", text: "Ajustes…", onclick: hooks.openSettings }),
     ),
@@ -574,21 +590,30 @@ export function createBotReply(handlers: BotReplyHandlers): BotReply {
       input.placeholder = connected ? `Respóndele a ${task.name}…` : "Este bot aún no está conectado";
       sendBtn.disabled = !connected || sending;
       box.classList.toggle("off", !connected);
-      syncChips(chips, note, slug);
+      syncChips(chips, note, slug, (text) => {
+        input.value = input.value ? `${input.value}\n${text}` : text;
+        replyDrafts.set(taskId, input.value);
+        autosize();
+      });
     },
   };
 }
 
 /** The Bot's tray as chips (name, size, × to take it out) and its notice line. */
-function syncChips(row: HTMLElement, note: HTMLElement, slug: string) {
+function syncChips(row: HTMLElement, note: HTMLElement, slug: string, pull?: (text: string) => void) {
   const list = Outbox.list(slug);
   const k = `${slug}|${list.map((a) => a.key).join(",")}`;
   if (row.dataset.k !== k) {
     row.dataset.k = k;
     clear(row);
     for (const a of list) {
-      row.append(h("span", { class: `bot-chip ${a.kind}`, title: a.name },
-        h("span", { class: "bot-chip-name", text: a.name }),
+      // A context note can be pulled into the box to be edited before sending.
+      const preview = a.kind === "note" ? `${a.name}: ${a.text.replace(/\s+/g, " ").slice(0, 60)}` : a.name;
+      const chip = h("span", {
+        class: `bot-chip ${a.kind}`,
+        title: a.kind === "note" ? `${a.name}\n${a.text.slice(0, 400)}\n\n(Clic: pasarlo a la caja para editarlo)` : a.name,
+      },
+        h("span", { class: "bot-chip-name", text: preview }),
         h("span", { class: "bot-chip-size", text: formatSize(a.size) }),
         h("button", {
           class: "bot-chip-x",
@@ -597,7 +622,15 @@ function syncChips(row: HTMLElement, note: HTMLElement, slug: string) {
             e.stopPropagation();
             Outbox.remove(slug, [a.key]);
           },
-        }, "×")));
+        }, "×"));
+      if (a.kind === "note" && pull) {
+        chip.addEventListener("click", (e) => {
+          e.stopPropagation();
+          Outbox.remove(slug, [a.key]);
+          pull(`${a.name}:\n${a.text}`);
+        });
+      }
+      row.append(chip);
     }
   }
   row.style.display = list.length ? "" : "none";
@@ -671,11 +704,22 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
   }) as HTMLTextAreaElement;
   const sendBtn = h("button", { class: "bot-detail-send", title: "Enviar (Enter)" }, svg(ICONS.arrowUp, 11));
   const offline = h("div", { class: "bot-detail-offline", text: "Este bot aún no está conectado. Pega su webhook en Ajustes → Mis Bots de Grok." });
-  const composer = h("div", { class: "bot-detail-composer" }, input, sendBtn);
+  // Second batch: context, dictation, meeting, screen sharing (Rust may not
+  // have them yet — each says "no disponible todavía" then).
+  const ctxBtn = h("button", { class: "bot-tool", title: "Contexto: captura la ventana activa, la selección y el portapapeles para revisarlos antes de enviar" },
+    svg(TOOL_ICONS.context, 12));
+  const micBtn = h("button", { class: "bot-tool", title: "Mantén pulsado para dictar" }, svg(TOOL_ICONS.mic, 12));
+  const meetingBtn = h("button", { class: "bot-tool-pill", title: "Reunión: graba y transcribe (micrófono y sonido del PC)" },
+    svg(TOOL_ICONS.meeting, 11), h("span", { text: "Reunión" }));
+  const shareSwitch = h("i", { class: "bot-switch" });
+  const shareBtn = h("button", { class: "bot-tool-pill", title: "Compartir pantalla con el bot (una captura cada 5 s)" },
+    svg(TOOL_ICONS.screen, 11), h("span", { text: "Pantalla" }), shareSwitch);
+  const composer = h("div", { class: "bot-detail-composer" }, ctxBtn, micBtn, input, sendBtn);
   const chips = h("div", { class: "bot-chips" });
   const note = h("div", { class: "bot-chips-note" });
   const cardEl = h("div", { class: "card bot-detail-card" },
-    h("div", { class: "bot-detail-head" }, backBtn, mascot, dotEl, nameEl, stateEl),
+    h("div", { class: "bot-detail-head" }, backBtn, mascot, dotEl, nameEl, stateEl,
+      h("span", { class: "bot-detail-tools" }, meetingBtn, shareBtn)),
     timeline,
     offline,
     chips,
@@ -717,6 +761,154 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
   input.addEventListener("input", autosize);
   // A pasted image or a long text goes as an attachment.
   input.addEventListener("paste", (e) => handleBotPaste(e, slug));
+
+  const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
+  const toolError = (what: string, err: unknown) => Outbox.setNotice(slug, `${what}: ${errMsg(err)}`);
+
+  // Contexto: a preview in the tray; nothing leaves until Enviar.
+  ctxBtn.addEventListener("click", () => {
+    void attachContext(slug).then(() => input.focus());
+  });
+
+  // Hold to dictate: partial text shows in the box, the final text is sent.
+  let dictBase = "";
+  let dictPointer: number | null = null;
+  micBtn.addEventListener("pointerdown", (e) => {
+    if (micBtn.hasAttribute("disabled") || BotLive.dictatingSlug) return;
+    e.preventDefault();
+    dictPointer = e.pointerId;
+    micBtn.setPointerCapture(e.pointerId);
+    dictBase = input.value.trim();
+    const who = slug;
+    BotLive.dictatingSlug = who;
+    BotLive.dictation.delete(who);
+    micBtn.classList.add("live");
+    Outbox.setNotice(who, "Escuchando… suelta para enviar");
+    callCmd(CMD.startDictation, { bot: who }).catch((err) => {
+      BotLive.dictatingSlug = null;
+      micBtn.classList.remove("live");
+      toolError("Dictado", err);
+    });
+  });
+  const endDictation = (e: PointerEvent) => {
+    if (dictPointer !== e.pointerId) return;
+    dictPointer = null;
+    const who = BotLive.dictatingSlug;
+    micBtn.classList.remove("live");
+    if (!who) return;
+    Outbox.setNotice(who, "Transcribiendo…");
+    callCmd<{ text?: string }>(CMD.stopDictation)
+      .then((r) => {
+        const heard = String(r?.text ?? BotLive.dictation.get(who) ?? "").trim();
+        BotLive.dictatingSlug = null;
+        BotLive.dictation.delete(who);
+        Outbox.setNotice(who, null);
+        const text = [dictBase, heard].filter(Boolean).join(" ");
+        if (who === slug) {
+          input.value = "";
+          autosize();
+        }
+        if (heard && connected) handlers.send(who, text);
+        else if (who === slug) input.value = text;
+      })
+      .catch((err) => {
+        BotLive.dictatingSlug = null;
+        BotLive.dictation.delete(who);
+        toolError("Dictado", err);
+      });
+  };
+  micBtn.addEventListener("pointerup", endDictation);
+  micBtn.addEventListener("pointercancel", endDictation);
+
+  // Reunión: start/stop; the transcript file lands in the timeline.
+  meetingBtn.addEventListener("click", () => {
+    if (meetingBtn.hasAttribute("disabled")) return;
+    const who = slug;
+    if (BotLive.meetingWith(who)) {
+      callCmd<{ path_transcript?: string }>(CMD.stopMeeting)
+        .then((r) => {
+          BotLive.meeting = { active: false, bot: who };
+          const path = r?.path_transcript;
+          if (path) {
+            BotChat.add(who, {
+              kind: "file", path, name: path.split(/[\\/]/).pop() || "transcripción.txt",
+              mime: "text/plain", size: 0, source: "meeting",
+            });
+          }
+          State.notify();
+        })
+        .catch((err) => toolError("Reunión", err));
+    } else {
+      callCmd(CMD.startMeeting, { bot: who, opts: { mic: true, system: true } })
+        .then(() => {
+          // meeting-state will confirm; until then, show it as started.
+          if (!BotLive.meeting?.active) BotLive.meeting = { active: true, bot: who, since: Date.now() };
+          State.notify();
+        })
+        .catch((err) => toolError("Reunión", err));
+    }
+  });
+
+  // Compartir pantalla: a switch.
+  shareBtn.addEventListener("click", () => {
+    const who = slug;
+    if (BotLive.sharingWith(who)) {
+      callCmd(CMD.stopScreenShare)
+        .then(() => {
+          BotLive.screenShare = { active: false, bot: who };
+          State.notify();
+        })
+        .catch((err) => toolError("Pantalla", err));
+    } else {
+      // Tauri takes command arguments in camelCase (interval_s → intervalS).
+      callCmd(CMD.startScreenShare, { bot: who, intervalS: 5 })
+        .then(() => {
+          if (!BotLive.screenShare?.active) BotLive.screenShare = { active: true, bot: who };
+          State.notify();
+        })
+        .catch((err) => toolError("Pantalla", err));
+    }
+  });
+
+  // The little speaker on a Bot's answer: read it aloud / stop.
+  let speakingId: string | null = null;
+  function speakBtn(id: string, text: string): HTMLElement {
+    const btn = h("button", { class: speakingId === id ? "bot-speak on" : "bot-speak", title: "Leer en voz alta" },
+      svg(TOOL_ICONS.speaker, 10));
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (speakingId === id) {
+        speakingId = null;
+        btn.classList.remove("on");
+        callCmd(CMD.stopSpeaking).catch((err) => toolError("Voz", err));
+        return;
+      }
+      speakingId = id;
+      btn.classList.add("on");
+      speak(text, slug).catch((err) => {
+        speakingId = null;
+        btn.classList.remove("on");
+        toolError("Voz", err);
+      });
+    });
+    return btn;
+  }
+
+  /** A file the Bot sent (or a meeting transcript): icon, name, size; a click opens it. */
+  function fileCard(e: Extract<BotChatEntry, { kind: "file" }>): HTMLElement {
+    // The asset protocol is off in tauri.conf, so no thumbnails: an icon says it's an image.
+    const isImage = e.mime.startsWith("image/");
+    const card = h("div", { class: "bot-detail-file", title: `Abrir ${e.name}` },
+      h("span", { class: "bot-detail-file-icon" }, svg(isImage ? TOOL_ICONS.image : TOOL_ICONS.file, 14)),
+      h("span", { class: "bot-detail-file-body" },
+        h("b", { text: e.name }),
+        h("span", { text: e.caption || [e.source === "meeting" ? "Transcripción de la reunión" : isImage ? "Imagen" : "Archivo", e.size ? formatSize(e.size) : ""].filter(Boolean).join(" · ") })),
+      h("span", { class: "time", text: when(e.at) }));
+    card.addEventListener("click", () => {
+      Bridge.openAttachment(e.path).catch((err: unknown) => toolError("Abrir", new Error(cmdErrorText(err))));
+    });
+    return card;
+  }
 
   const enter = (el: HTMLElement, order: number) => {
     el.classList.add("bot-detail-enter");
@@ -775,12 +967,20 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       case "bot": {
         const tag = { done: "listo", needs: "necesita algo", error: "error", working: "" }[e.status];
         return h("div", { class: `bot-detail-msg bot ${e.status}` },
-          h("div", { class: "bot-detail-bubble", text: e.text }),
-          h("div", { class: "bot-detail-meta", text: tag ? `${when(e.at)} · ${tag}` : when(e.at) }));
+          // Its formatting kept: bold, italics, code, lists, http(s) links.
+          h("div", { class: "bot-detail-bubble" }, renderMarkdown(e.text)),
+          h("div", { class: "bot-detail-meta" },
+            h("span", { text: tag ? `${when(e.at)} · ${tag}` : when(e.at) }), speakBtn(e.id, e.text)));
       }
       case "step":
         return h("div", { class: "bot-detail-step" },
           h("i"), h("span", { class: "bot-detail-text", text: e.text }), h("span", { class: "time", text: when(e.at) }));
+      case "file":
+        return fileCard(e);
+      case "transcript":
+        return h("div", { class: "bot-detail-step transcript" },
+          h("span", { class: "bot-detail-perm-kind", text: "transcripción" }),
+          h("span", { class: "bot-detail-text", text: e.text }), h("span", { class: "time", text: when(e.at) }));
       case "perm":
         return permRow(e);
     }
@@ -821,10 +1021,12 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
 
     const pending = State.pendingApproval?.agentId === taskId ? State.pendingApproval : null;
     const typing = !pending && botPhase(task.state)?.label === "trabajando";
+    // Its latest step (bot-step), live under the timeline while it works.
+    const live = typing ? BotLive.step(taskId)?.text ?? "" : "";
     const key = [
       items.map((i) => i.id).join(","),
       entries.map((e) => (e.kind === "me" ? e.status : "")).join(""),
-      pending?.requestId ?? "", typing, [...open].join(","),
+      pending?.requestId ?? "", typing, live, entries.at(-1)?.at ?? 0, [...open].join(","),
     ].join("~");
     if (key === listKey) return;
     listKey = key;
@@ -850,7 +1052,11 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       timeline.append(pendingNode);
     }
     if (typing) {
-      timeline.append(h("div", { class: "bot-detail-typing", title: `${task.name} está trabajando` }, h("i"), h("i"), h("i")));
+      timeline.append(live
+        ? h("div", { class: "bot-detail-live", title: `${task.name} está trabajando` },
+            h("span", { class: "bot-detail-typing" }, h("i"), h("i"), h("i")),
+            h("span", { class: "bot-detail-live-text", text: live }))
+        : h("div", { class: "bot-detail-typing", title: `${task.name} está trabajando` }, h("i"), h("i"), h("i")));
     }
     seen = next;
     if (follow && (nearEnd || fresh > 0)) {
@@ -892,12 +1098,31 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       }
       // Files dropped anywhere on the open conversation go to this Bot.
       cardEl.dataset.botDrop = task.id;
-      syncChips(chips, note, slug);
+      syncChips(chips, note, slug, (text) => {
+        input.value = input.value ? `${input.value}\n${text}` : text;
+        autosize();
+        input.focus();
+      });
       connected = !!State.settings.grokBots.find((b) => b.id === slug)?.url.trim();
       offline.style.display = connected ? "none" : "";
       composer.classList.toggle("off", !connected);
       input.disabled = !connected;
       sendBtn.toggleAttribute("disabled", !connected);
+      // Voice engine not ready (or downloading): no microphone, no meeting.
+      const blocked = BotLive.voiceBlocked();
+      micBtn.toggleAttribute("disabled", !!blocked || !connected);
+      micBtn.title = blocked ?? (connected ? "Mantén pulsado para dictar" : "Este bot aún no está conectado");
+      meetingBtn.toggleAttribute("disabled", !!blocked && !BotLive.meetingWith(slug));
+      meetingBtn.title = blocked ?? "Reunión: graba y transcribe (micrófono y sonido del PC)";
+      meetingBtn.classList.toggle("on", BotLive.meetingWith(slug));
+      shareBtn.classList.toggle("on", BotLive.sharingWith(slug));
+      shareSwitch.classList.toggle("on", BotLive.sharingWith(slug));
+      // Dictating: what has been heard so far, live in the box.
+      if (BotLive.dictatingSlug === slug) {
+        const heard = BotLive.dictation.get(slug) ?? "";
+        input.value = [dictBase, heard].filter(Boolean).join(" ");
+        autosize();
+      }
       draw(task, approvals, true);
     },
     focus() {

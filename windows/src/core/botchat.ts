@@ -7,6 +7,7 @@
 import { Bridge } from "./bridge";
 import { Outbox, botErrorText, toWire, type PendingAttachment } from "./attachments";
 import type { BotDecision } from "./botlog";
+import { readRepliesEnabled, speak } from "./botcmds";
 import { State } from "./state";
 
 export type BotChatEntry =
@@ -22,6 +23,10 @@ export type BotChatEntry =
     }
   | { id: string; kind: "bot"; at: number; text: string; status: "working" | "done" | "needs" | "error" }
   | { id: string; kind: "step"; at: number; text: string }
+  /** A file the Bot sent back (bot-attach) or a meeting transcript. Path only, opened by Rust. */
+  | { id: string; kind: "file"; at: number; path: string; name: string; mime: string; size: number; source?: "bot" | "meeting"; caption?: string }
+  /** A piece of a meeting transcript (meeting-chunk). */
+  | { id: string; kind: "transcript"; at: number; text: string }
   | {
       id: string;
       kind: "perm";
@@ -87,7 +92,33 @@ export const BotChat = {
     if (list.length > LIMIT) list.splice(0, list.length - LIMIT);
     save(slug);
     State.notify();
+    // "Leer respuestas en voz alta" (Ajustes → Voz).
+    if (full.kind === "bot" && full.status !== "working" && readRepliesEnabled()) {
+      speak(full.text, slug).catch((err) => void Bridge.log(`speak ${slug} failed: ${String(err)}`));
+    }
     return full;
+  },
+
+  /**
+   * A live step (bot-step): repeated or quick-fire steps collapse into one
+   * entry, so a chatty Bot doesn't push the conversation out of the history.
+   */
+  addStep(slug: string, text: string) {
+    const list = load(slug);
+    const last = list.at(-1);
+    const clean = text.replace(/\s+/g, " ").trim().slice(0, 200);
+    if (!clean) return;
+    if (last?.kind === "step") {
+      if (last.text === clean) return;
+      if (Date.now() - last.at < 2500) {
+        last.text = clean;
+        last.at = Date.now();
+        save(slug);
+        State.notify();
+        return;
+      }
+    }
+    BotChat.add(slug, { kind: "step", text: clean });
   },
 
   /** Changes a message in place (its delivery status, an error note). */
@@ -132,7 +163,40 @@ export async function sendToBot(
 export async function sendWithOutbox(slug: string, text: string): Promise<{ ok: boolean; message: string }> {
   const items = [...Outbox.list(slug)];
   if (items.length) Outbox.remove(slug, items.map((a) => a.key));
-  const r = await sendToBot(slug, text, items);
+  // Context notes (window, selection, clipboard) travel inside the message.
+  const notes = items.filter((a): a is Extract<PendingAttachment, { kind: "note" }> => a.kind === "note");
+  const files = items.filter((a) => a.kind !== "note");
+  const body = notes.length
+    ? [text, "", "[Contexto]", ...notes.map((n) => `${n.name}:\n${n.text}`)].join("\n").trim()
+    : text;
+  const todos = parseTodos(body);
+  const r = todos != null ? await sendToAll(todos, files) : await sendToBot(slug, body, files);
   if (!r.ok && items.length) Outbox.restore(slug, items);
   return r;
+}
+
+/** "@todos mensaje" → "mensaje"; null when the message is for one Bot. */
+export function parseTodos(text: string): string | null {
+  const m = /^@todos\b[\s,:]*/i.exec(text);
+  return m ? text.slice(m[0].length) : null;
+}
+
+/**
+ * The same message to every Grok Bot (grokbot_send each), recorded in each
+ * Bot's conversation. ok when at least one got it; message says how it went,
+ * with each failure in Spanish.
+ */
+export async function sendToAll(
+  text: string,
+  attachments: readonly PendingAttachment[] = [],
+): Promise<{ ok: boolean; message: string; sent: number; failed: { name: string; message: string }[] }> {
+  const bots = State.settings.grokBots;
+  void Bridge.log(`todos n=${bots.length} files=${attachments.length}`);
+  if (bots.length === 0) return { ok: false, message: "No tienes Bots de Grok conectados", sent: 0, failed: [] };
+  const results = await Promise.all(bots.map(async (b) => ({ bot: b, r: await sendToBot(b.id, text, attachments) })));
+  const failed = results.filter((x) => !x.r.ok).map((x) => ({ name: x.bot.name, message: x.r.message }));
+  const sent = results.length - failed.length;
+  const head = `Enviado a ${sent} ${sent === 1 ? "bot" : "bots"}`;
+  const message = failed.length ? `${head} · ${failed.map((f) => `${f.name}: ${f.message}`).join(" · ")}` : head;
+  return { ok: sent > 0, message, sent, failed };
 }

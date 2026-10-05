@@ -11,7 +11,12 @@ import {
 } from "../core/layout";
 import { Sound } from "../core/sound";
 import { recordBotApproval } from "../core/botlog";
-import { Outbox, attachPaths } from "../core/attachments";
+import { Outbox, attachPaths, botErrorText } from "../core/attachments";
+import { sendToAll } from "../core/botchat";
+import { saveSettingsMerged } from "../core/savesettings";
+import { BotLive } from "../core/botlive";
+import { registerBotEvents } from "./botevents";
+import { registerCursorVoice } from "./cursorvoice";
 import { ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { Greeting } from "../mochi/greeting";
@@ -21,7 +26,7 @@ import { USC, UploadSeq } from "../upload/sequence";
 import { botDetail, buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
 import { botCanReply } from "../views/integrations";
 import { botFx } from "../mochi/botfx";
-import { h } from "../views/dom";
+import { h, clear } from "../views/dom";
 import { IslandStateMachine } from "./fsm";
 
 const BOT_OVERHANG = 40;
@@ -37,6 +42,11 @@ const DROP_DWELL_MS = 700;
 const DROP_OPEN_GRACE_MS = 1500;
 /** A drag that opened the island and left without dropping: fold back after this. */
 const DROP_LEAVE_FOLD_MS = 1000;
+/** Resting on the folded notch this long opens it, like a click. */
+const HOVER_OPEN_MS = 250;
+/** A Bot's answer toast next to the notch: width and how long it stays. */
+const TOAST_W = 300;
+const TOAST_MS = 6000;
 
 /** The three views the drop sequence owns; leaving them stops the engine. */
 const UPLOAD_VIEWS: ReadonlySet<IslandViewName> = new Set(["upload", "uploading", "choose"]);
@@ -119,6 +129,18 @@ export class Island {
   private dragOpenedAt: number | null = null;
   private dragFoldTimer: number | null = null;
   private lastOverLog = 0;
+  /** Shift held (window keydown/keyup): a drop then goes to every Bot. */
+  private shiftDown = false;
+  private hoverOpenTimer: number | null = null;
+  // Toast for a Bot that answered while the island was folded.
+  private toastEl!: HTMLElement;
+  private toastTimer: number | null = null;
+  private toastShown = false;
+  /** Last state seen per Bot pill, to spot "it just answered". */
+  private botStates = new Map<string, string>();
+  // Meeting / screen-share marks on the notch.
+  private notchLive!: HTMLElement;
+  private meetingTimer: number | null = null;
 
   /** Drop sequence bookkeeping: last tick played, and whether the ✓ has fired. */
   private uploadTens = 0;
@@ -129,6 +151,10 @@ export class Island {
     this.build();
     this.wireFsm();
     this.wireInput();
+    // Steps, files, meetings… pushed by Rust: listened from launch, folded or not.
+    registerBotEvents();
+    registerCursorVoice();
+    State.subscribe(() => this.watchBots());
     this.engine.onDizzy = () => this.handleDizzy();
     this.greeting.onComplete = () => this.fsm.greetComplete();
     State.subscribe(() => {
@@ -244,19 +270,19 @@ export class Island {
       toggleSound: () => {
         State.settings.soundEnabled = !State.settings.soundEnabled;
         Sound.setEnabled(State.settings.soundEnabled);
-        void Bridge.saveSettings(State.settings);
+        void saveSettingsMerged(State.settings);
         State.notify();
       },
       setVolume: (v) => {
         State.settings.soundVolume = v;
         Sound.setVolume(v);
-        void Bridge.saveSettings(State.settings);
+        void saveSettingsMerged(State.settings);
         State.notify();
       },
       setAutoClose: (s) => {
         State.settings.autoCloseInterval = s;
         this.fsm.homeToPetitDelay = s;
-        void Bridge.saveSettings(State.settings);
+        void saveSettingsMerged(State.settings);
         State.notify();
       },
       openSettingsWindow: () => void Bridge.openSettingsWindow(),
@@ -270,6 +296,12 @@ export class Island {
     this.greetingCanvas = h("canvas", { id: "greeting-canvas" });
     this.miniGrid = h("div", { id: "mini-grid" });
     this.countdown = h("div", { id: "countdown" });
+    this.notchLive = h("div", { id: "notch-live" },
+      h("i", { class: "notch-rec", title: "Reunión en curso" }),
+      h("span", { class: "notch-rec-time" }),
+      h("span", { class: "notch-share", title: "Compartiendo pantalla con un Bot" }, "Pantalla"));
+    this.toastEl = h("div", { id: "bot-toast", role: "status" });
+    this.toastEl.addEventListener("click", () => this.openFromToast());
 
     this.header = buildHeader(actions);
     this.views = buildViews(actions, () => this.animateGeometry(false));
@@ -304,6 +336,7 @@ export class Island {
       this.botCanvas,
       this.miniGrid,
       this.countdown,
+      this.notchLive,
     );
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -312,7 +345,7 @@ export class Island {
     this.greetingCanvas.style.width = `${EXPANDED_W}px`;
     this.greetingCanvas.style.height = "150px";
 
-    this.root.append(this.wakeStrip, this.islandEl);
+    this.root.append(this.wakeStrip, this.islandEl, this.toastEl);
     this.applyGeometry();
   }
 
@@ -478,7 +511,7 @@ export class Island {
 
   // ── File drop ───────────────────────────────────────────────────────────────
 
-  private onDragDrop(e: { type: string; paths?: string[]; position?: { x: number; y: number } }) {
+  private onDragDrop(e: { type: string; paths?: string[]; position?: { x: number; y: number }; shift?: boolean }) {
     this.logDrag(e);
     if (State.paused) return;
     switch (e.type) {
@@ -517,6 +550,17 @@ export class Island {
       }
       case "drop": {
         this.cancelDragFold();
+        // Shift + drop: the files go to every Bot. Rust says whether Shift was
+        // held (payload.shift); the keydown/keyup tracking only stands in when
+        // the field is missing.
+        const shift = typeof e.shift === "boolean" ? e.shift : this.shiftDown;
+        if (shift && e.paths?.length && State.settings.grokBots.length > 0) {
+          this.endBotDrag();
+          State.fileDragOver = false;
+          this.engine.animateMorph(0);
+          void this.dropToAll(e.paths);
+          return;
+        }
         if (this.dragMode === "bots") {
           const [x, y] = this.dragPoint(e);
           const id = this.botUnder(x, y) ?? this.dropBot;
@@ -673,6 +717,104 @@ export class Island {
   }
 
   /** Files dropped on a Bot: into the inbox, then chips in its conversation. */
+  /** Shift + drop: into the inbox once, then the same files to every Bot. */
+  private async dropToAll(paths: string[]) {
+    try {
+      const files = await Bridge.ingestFiles(paths);
+      const names = files.map((f) => f.name).join(", ");
+      const items = files.map((f, i) => ({ key: `all${i}`, kind: "file" as const, id: f.id, name: f.name, mime: f.mime, size: f.size }));
+      const r = await sendToAll(`Te comparto ${files.length === 1 ? "un archivo" : `${files.length} archivos`}: ${names}`, items);
+      this.showToast({ id: null, color: r.ok ? "#22C55E" : "#F4505E", name: "Todos los bots", text: r.message });
+    } catch (err) {
+      this.showToast({ id: null, color: "#F4505E", name: "Todos los bots", text: botErrorText(err) });
+    }
+  }
+
+  // ── Answer toast (a Bot replied while the island was folded) ─────────────────
+
+  /** Watches the Bots' states: one that just answered while folded gets a toast. */
+  private watchBots() {
+    for (const t of State.tasks) {
+      if (!t.id.startsWith(BOT_PREFIX)) continue;
+      const prev = this.botStates.get(t.id);
+      this.botStates.set(t.id, t.state);
+      if (prev === undefined || prev === t.state) continue;
+      const answered = t.state === "finished" || t.state === "question" || t.state === "error";
+      if (!answered || State.mode === "expanded") continue;
+      const first = (t.lastMessage ?? t.steps.at(-1) ?? "").split("\n").find((l) => l.trim()) ?? "";
+      const text = first.replace(/[*_`#>]/g, "").trim() || (t.state === "error" ? "Algo falló" : "Terminó");
+      void Bridge.log(`notify bot=${t.id.slice(BOT_PREFIX.length)} state=${t.state}`);
+      // The hook already played its sound for this answer.
+      this.showToast({ id: t.id, color: t.color, name: t.name, text });
+    }
+  }
+
+  private toastFor: string | null = null;
+
+  private showToast(n: { id: string | null; color: string; name: string; text: string }) {
+    this.toastFor = n.id;
+    clear(this.toastEl);
+    this.toastEl.style.setProperty("--bot", n.color);
+    this.toastEl.append(
+      h("i", { class: "bot-toast-dot" }),
+      h("div", { class: "bot-toast-body" },
+        h("b", { class: "bot-toast-name", text: n.name }),
+        h("span", { class: "bot-toast-text", text: n.text.slice(0, 160) })),
+    );
+    this.toastEl.title = n.id ? "Abrir la conversación" : "";
+    // A folded island has no room for it: come out to the compact notch first.
+    if (State.mode === "hidden") this.reveal();
+    this.toastShown = true;
+    this.toastEl.classList.remove("out");
+    this.toastEl.classList.add("on");
+    this.applyGeometry();
+    if (this.toastTimer != null) window.clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => this.hideToast(), TOAST_MS);
+  }
+
+  private hideToast() {
+    if (this.toastTimer != null) window.clearTimeout(this.toastTimer);
+    this.toastTimer = null;
+    if (!this.toastShown) return;
+    this.toastShown = false;
+    this.toastEl.classList.remove("on");
+    this.toastEl.classList.add("out");
+    this.applyGeometry();
+  }
+
+  private openFromToast() {
+    const id = this.toastFor;
+    this.hideToast();
+    if (!id) return;
+    if (State.mode !== "expanded") this.alert("overview");
+    else this.setView("overview");
+    this.actions.openBotDetail(id);
+  }
+
+  /** Red ring + timer while a meeting records, a mark while the screen is shared. */
+  private syncNotchLive() {
+    const meeting = !!BotLive.meeting?.active;
+    const sharing = !!BotLive.screenShare?.active;
+    this.islandEl.classList.toggle("meeting-live", meeting);
+    this.islandEl.classList.toggle("sharing-live", sharing);
+    this.notchLive.style.display = (meeting || sharing) && State.mode !== "hidden" ? "" : "none";
+    const timeEl = this.notchLive.querySelector<HTMLElement>(".notch-rec-time")!;
+    const tick = () => {
+      const since = BotLive.meeting?.since;
+      // since: epoch seconds or ms.
+      const start = since ? (since < 1e12 ? since * 1000 : since) : null;
+      const s = start ? Math.max(0, Math.floor((Date.now() - start) / 1000)) : 0;
+      timeEl.textContent = start ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "REC";
+    };
+    if (meeting) {
+      tick();
+      if (this.meetingTimer == null) this.meetingTimer = window.setInterval(tick, 1000);
+    } else if (this.meetingTimer != null) {
+      window.clearInterval(this.meetingTimer);
+      this.meetingTimer = null;
+    }
+  }
+
   private dropOnBot(id: string, paths: string[]) {
     const slug = id.slice(BOT_PREFIX.length);
     if (botDetail.id !== id) this.actions.openBotDetail(id);
@@ -790,7 +932,14 @@ export class Island {
     this.greetingCanvas.style.left = `${(w - EXPANDED_W) / 2}px`;
     this.uploadCanvas.el.style.left = `${(w - EXPANDED_W) / 2}px`;
 
-    const rect = { x: (PANEL_W - w) / 2, y: 0, w, h: hh };
+    let rect = { x: (PANEL_W - w) / 2, y: 0, w, h: hh };
+    // The toast under the notch must take clicks too: widen the hit rect to it.
+    if (this.toastShown) {
+      const top = Math.max(hh, 6) + 8;
+      this.toastEl.style.top = `${top}px`;
+      const th = this.toastEl.offsetHeight || 52;
+      rect = { x: Math.min(rect.x, (PANEL_W - TOAST_W) / 2), y: 0, w: Math.max(rect.w, TOAST_W), h: top + th };
+    }
     const p = this.pushedRect;
     if (Math.abs(p.x - rect.x) > 0.5 || Math.abs(p.w - rect.w) > 0.5 || Math.abs(p.h - rect.h) > 0.5) {
       this.pushedRect = rect;
@@ -836,6 +985,16 @@ export class Island {
       Sound.resume();
       if (State.mode === "hidden") this.fsm.mouseEntered();
     });
+    // The folded notch stays drawn over the strip: it wakes the island too.
+    this.islandEl.addEventListener("mouseenter", () => {
+      if (State.mode === "hidden") this.fsm.mouseEntered();
+    });
+    // Shift while dropping sends the files to every Bot. Only seen while the
+    // island has the keyboard; the mouse events below catch it otherwise.
+    window.addEventListener("keydown", (e) => { if (e.key === "Shift") this.shiftDown = true; });
+    window.addEventListener("keyup", (e) => { if (e.key === "Shift") this.shiftDown = false; });
+    window.addEventListener("blur", () => { this.shiftDown = false; });
+    window.addEventListener("mousemove", (e) => { this.shiftDown = e.shiftKey; });
 
     this.islandEl.addEventListener("mousedown", (e) => {
       Sound.resume();
@@ -916,6 +1075,18 @@ export class Island {
       }
     }
     this.wasInIsland = inIsland;
+
+    // Resting on the folded notch opens it (≈250 ms), as a click would.
+    const canHoverOpen = inIsland && this.fsm.state === "petit" && !this.dragMode && !State.fileDragOver;
+    if (canHoverOpen && this.hoverOpenTimer == null) {
+      this.hoverOpenTimer = window.setTimeout(() => {
+        this.hoverOpenTimer = null;
+        if (this.wasInIsland && this.fsm.state === "petit" && !this.dragMode && !State.fileDragOver) this.fsm.click();
+      }, HOVER_OPEN_MS);
+    } else if (!canHoverOpen && this.hoverOpenTimer != null) {
+      window.clearTimeout(this.hoverOpenTimer);
+      this.hoverOpenTimer = null;
+    }
 
     // Bot hover → love
     const overBot = State.mode === "expanded" && State.stateOverride == null && this.isBotHit(x, y);
@@ -1203,6 +1374,7 @@ export class Island {
       this.animateGeometry(shrinking);
     }
 
+    this.syncNotchLive();
     syncMiniBotStates(State.tasks);
     this.engine.setState(State.effectiveState);
   }

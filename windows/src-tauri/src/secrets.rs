@@ -21,6 +21,8 @@ pub const KNOWN_KEYS: &[&str] = &[
     "resend-api-key",
     "notion-api-key",
     "calcom-api-key",
+    "tts-key:elevenlabs",
+    "tts-key:azure",
 ];
 
 /// Secrets of MCP servers (env values, headers): `mcp-secret:<server>:<field>`.

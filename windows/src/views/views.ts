@@ -15,6 +15,8 @@ import {
 } from "./integrations";
 import { sendWithOutbox } from "../core/botchat";
 import { loadBotApprovals, type BotApproval } from "../core/botlog";
+import { BotLive } from "../core/botlive";
+import { renderMarkdown } from "./markdown";
 
 export interface ViewActions {
   setView(v: IslandViewName): void;
@@ -355,7 +357,7 @@ function buildOverview(actions: ViewActions): ViewHost {
       const noBots = State.settings.grokBots.length === 0;
       // A Bot pill also redraws when its state word changes.
       const pillKey = others
-        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}` : ""}`)
+        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}`)
         .join("|") + (noBots ? "|+bot" : "");
       if (pillKey !== pillIds) {
         pillIds = pillKey;
@@ -373,6 +375,9 @@ function toolLabel(task: AgentTask): string {
   if (task.source === "claudeCode") return "Claude Code";
   if (task.id.startsWith(BOT_PREFIX)) {
     const phase = botPhase(task.state);
+    // Working: its latest live step (bot-step) says more than "trabajando".
+    const live = phase?.label === "trabajando" ? BotLive.step(task.id)?.text : null;
+    if (live) return live;
     return phase ? `Bot de Grok · ${phase.label}` : "Bot de Grok";
   }
   if (task.source === "agent") return task.name;
@@ -394,7 +399,9 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   const lbl = phase
     ? h("span", { class: "lbl two" },
         h("span", { class: "lbl-name", text: label, style: `color:${task.color}` }),
-        h("span", { class: "pill-state" }, h("i", { style: `background:${phase.color}` }), phase.label))
+        h("span", { class: "pill-state" }, h("i", { style: `background:${phase.color}` }),
+          // Working: the latest live step instead of just "trabajando".
+          h("span", { class: "pill-step", text: (phase.label === "trabajando" ? BotLive.step(task.id)?.text : null) ?? phase.label })))
     : h("span", { class: "lbl", text: label, style: task.id.startsWith(BOT_PREFIX) ? `color:${task.color}` : undefined });
   const pill = h(
     "div",
@@ -719,7 +726,11 @@ function buildFinished(actions: ViewActions): ViewHost {
       const task = State.focusTask;
       const isBot = !!task?.id.startsWith(BOT_PREFIX);
       // A Bot's answer is the message itself, whole, not the step it left.
-      title.textContent = (isBot ? task?.lastMessage : null) ?? task?.steps.at(-1) ?? "Sesión terminada";
+      const said = isBot ? task?.lastMessage : null;
+      // A Bot's answer keeps its formatting (bold, code, lists, links).
+      clear(title);
+      if (said) title.append(renderMarkdown(said));
+      else title.textContent = task?.steps.at(-1) ?? "Sesión terminada";
       title.classList.toggle("bot-reply-msg", isBot);
       const can = botCanReply(task);
       reply.el.style.display = can ? "" : "none";

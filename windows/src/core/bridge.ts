@@ -150,7 +150,63 @@ export const Bridge = {
 
   /** Tray → Pause. Stops the integration pollers, not just the island. */
   setPaused: (paused: boolean) => call<void>("set_paused", { paused }),
+
+  /** Opens a file a Bot shared with `bot-attach` this session (anything that
+   * could run code is shown in its folder instead). Rejects other paths. */
+  openAttachment: (path: string) => callOrThrow<void>("open_attachment", { path }),
+  /** Foreground window, clipboard text and a screenshot of that window; the
+   * screenshot is already in the inbox, send it as `{ id }` via grokbotSend. */
+  captureContext: () => callOrThrow<CapturedContext>("capture_context"),
+  /** Shares the screen with a Grok Bot: a frame every `intervalS` seconds
+   * (default 5, 2–60) when it changed, for at most 30 minutes. Starting for
+   * another Bot replaces the current share. Progress arrives as `screen-share`. */
+  startScreenShare: (bot: string, intervalS?: number) =>
+    callOrThrow<ScreenShareEvent>("start_screen_share", { bot, intervalS: intervalS ?? null }),
+  /** Ends the share (no-op when none); true when one was running. */
+  stopScreenShare: () => callOrThrow<boolean>("stop_screen_share"),
 };
+
+/** `bot-step` event: a progress line on a Bot's pill. `ts` is epoch ms. */
+export interface BotStepEvent {
+  agent: string;
+  bot: string;
+  text: string;
+  ts: number;
+}
+
+/** `bot-attach` event: a file card on a Bot's pill (open it with openAttachment). */
+export interface BotAttachEvent {
+  agent: string;
+  bot: string;
+  path: string;
+  name: string;
+  mime: string;
+  size: number;
+  caption?: string;
+}
+
+/** `island-close` event: the owner clicked outside the expanded island. */
+export interface IslandCloseEvent {
+  reason: "outside-click";
+}
+
+/** `screen-share` event (and startScreenShare's result). `since`: epoch ms of
+ * the start; `reason` only when it ended. */
+export interface ScreenShareEvent {
+  active: boolean;
+  bot: string;
+  since?: number;
+  reason?: "user" | "timeout" | "error" | "replaced" | "quit";
+}
+
+/** What `captureContext` returns; missing fields could not be read. */
+export interface CapturedContext {
+  window_title: string;
+  process_name: string;
+  selected_text?: string;
+  clipboard_text?: string;
+  screenshot?: IngestedFile;
+}
 
 export interface IntegrationUpdate {
   id: string;
@@ -257,14 +313,29 @@ export type BridgeEvent =
 export interface DragDropPayload {
   type: "enter" | "over" | "drop" | "leave";
   paths?: string[];
+  /** Shift held (OLE key state), when the drop came through the drag overlay. */
+  shift?: boolean;
 }
 
 /** Files dragged onto the island. Only reaches us when the window takes the mouse. */
 export async function onDragDrop(handler: (e: DragDropPayload) => void) {
   if (!IS_TAURI) return () => {};
-  return getCurrentWebview().onDragDropEvent((event) => {
-    handler(event.payload as DragDropPayload);
+  // The drag overlay (platform/windows.rs) sends `drag-keys` {shift} right
+  // before each enter/over/drop; Tauri's wrapper below rebuilds the payload and
+  // would lose an extra field, so it is put back here.
+  let shift: boolean | undefined;
+  const unKeys = await listen<{ shift: boolean }>("drag-keys", (e) => {
+    shift = e.payload.shift;
   });
+  const unDrop = await getCurrentWebview().onDragDropEvent((event) => {
+    const p = event.payload as DragDropPayload;
+    handler(shift === undefined || p.type === "leave" ? p : { ...p, shift });
+    if (p.type === "drop" || p.type === "leave") shift = undefined;
+  });
+  return () => {
+    unKeys();
+    unDrop();
+  };
 }
 
 export async function onEvent<T>(name: string, handler: (payload: T) => void) {

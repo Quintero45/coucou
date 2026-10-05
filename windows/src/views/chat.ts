@@ -7,7 +7,7 @@ import { h, svg, clear } from "./dom";
 import { ICONS } from "./icons";
 import { renderMarkdown } from "./markdown";
 import { Bridge, onEvent, type ChatContext } from "../core/bridge";
-import { sendToBot as sendToGrokBot } from "../core/botchat";
+import { parseTodos, sendToAll, sendToBot as sendToGrokBot } from "../core/botchat";
 import { Sound } from "../core/sound";
 import { State, aiProvider, type ChatMessage } from "../core/state";
 import type { ViewHost } from "./views";
@@ -121,6 +121,9 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   /** "@Name task" goes straight to that Grok Bot, without Mochi in between. */
   function botTarget(query: string): { bot: string; task: string } | null {
     if (!query.startsWith("@")) return null;
+    // "@todos mensaje": the same message to every Grok Bot.
+    const all = parseTodos(query);
+    if (all != null) return all.trim() ? { bot: "*", task: all.trim() } : null;
     const lower = query.toLowerCase();
     const hit = State.settings.grokBots
       .flatMap((b) => [b.name, b.id].map((n) => ({ id: b.id, prefix: `@${n.toLowerCase()}` })))
@@ -138,7 +141,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     State.notify();
     onHeightChange();
     // Same path as the Bot's conversation, so it shows up there too.
-    const sent = await sendToGrokBot(target.bot, target.task);
+    const sent = target.bot === "*" ? await sendToAll(target.task) : await sendToGrokBot(target.bot, target.task);
     if (sent.ok) {
       message.content = `✓ ${sent.message}`;
       Sound.play("finish");

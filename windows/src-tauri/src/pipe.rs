@@ -22,6 +22,9 @@
 // `coucou-hook tool` (Grok Bots calling Mochi's tools) is the one request that
 // is not a hook event: `coucou_kind: "tool"` / `"tool_list"`, answered with one
 // JSON line `{"ok":…}`. See `tool_request` below.
+// `--step` / `--attach` cards are not hook events either: `coucou_kind:
+// "bot_step"` (fire and forget) and `"bot_attach"` (one `{"ok":…}` line back),
+// both handled in botcards.rs.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -68,6 +71,12 @@ pub enum Reply {
 /// Permission requests the island has been told about.
 #[derive(Default)]
 pub struct Pending(pub Mutex<HashMap<String, mpsc::Sender<Reply>>>);
+
+/// Something is waiting for the owner's answer (hook permission, question, a
+/// Bot's tool card, one of Mochi's approvals): the island must stay open.
+pub fn approval_pending(app: &AppHandle) -> bool {
+    app.try_state::<Pending>().map(|p| !p.0.lock().unwrap().is_empty()).unwrap_or(false)
+}
 
 static COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -211,6 +220,16 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
         Some("tool_list") => {
             log::line("bot tool list");
             return write_line(pipe, &tool_list()).await;
+        }
+        // Cards on the Bot's pill (botcards.rs): display only, never relayed.
+        Some("bot_step") => {
+            crate::botcards::step(&app, &payload);
+            pipe.finish();
+            return;
+        }
+        Some("bot_attach") => {
+            let answer = crate::botcards::attach(&app, &payload);
+            return write_line(pipe, &answer).await;
         }
         _ => {}
     }
@@ -428,6 +447,8 @@ fn bot_tool_card(req: &ToolRequest, summary: &str, request_id: &str) -> Value {
         "tool_name": req.tool,
         "tool_input": req.input,
         "request_id": request_id,
+        // "Siempre" may be offered: a rule for this Bot (never for shells), policy.rs.
+        "allow_always": !policy::never_always(&req.tool),
     })
 }
 
@@ -469,6 +490,10 @@ async fn tool_request(app: &AppHandle, payload: Value) -> Value {
 /// Puts the card on the Bot's pill and waits for the owner. No answer, a busy or
 /// paused island, or a timeout all mean no — as in policy.rs.
 async fn approve_bot_tool(app: &AppHandle, req: &ToolRequest, summary: &str) -> Result<(), Value> {
+    // A rule the owner made with "Permitir siempre" for this Bot (policy.rs).
+    if policy::allowed_by_rule(&req.agent, &req.tool, summary) {
+        return Ok(());
+    }
     let id = format!("{}-{}", std::process::id(), COUNTER.fetch_add(1, Ordering::Relaxed));
     let (tx, mut rx) = mpsc::channel::<Reply>(4);
     app.state::<Pending>().0.lock().unwrap().insert(id.clone(), tx);
@@ -487,8 +512,13 @@ async fn approve_bot_tool(app: &AppHandle, req: &ToolRequest, summary: &str) -> 
     // The decision itself is already in coucou.log (answer() and
     // wait_for_decision_within write it); only the verdict is ours.
     match decision.as_deref() {
-        // "always" counts once: a Bot never gets a standing approval.
-        Some("allow") | Some("always") => Ok(()),
+        Some("allow") => Ok(()),
+        // "always": a rule for this Bot only — folder-scoped for write_file,
+        // never for shells (then it counts once). Logged by policy.rs.
+        Some(d @ ("always" | "always-session")) => {
+            policy::remember_always(&req.agent, &req.tool, summary, d);
+            Ok(())
+        }
         Some(_) => Err(tool_error(
             "denied",
             "The owner declined this action. Do not retry it another way; ask what they want instead.",
@@ -570,13 +600,17 @@ mod tests {
     fn the_card_is_the_bot_ask_card() {
         let r = parse_tool_request(wire("Diseño Bot", "bot-diseno-bot", "run_powershell", json!({"command":"dir"}), 0)).unwrap();
         let card = bot_tool_card(&r, "dir", "7-1");
-        // The keys hook/src/bot.rs sends for `--status ask`, plus request_id.
+        // The keys hook/src/bot.rs sends for `--status ask`, plus request_id
+        // and allow_always.
         let mut keys: Vec<&str> = card.as_object().unwrap().keys().map(String::as_str).collect();
         keys.sort_unstable();
         assert_eq!(
             keys,
-            ["coucou_agent", "coucou_bot", "cwd", "hook_event_name", "message", "request_id", "tool_input", "tool_name"]
+            ["allow_always", "coucou_agent", "coucou_bot", "cwd", "hook_event_name", "message", "request_id", "tool_input", "tool_name"]
         );
+        assert_eq!(card["allow_always"], false, "never for a shell");
+        let open = parse_tool_request(wire("A", "bot-a", "open_url", json!({"url":"https://x"}), 0)).unwrap();
+        assert_eq!(bot_tool_card(&open, "https://x", "7-2")["allow_always"], true);
         assert_eq!(card["hook_event_name"], "PermissionRequest");
         assert_eq!(card["coucou_agent"], "bot-diseno-bot");
         assert_eq!(card["coucou_bot"], "Diseño Bot");
