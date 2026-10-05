@@ -32,7 +32,9 @@ export function voiceSection(
   ctx: { get: () => Settings; save: () => Promise<void> },
 ): HTMLElement {
   // Voice ids are used whole (`piper:es_MX-claude-high`), never split on ":".
-  const chosen = (bot: string) => voices0[bot] ?? "";
+  // No pick yet: the voice the Bot speaks with anyway (Rust's default by name).
+  let effective: Record<string, string> = {};
+  const chosen = (bot: string) => voices0[bot] ?? effective[bot] ?? "";
   const feedback = h("div");
   const engineLine = h("div", { class: "hint", text: "Motor de voz: esperando estado…" });
   const progress = h("div", { class: "voice-progress" }, h("i"));
@@ -113,7 +115,7 @@ export function voiceSection(
         install.removeAttribute("disabled");
       }
     });
-    return h("div", { class: "row" },
+    return h("div", { class: "row", style: "flex-wrap:nowrap" },
       h("label", {}, h("i", { class: "dot", style: `background:${bot.color}` }), h("span", { text: ` ${bot.name}`, style: `color:${bot.color}` })),
       select, listen, install);
   }
@@ -138,12 +140,22 @@ export function voiceSection(
     void ctx.save();
   });
 
+  let downloading = false;
   async function loadVoices() {
     try {
       voices = (await callCmd<VoiceInfo[]>(CMD.listVoices)) ?? [];
+      if (!downloading) {
+        const ready = voices.some((v) => v.engine === "piper" && v.installed);
+        engineLine.textContent = ready ? `${ENGINE_LABELS.piper}: listo` : `${ENGINE_LABELS.piper}: elige una voz e instálala`;
+      }
     } catch (err) {
       voices = [];
       engineLine.textContent = `Voces: ${errText(err)}`;
+    }
+    try {
+      effective = (await callCmd<Record<string, string>>(CMD.botVoices)) ?? {};
+    } catch {
+      effective = {};
     }
     drawBots();
   }
@@ -194,6 +206,7 @@ export function voiceSection(
   void onEvent<VoiceEngineEvent>(EVT.voiceEngine, (p) => {
     const name = p?.engine ? ENGINE_LABELS[p.engine] ?? p.engine : "Motor de voz";
     const what = p?.item ? ` ${p.item}` : " modelo";
+    downloading = !!p?.downloading;
     if (p?.downloading && p.error) {
       engineLine.textContent = `${name}: ${p.error}`;
     } else if (p?.downloading) {

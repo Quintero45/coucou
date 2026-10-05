@@ -8,7 +8,20 @@ import { Bridge } from "./bridge";
 import { Outbox, botErrorText, toWire, type PendingAttachment } from "./attachments";
 import type { BotDecision } from "./botlog";
 import { readRepliesEnabled, speak } from "./botcmds";
-import { State } from "./state";
+import { BOT_PREFIX, CURSOR_AGENT_ID, State } from "./state";
+
+/** The Cursor agent's conversation: its prompts, steps and answers, read from its hooks. */
+export const CURSOR_CHAT = "cursor";
+
+/** Pills that open a conversation: the Grok Bots and the Cursor agent. */
+export function hasChat(taskId: string): boolean {
+  return taskId.startsWith(BOT_PREFIX) || taskId === CURSOR_AGENT_ID;
+}
+
+/** The conversation key of a pill: a Bot's slug, or "cursor". */
+export function chatSlug(taskId: string): string {
+  return taskId === CURSOR_AGENT_ID ? CURSOR_CHAT : taskId.slice(BOT_PREFIX.length);
+}
 
 export type BotChatEntry =
   | {
@@ -92,8 +105,8 @@ export const BotChat = {
     if (list.length > LIMIT) list.splice(0, list.length - LIMIT);
     save(slug);
     State.notify();
-    // "Leer respuestas en voz alta" (Ajustes → Voz).
-    if (full.kind === "bot" && full.status !== "working" && readRepliesEnabled()) {
+    // "Leer respuestas en voz alta" (Ajustes → Voz). Cursor's notices are read by cursorvoice.ts.
+    if (full.kind === "bot" && full.status !== "working" && slug !== CURSOR_CHAT && readRepliesEnabled()) {
       speak(full.text, slug).catch((err) => void Bridge.log(`speak ${slug} failed: ${String(err)}`));
     }
     return full;

@@ -556,7 +556,7 @@ async fn elevenlabs_voices(key: &str) -> Vec<(String, String)> {
     fetched.unwrap_or_else(|| ELEVENLABS_FALLBACK.iter().map(|(id, n)| (id.to_string(), n.to_string())).collect())
 }
 
-pub async fn voices(app: &AppHandle) -> Vec<VoiceInfo> {
+pub async fn voices() -> Vec<VoiceInfo> {
     let piper_ready = piper_exe().is_some();
     let mut out: Vec<VoiceInfo> = PIPER_VOICES
         .iter()
@@ -569,7 +569,9 @@ pub async fn voices(app: &AppHandle) -> Vec<VoiceInfo> {
             size_mb: Some(v.size_mb + if piper_ready { 0 } else { 22 }),
         })
         .collect();
-    emit_ready(app, "piper", piper_ready && PIPER_VOICES.iter().any(|v| piper_voice_installed(v.key)));
+    // No `voice-engine` event from here: the settings page reloads this list on
+    // that event, and emitting it back made an endless loop that redrew the rows
+    // (and closed any open dropdown) many times a second.
     if let Some(key) = secrets::get(ELEVENLABS_KEY) {
         for (id, name) in elevenlabs_voices(&key).await {
             out.push(VoiceInfo { id: format!("elevenlabs:{id}"), engine: "elevenlabs".into(), name, lang: "multi".into(), installed: true, size_mb: None });
@@ -815,8 +817,10 @@ fn sink_slot() -> &'static Mutex<Option<Arc<rodio::Sink>>> {
 }
 
 #[cfg(windows)]
-fn play_wav(bytes: Vec<u8>) -> Result<(), String> {
+/// Starts playing; with `until_end`, returns only when the audio is over (or stopped).
+fn play_wav(bytes: Vec<u8>, until_end: bool) -> Result<(), String> {
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
     std::thread::Builder::new()
         .name("coucou-speak".into())
         .spawn(move || {
@@ -860,13 +864,18 @@ fn play_wav(bytes: Vec<u8>) -> Result<(), String> {
             }
             drop(slot);
             drop(stream);
+            let _ = done_tx.send(());
         })
         .map_err(|e| e.to_string())?;
-    rx.recv_timeout(Duration::from_secs(10)).map_err(|_| "audio_timeout".to_string())?
+    rx.recv_timeout(Duration::from_secs(10)).map_err(|_| "audio_timeout".to_string())??;
+    if until_end {
+        let _ = done_rx.recv();
+    }
+    Ok(())
 }
 
 #[cfg(not(windows))]
-fn play_wav(_bytes: Vec<u8>) -> Result<(), String> {
+fn play_wav(_bytes: Vec<u8>, _until_end: bool) -> Result<(), String> {
     Err("La voz solo está disponible en Windows por ahora.".into())
 }
 
@@ -902,7 +911,22 @@ async fn speak_with(app: &AppHandle, voice_id: &str, text: &str, stand_in: bool)
         return Ok(());
     }
     log::line(format!("voice: playing {} KB, synthesised in {} ms", wav.len() / 1024, started.elapsed().as_millis()));
-    tauri::async_runtime::spawn_blocking(move || play_wav(wav)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || play_wav(wav, false)).await.map_err(|e| e.to_string())?
+}
+
+/// WAV bytes for `text` in `bot`'s voice (a voice still downloading is stood in for).
+pub(crate) async fn synth_for(app: &AppHandle, bot: &str, text: &str) -> Result<Vec<u8>, String> {
+    let text = clean_for_speech(text);
+    if text.is_empty() {
+        return Err("nothing_to_say".into());
+    }
+    let voice = voice_for_bot(app, bot);
+    synth(app, &voice, &text, true).await
+}
+
+/// Plays WAV bytes and returns when they are over or `stop_playback` cut them.
+pub(crate) async fn play_until_end(wav: Vec<u8>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || play_wav(wav, true)).await.map_err(|e| e.to_string())?
 }
 
 fn logged<T>(what: &str, result: Result<T, String>) -> Result<T, String> {
@@ -934,6 +958,11 @@ pub async fn speak(app: AppHandle, text: String, bot: Option<String>) -> Result<
         }
         None => current_bot().lock().unwrap().clone().or_else(|| grokbot::list(&app).first().map(|b| b.id.clone())),
     };
+    // In a call, notices wait for a gap in the conversation instead of cutting in.
+    if let Some(id) = bot.as_deref().filter(|_| crate::call::active()) {
+        crate::call::announce(id, &text);
+        return Ok(());
+    }
     let voice = bot.as_deref().map(|b| voice_for_bot(&app, b)).unwrap_or_else(|| DEFAULT_VOICE.to_string());
     log::line(format!("voice: speak for {} with {voice}", bot.as_deref().unwrap_or("(no bot)")));
     logged("speak", speak_with(&app, &voice, &text, true).await)
@@ -945,8 +974,21 @@ pub fn stop_speaking() {
 }
 
 #[tauri::command]
-pub async fn list_voices(app: AppHandle) -> Vec<VoiceInfo> {
-    voices(&app).await
+pub async fn list_voices() -> Vec<VoiceInfo> {
+    voices().await
+}
+
+/// The voice each Bot (and `cursor`) speaks with today: the owner's pick or the default.
+#[tauri::command]
+pub fn bot_voices(app: AppHandle) -> std::collections::HashMap<String, String> {
+    let mut ids: Vec<String> = grokbot::list(&app).into_iter().map(|b| b.id).collect();
+    ids.push(CURSOR_ID.to_string());
+    ids.into_iter()
+        .map(|id| {
+            let voice = voice_for_bot(&app, &id);
+            (id, voice)
+        })
+        .collect()
 }
 
 #[tauri::command]

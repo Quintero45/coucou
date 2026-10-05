@@ -1,7 +1,9 @@
 // Coucou for Windows — app wiring and the commands the island calls.
 
 mod agent;
+mod appwatch;
 mod botcards;
+mod call;
 mod claude;
 mod context;
 mod cursor;
@@ -649,6 +651,7 @@ pub fn run() {
             voice::stop_speaking,
             voice::list_voices,
             voice::set_bot_voice,
+            voice::bot_voices,
             voice::preview_voice,
             voice::install_voice,
             voice::set_tts_key,
@@ -657,6 +660,10 @@ pub fn run() {
             meeting::stop_dictation,
             meeting::start_meeting,
             meeting::stop_meeting,
+            call::start_call,
+            call::stop_call,
+            call::call_mute,
+            call::call_cursor_status,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -693,6 +700,7 @@ pub fn run() {
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             voice::resume_pending(handle.clone());
+            appwatch::start(handle.clone());
             Ok(())
         })
         .run(tauri::generate_context!())

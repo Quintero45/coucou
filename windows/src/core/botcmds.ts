@@ -20,10 +20,16 @@ export const CMD = {
   stopSpeaking: "stop_speaking",
   listVoices: "list_voices",
   setBotVoice: "set_bot_voice",
+  botVoices: "bot_voices",
   previewVoice: "preview_voice",
   installVoice: "install_voice",
   setTtsKey: "set_tts_key",
   ttsKeyStatus: "tts_key_status",
+  // Voice call with the Bots (and the Cursor agent).
+  startCall: "start_call",
+  stopCall: "stop_call",
+  callMute: "call_mute",
+  callCursorStatus: "call_cursor_status",
   // Screen and context.
   startScreenShare: "start_screen_share",
   stopScreenShare: "stop_screen_share",
@@ -38,6 +44,8 @@ export const EVT = {
   meetingChunk: "meeting-chunk",
   screenShare: "screen-share",
   voiceEngine: "voice-engine",
+  callState: "call-state",
+  callLine: "call-line",
 } as const;
 
 export const NOT_YET = "no disponible todavía";
@@ -74,6 +82,19 @@ export interface VoiceEngineEvent {
   /** A failed download, or a retry pending while `downloading` stays true. */
   error?: string;
 }
+
+export interface CallParticipant { id: string; name: string; color: string }
+export interface CallStateEvent {
+  active: boolean;
+  participants: CallParticipant[];
+  muted: boolean;
+  phase: "listening" | "hearing" | "thinking" | "speaking";
+  /** Participant id of who is thinking or speaking. */
+  speaker?: string;
+  error?: string;
+}
+/** One line of the call transcript: `who` is "me" or a participant id. */
+export interface CallLineEvent { who: string; name: string; text: string }
 
 export interface VoiceInfo {
   id: string;

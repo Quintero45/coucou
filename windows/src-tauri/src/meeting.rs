@@ -29,7 +29,7 @@ const WHISPER_ASSET: &str = "whisper-bin-x64.zip";
 /// Known-good release with the CPU x64 build, if the API cannot be reached.
 const WHISPER_FALLBACK: &str = "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-x64.zip";
 
-const RATE: usize = 16_000;
+pub(crate) const RATE: usize = 16_000;
 const MEETING_CHUNK_SECS: usize = 45;
 const DICTATION_CHUNK_SECS: usize = 6;
 /// Never buffer more than this per source (10 min), whatever happens downstream.
@@ -66,7 +66,7 @@ async fn whisper_release_url() -> String {
 }
 
 /// whisper-cli.exe and the model, downloaded on first use.
-async fn ensure_whisper(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
+pub(crate) async fn ensure_whisper(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
     if let (Some(exe), true) = (whisper_exe(), model_path().is_file()) {
         return Ok((exe, model_path()));
     }
@@ -111,7 +111,7 @@ fn wav_16k(samples: &[f32]) -> Vec<u8> {
     voice::wav_from_pcm16(&pcm, RATE as u32)
 }
 
-fn rms(samples: &[f32]) -> f32 {
+pub(crate) fn rms(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
     }
@@ -131,7 +131,7 @@ fn is_noise(line: &str) -> bool {
 }
 
 /// Spanish text for 16 kHz mono samples ("" for silence).
-async fn transcribe(exe: PathBuf, model: PathBuf, samples: Vec<f32>) -> Result<String, String> {
+pub(crate) async fn transcribe(exe: PathBuf, model: PathBuf, samples: Vec<f32>) -> Result<String, String> {
     if samples.len() < RATE / 2 || rms(&samples) < SILENCE_RMS {
         return Ok(String::new());
     }
@@ -237,7 +237,7 @@ type Buffer = Arc<Mutex<Vec<f32>>>;
 
 /// Running capture: a thread owns the cpal streams (they are not Send) and
 /// fills one 16 kHz buffer per source until stopped.
-struct Capture {
+pub(crate) struct Capture {
     stop: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
     mic: Buffer,
@@ -245,7 +245,7 @@ struct Capture {
 }
 
 impl Capture {
-    fn start(mic: bool, system: bool) -> Result<Capture, String> {
+    pub(crate) fn start(mic: bool, system: bool) -> Result<Capture, String> {
         let stop = Arc::new(AtomicBool::new(false));
         let mic_buf: Buffer = Arc::default();
         let sys_buf: Buffer = Arc::default();
@@ -272,7 +272,7 @@ impl Capture {
     }
 
     /// Everything captured so far, both sources mixed, and clears the buffers.
-    fn take(&self) -> Vec<f32> {
+    pub(crate) fn take(&self) -> Vec<f32> {
         let mic = std::mem::take(&mut *self.mic.lock().unwrap());
         let sys = std::mem::take(&mut *self.sys.lock().unwrap());
         match (mic.is_empty(), sys.is_empty()) {

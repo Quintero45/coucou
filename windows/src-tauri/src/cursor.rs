@@ -19,7 +19,8 @@ use std::hash::{BuildHasher, Hasher};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{LazyLock, Mutex, OnceLock};
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -221,7 +222,9 @@ async fn bridge() -> Result<(String, String), String> {
         *slot = None;
         log::line("cursor engine: bridge exited, restarting");
     }
+    // A new bridge knows none of the old agents.
     reset();
+    end_call_sessions();
     if !exe().is_file() {
         return Err("Falta el motor de Cursor. Instálalo en Ajustes → Asistente → «Instalar motor».".into());
     }
@@ -575,6 +578,38 @@ pub async fn chat(
     context: Option<&ChatContext>,
     cancel: &AtomicBool,
 ) -> Result<String, String> {
+    let mut emit = |t: &str| {
+        let _ = app.emit_to(WINDOW_LABEL, "chat-delta", t);
+    };
+    converse(&SESSION, ep, system, specs, query, context, cancel, &mut emit).await
+}
+
+/// Voice-call conversations, one per participant, apart from Mochi's chat.
+static CALL_SESSIONS: LazyLock<Mutex<HashMap<String, Arc<Mutex<Option<Session>>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// One spoken turn for `who` in a voice call: no tools, nothing streamed to the island.
+pub async fn call_turn(who: &str, ep: &Endpoint, system: &str, query: &str, cancel: &AtomicBool) -> Result<String, String> {
+    let slot = CALL_SESSIONS.lock().unwrap().entry(who.to_string()).or_default().clone();
+    converse(&slot, ep, system, &[], query, None, cancel, &mut |_| {}).await
+}
+
+/// The call is over: its agents are forgotten.
+pub fn end_call_sessions() {
+    CALL_SESSIONS.lock().unwrap().clear();
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn converse(
+    slot: &Mutex<Option<Session>>,
+    ep: &Endpoint,
+    system: &str,
+    specs: &[ToolSpec],
+    query: &str,
+    context: Option<&ChatContext>,
+    cancel: &AtomicBool,
+    emit: &mut (dyn FnMut(&str) + Send),
+) -> Result<String, String> {
     BUSY.store(true, Ordering::Relaxed);
     let _busy = BusyGuard;
     let key = ep.key().ok_or("Falta la clave de Cursor. Ponla en Ajustes → Asistente.")?.to_string();
@@ -599,13 +634,13 @@ pub async fn chat(
         o
     };
 
-    let current = SESSION.lock().unwrap().as_ref().map(|s| (s.agent.clone(), s.tools.clone(), s.primed));
+    let current = slot.lock().unwrap().as_ref().map(|s| (s.agent.clone(), s.tools.clone(), s.primed));
     let (agent, primed) = match current {
         Some((agent, tools, primed)) => {
             if tools != signature {
                 // The tool set changed (an MCP server came up, a skill was added).
                 rpc(&url, &token, "SdkAgentService/ResumeAgent", json!({ "agentId": agent, "options": options(Some(&agent)) })).await?;
-                if let Some(s) = SESSION.lock().unwrap().as_mut() {
+                if let Some(s) = slot.lock().unwrap().as_mut() {
                     s.tools = signature.clone();
                 }
             }
@@ -614,7 +649,7 @@ pub async fn chat(
         None => {
             let v = rpc(&url, &token, "SdkAgentService/CreateAgent", json!({ "options": options(None) })).await?;
             let agent = v["agentId"].as_str().ok_or("Cursor no creó el agente.")?.to_string();
-            *SESSION.lock().unwrap() = Some(Session { agent: agent.clone(), tools: signature.clone(), primed: false });
+            *slot.lock().unwrap() = Some(Session { agent: agent.clone(), tools: signature.clone(), primed: false });
             (agent, false)
         }
     };
@@ -661,7 +696,7 @@ pub async fn chat(
     if !response.status().is_success() {
         return Err(connect_error(&response.text().await.unwrap_or_default()));
     }
-    if let Some(s) = SESSION.lock().unwrap().as_mut() {
+    if let Some(s) = slot.lock().unwrap().as_mut() {
         s.primed = true;
     }
 
@@ -681,9 +716,6 @@ pub async fn chat(
         }
     });
 
-    let mut emit = |t: &str| {
-        let _ = app.emit_to(WINDOW_LABEL, "chat-delta", t);
-    };
     let mut run = Run::default();
     let mut frames = Frames::default();
     let mut cancelled_at: Option<Instant> = None;
@@ -712,7 +744,7 @@ pub async fn chat(
                 }
                 break 'stream;
             }
-            run.handle(&msg, &mut emit);
+            run.handle(&msg, &mut *emit);
         }
         if run.done {
             break;

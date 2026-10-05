@@ -13,7 +13,7 @@ import {
   botCanReply, createBotChat, createBotReply, reducedMotion, renderIntegrationCard,
   type BotReplyHandlers, type IntegrationCardHooks,
 } from "./integrations";
-import { sendWithOutbox } from "../core/botchat";
+import { hasChat, sendWithOutbox } from "../core/botchat";
 import { loadBotApprovals, type BotApproval } from "../core/botlog";
 import { BotLive } from "../core/botlive";
 import { renderMarkdown } from "./markdown";
@@ -156,11 +156,11 @@ function buildOverview(actions: ViewActions): ViewHost {
   const replySlot = h("div", { class: "bot-reply-slot" }, reply.el);
   replySlot.style.display = "none";
   const left = card(null, leftBody, jump, replySlot);
-  // The whole card of a focused Grok Bot opens its conversation; the buttons
-  // and boxes inside it keep their own clicks.
+  // The whole card of a focused Grok Bot (or Cursor) opens its conversation;
+  // the buttons and boxes inside it keep their own clicks.
   left.addEventListener("click", (e) => {
     const id = State.focusTask?.id;
-    if (!id?.startsWith(BOT_PREFIX) || botDetail.id) return;
+    if (!id || !hasChat(id) || botDetail.id) return;
     if ((e.target as Element).closest("button, a, input, textarea, select, .bot-reply")) return;
     actions.openBotDetail(id);
   });
@@ -409,7 +409,7 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
       class: task.id.startsWith(BOT_PREFIX) ? "pill pill-bot" : "pill",
       title: phase ? `${label} · ${phase.label}` : label,
       // A Grok Bot's pill opens its conversation straight away.
-      onclick: () => (task.id.startsWith(BOT_PREFIX) ? actions.openBotDetail(task.id) : actions.setFocus(task.id)),
+      onclick: () => (hasChat(task.id) ? actions.openBotDetail(task.id) : actions.setFocus(task.id)),
     },
     canvas,
     lbl,

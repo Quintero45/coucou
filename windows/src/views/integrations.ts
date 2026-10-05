@@ -6,9 +6,9 @@
 
 import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
-import { BOT_PREFIX, State, botPhase, type AgentTask } from "../core/state";
+import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPhase, type AgentTask } from "../core/state";
 import { DECISION_LABELS, type BotApproval } from "../core/botlog";
-import { BotChat, type BotChatEntry } from "../core/botchat";
+import { BotChat, chatSlug, type BotChatEntry } from "../core/botchat";
 import { Outbox, attachContext, formatSize, handleBotPaste } from "../core/attachments";
 import { BotLive } from "../core/botlive";
 import { CMD, callCmd, cmdErrorText, speak } from "../core/botcmds";
@@ -19,6 +19,8 @@ const TOOL_ICONS = {
   mic: "M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z",
   meeting: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM9 13c-3 0-6 1.5-6 4v2h12v-2c0-2.5-3-4-6-4zm7 0c-.5 0-1 .05-1.5.13A4.6 4.6 0 0 1 17 17v2h4v-2c0-2.3-2.6-4-5-4z",
   screen: "M3 5h18v11H3V5zm2 2v7h14V7H5zm3 11h8v2H8v-2z",
+  phone: "M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1L6.6 10.8z",
+  micOff: "M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17V5a3 3 0 0 0-6 0v.18l5.98 5.99zM4.27 3 3 4.27l6.01 6.01V11a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52a5 5 0 0 1-5-5H5a7 7 0 0 0 6 6.92V21h2v-3.08c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z",
   context: "M11 3h2v3h-2V3zm0 15h2v3h-2v-3zM3 11h3v2H3v-2zm15 0h3v2h-3v-2zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
   speaker: "M4 9h4l5-4v14l-5-4H4V9zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z",
   file: "M6 2h8l6 6v14H6V2zm7 1.5V9h5.5L13 3.5z",
@@ -714,12 +716,16 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
   const shareSwitch = h("i", { class: "bot-switch" });
   const shareBtn = h("button", { class: "bot-tool-pill", title: "Compartir pantalla con el bot (una captura cada 5 s)" },
     svg(TOOL_ICONS.screen, 11), h("span", { text: "Pantalla" }), shareSwitch);
+  const callBtn = h("button", { class: "bot-tool-pill", title: "Llamada de voz: habla con este bot (añade a los demás desde la barra de la llamada)" },
+    svg(TOOL_ICONS.phone, 11), h("span", { text: "Llamar" }));
+  const callBar = h("div", { class: "bot-call", style: "display:none" });
   const composer = h("div", { class: "bot-detail-composer" }, ctxBtn, micBtn, input, sendBtn);
   const chips = h("div", { class: "bot-chips" });
   const note = h("div", { class: "bot-chips-note" });
   const cardEl = h("div", { class: "card bot-detail-card" },
     h("div", { class: "bot-detail-head" }, backBtn, mascot, dotEl, nameEl, stateEl,
-      h("span", { class: "bot-detail-tools" }, meetingBtn, shareBtn)),
+      h("span", { class: "bot-detail-tools" }, callBtn, meetingBtn, shareBtn)),
+    callBar,
     timeline,
     offline,
     chips,
@@ -869,6 +875,74 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
         .catch((err) => toolError("Pantalla", err));
     }
   });
+
+  // Llamada: starts with this Bot; the bar adds or removes the others.
+  const callIds = () => BotLive.call?.participants.map((p) => p.id) ?? [];
+  function setCall(ids: string[]) {
+    const req = ids.length ? callCmd(CMD.startCall, { participants: ids }) : callCmd(CMD.stopCall);
+    req.catch((err) => toolError("Llamada", err));
+  }
+  callBtn.addEventListener("click", () => {
+    if (callBtn.hasAttribute("disabled")) return;
+    const ids = callIds();
+    if (!BotLive.call) setCall([slug]);
+    else setCall(ids.includes(slug) ? ids.filter((x) => x !== slug) : [...ids, slug]);
+  });
+
+  let callKey = "";
+  function drawCall() {
+    const c = BotLive.call;
+    if (!c && BotLive.callError) {
+      Outbox.setNotice(slug, `Llamada: ${BotLive.callError}`);
+      BotLive.callError = null;
+    }
+    const key = c ? JSON.stringify([c, BotLive.callLines, State.settings.grokBots.map((b) => b.id)]) : "off";
+    if (key === callKey) return;
+    callKey = key;
+    clear(callBar);
+    callBar.style.display = c ? "" : "none";
+    if (!c) return;
+    const nameOf = (id?: string) => c.participants.find((p) => p.id === id)?.name ?? "";
+    const phase = c.muted ? "Micrófono silenciado"
+      : c.phase === "hearing" ? "Transcribiendo…"
+      : c.phase === "thinking" ? `${nameOf(c.speaker)} está pensando…`
+      : c.phase === "speaking" ? `${nameOf(c.speaker)} está hablando`
+      : "Te escucho… nombra a quien le hablas";
+    const everyone = [
+      ...State.settings.grokBots.map((b) => ({ id: b.id, name: b.name, color: b.color })),
+      { id: "cursor", name: "Cursor", color: "#e5e7eb" },
+    ];
+    const ids = callIds();
+    const people = everyone.map((p) => {
+      const on = ids.includes(p.id);
+      const live = on && c.speaker === p.id && (c.phase === "speaking" || c.phase === "thinking");
+      return h("button", {
+        class: `bot-call-who${on ? " on" : ""}${live ? " live" : ""}`,
+        style: `--who:${p.color}`,
+        title: on ? `Quitar a ${p.name} de la llamada` : `Añadir a ${p.name} a la llamada`,
+        onclick: () => setCall(on ? ids.filter((x) => x !== p.id) : [...ids, p.id]),
+      }, h("i"), h("span", { text: p.name }));
+    });
+    const all = h("button", { class: "bot-call-who all", title: "Que estén todos", onclick: () => setCall(everyone.map((p) => p.id)) },
+      h("span", { text: "Todos" }));
+    all.toggleAttribute("disabled", everyone.every((p) => ids.includes(p.id)));
+    const mute = h("button", {
+      class: `bot-call-btn${c.muted ? " on" : ""}`,
+      title: c.muted ? "Activar el micrófono" : "Silenciar el micrófono",
+      onclick: () => callCmd(CMD.callMute, { muted: !c.muted }).catch((err) => toolError("Llamada", err)),
+    }, svg(c.muted ? TOOL_ICONS.micOff : TOOL_ICONS.mic, 11));
+    const hang = h("button", { class: "bot-call-btn hang", title: "Colgar", onclick: () => setCall([]) }, svg(TOOL_ICONS.phone, 11));
+    callBar.append(
+      h("div", { class: "bot-call-top" },
+        h("span", { class: `bot-call-phase ${c.muted ? "muted" : c.phase}` }, h("i"), h("span", { text: phase })),
+        mute, hang),
+      h("div", { class: "bot-call-people" }, ...people, all),
+      h("div", { class: "bot-call-error", text: c.error ?? "" }),
+      h("div", { class: "bot-call-lines" },
+        ...BotLive.callLines.slice(-3).map((l) =>
+          h("div", { class: `bot-call-line${l.who === "me" ? " me" : ""}` }, h("b", { text: `${l.name}: ` }), h("span", { text: l.text })))),
+    );
+  }
 
   // The little speaker on a Bot's answer: read it aloud / stop.
   let speakingId: string | null = null;
@@ -1034,7 +1108,10 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     const nearEnd = timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 48;
     clear(timeline);
     if (items.length === 0 && !pending) {
-      timeline.append(h("div", { class: "bot-detail-empty", text: `Todavía no hablaron. Escríbele a ${task.name} y su respuesta aparecerá aquí.` }));
+      const empty = task.id === CURSOR_AGENT_ID
+        ? "Aún no hay actividad de Cursor. Cuando le escribas en su ventana, aquí verás tus mensajes, sus pasos y sus respuestas."
+        : `Todavía no hablaron. Escríbele a ${task.name} y su respuesta aparecerá aquí.`;
+      timeline.append(h("div", { class: "bot-detail-empty", text: empty }));
     }
     const next = new Set<string>();
     let fresh = 0;
@@ -1070,7 +1147,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       last = { task, approvals };
       if (task.id !== taskId) {
         taskId = task.id;
-        slug = task.id.slice(BOT_PREFIX.length);
+        slug = chatSlug(task.id);
         headKey = listKey = "";
         seen = new Set();
         open.clear();
@@ -1096,14 +1173,23 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
         void stateEl.offsetWidth;
         stateEl.classList.add("bot-detail-pop");
       }
+      // Cursor's conversation is read from its hooks: it is written to in Cursor's own window.
+      const isCursor = task.id === CURSOR_AGENT_ID;
+      for (const el of [composer, chips, note, meetingBtn, shareBtn]) el.style.display = isCursor ? "none" : "";
+      offline.textContent = isCursor
+        ? "Escríbele a Cursor en su ventana: aquí ves lo que le pides, lo que hace y lo que responde."
+        : "Este bot aún no está conectado. Pega su webhook en Ajustes → Mis Bots de Grok.";
       // Files dropped anywhere on the open conversation go to this Bot.
-      cardEl.dataset.botDrop = task.id;
-      syncChips(chips, note, slug, (text) => {
-        input.value = input.value ? `${input.value}\n${text}` : text;
-        autosize();
-        input.focus();
-      });
-      connected = !!State.settings.grokBots.find((b) => b.id === slug)?.url.trim();
+      if (isCursor) delete cardEl.dataset.botDrop;
+      else {
+        cardEl.dataset.botDrop = task.id;
+        syncChips(chips, note, slug, (text) => {
+          input.value = input.value ? `${input.value}\n${text}` : text;
+          autosize();
+          input.focus();
+        });
+      }
+      connected = !isCursor && !!State.settings.grokBots.find((b) => b.id === slug)?.url.trim();
       offline.style.display = connected ? "none" : "";
       composer.classList.toggle("off", !connected);
       input.disabled = !connected;
@@ -1117,6 +1203,16 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       meetingBtn.classList.toggle("on", BotLive.meetingWith(slug));
       shareBtn.classList.toggle("on", BotLive.sharingWith(slug));
       shareSwitch.classList.toggle("on", BotLive.sharingWith(slug));
+      // Calls need Whisper too; a call already running can always be changed.
+      const inCall = BotLive.inCall(slug);
+      callBtn.toggleAttribute("disabled", !!blocked && !BotLive.call);
+      callBtn.classList.toggle("on", inCall);
+      callBtn.title = blocked && !BotLive.call ? blocked
+        : inCall ? `Sacar a ${task.name} de la llamada`
+        : BotLive.call ? `Unir a ${task.name} a la llamada`
+        : `Llamada de voz: habla con ${task.name} (añade a los demás desde la barra de la llamada)`;
+      (callBtn.lastChild as HTMLElement).textContent = inCall ? "En llamada" : BotLive.call ? "Unir" : "Llamar";
+      drawCall();
       // Dictating: what has been heard so far, live in the box.
       if (BotLive.dictatingSlug === slug) {
         const heard = BotLive.dictation.get(slug) ?? "";

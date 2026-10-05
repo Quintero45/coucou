@@ -6,12 +6,12 @@
 // relay (windows/hook/src/normalize.rs) and are told apart by `coucou_agent`.
 
 import { Bridge, onEvent } from "../core/bridge";
-import { BotChat } from "../core/botchat";
+import { BotChat, CURSOR_CHAT } from "../core/botchat";
 import { recordBotApproval, type BotDecision } from "../core/botlog";
 import { buildFileDiff } from "../core/diff";
 import { setApprovalDetail, setQuestionHeight } from "../core/layout";
 import { Sound } from "../core/sound";
-import { BOT_PREFIX, State, botPillId, catalogAgent, isHiddenAgent, type QuestionItem } from "../core/state";
+import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPillId, catalogAgent, isHiddenAgent, type QuestionItem } from "../core/state";
 import { botDetail } from "../views/views";
 import { botReplyBusy } from "../views/integrations";
 import type { Island } from "./island";
@@ -252,6 +252,11 @@ function clearSession() {
 
 export function registerHookHandlers(island: Island) {
   void onEvent<HookPayload>("hook", (payload) => handleHook(island, payload));
+  // Cursor was opened (Rust's appwatch): it fires no hook of its own until the
+  // first agent chat, so this stands in for its SessionStart.
+  void onEvent<{ agent?: string }>("agent-app-opened", (p) => {
+    if (p?.agent) handleHook(island, { hook_event_name: "SessionStart", coucou_agent: p.agent });
+  });
 }
 
 /** The card stopped waiting: put the pill and the view back. */
@@ -298,6 +303,16 @@ function handleHook(island: Island, payload: HookPayload) {
 
   const focused = State.focusId === agentId;
 
+  /** Only the focused agent's finish, error or question opens its card. A
+   *  coding agent that starts working takes the focus, unless the one holding
+   *  it is busy itself, so Cursor or Codex open their card like Claude Code. */
+  const claimFocus = () => {
+    if (focused || !isExternalAgent || agentId.startsWith(BOT_PREFIX)) return;
+    const current = State.tasks.find((t) => t.id === State.focusId);
+    const busy = !!current && ["working", "thinking", "searching", "approval", "question"].includes(current.state);
+    if (!busy) State.setFocus(agentId);
+  };
+
   /** Alerts force the island open; work events only reveal the compact island. */
   const surface = (view: Parameters<Island["alert"]>[0], isAlert: boolean) => {
     if (State.mode === "expanded") {
@@ -325,11 +340,20 @@ function handleHook(island: Island, payload: HookPayload) {
 
   const task = () => State.tasks.find((x) => x.id === agentId);
 
+  // The Cursor agent's conversation in the island (its pill opens it like a Bot's).
+  const isCursor = agentId === CURSOR_AGENT_ID;
+  const cursorSaid = (text: string, status: "done" | "error" = "done") => {
+    const clean = text.trim().slice(0, 4000);
+    const last = [...BotChat.list(CURSOR_CHAT)].reverse().find((e) => e.kind === "bot");
+    if (clean && !(last?.kind === "bot" && last.text === clean)) BotChat.add(CURSOR_CHAT, { kind: "bot", text: clean, status });
+  };
+
   // A Grok Bot whose conversation is open on screen: its news goes there
   // instead of switching the island to another card.
   const isBotPill = agentId.startsWith(BOT_PREFIX);
   const botSlug = agentId.slice(BOT_PREFIX.length);
   const inChat = isBotPill && botDetail.id === agentId && State.view === "overview" && State.mode === "expanded";
+  const cursorInChat = isCursor && botDetail.id === agentId && State.view === "overview" && State.mode === "expanded";
 
   // AskUserQuestion from Claude Code: an interactive card, answered from here.
   if (payload.coucou_kind === "ask_user_question") {
@@ -361,27 +385,32 @@ function handleHook(island: Island, payload: HookPayload) {
   switch (name) {
     case "SessionStart":
       ensurePill();
+      claimFocus();
       surface("overview", false);
       Sound.play("work");
       break;
 
     case "UserPromptSubmit": {
       ensurePill();
+      claimFocus();
       State.updateTask(agentId, "thinking");
       // The field is `prompt`; reading `message` meant this step was always blank.
       const asked = payload.prompt ?? payload.message;
       if (asked) State.appendStep(agentId, asked.slice(0, 60));
+      if (asked && isCursor) BotChat.add(CURSOR_CHAT, { kind: "me", text: asked.slice(0, 4000), status: "sent" });
       surface("overview", false);
       break;
     }
 
     case "PreToolUse": {
       ensurePill();
+      claimFocus();
       State.updateTask(agentId, "working");
       const tool = payload.tool_name ?? "Tool";
       if (tool === "AskUserQuestion") break; // the --ask hook owns this one
       State.appendStep(agentId, stepLabel(tool, payload.tool_input ?? {}));
       if (isBotPill) BotChat.add(botSlug, { kind: "step", text: stepLabel(tool, payload.tool_input ?? {}) });
+      if (isCursor) BotChat.addStep(CURSOR_CHAT, stepLabel(tool, payload.tool_input ?? {}));
       surface("overview", false);
       break;
     }
@@ -395,6 +424,7 @@ function handleHook(island: Island, payload: HookPayload) {
       if (diff && t) {
         t.lastDiff = diff;
         State.appendStep(agentId, `Modifica · ${diff.file} +${diff.added} −${diff.removed}`);
+        if (isCursor) BotChat.addStep(CURSOR_CHAT, `Modifica · ${diff.file} +${diff.added} −${diff.removed}`);
       }
       break;
     }
@@ -408,6 +438,7 @@ function handleHook(island: Island, payload: HookPayload) {
       ensurePill();
       const t = task();
       if (t && payload.message) t.lastMessage = payload.message;
+      if (isCursor && payload.message) cursorSaid(payload.message);
       break;
     }
 
@@ -429,13 +460,16 @@ function handleHook(island: Island, payload: HookPayload) {
       State.updateTask(agentId, "finished");
       const final = payload.last_assistant_message ?? payload.message ?? task()?.lastMessage ?? "";
       if (final) State.appendStep(agentId, final.replace(/\s+/g, " ").slice(0, 80));
+      if (isCursor && final) cursorSaid(final);
       Sound.play("finish");
-      if (focused) surface("finished", true);
+      if (cursorInChat) {
+        // Already on screen, in its conversation.
+      } else if (focused) surface("finished", true);
       else State.setPillBadge(agentId, "finished");
       window.setTimeout(() => {
         const t = task();
         if (!t || t.state !== "finished") return;
-        if (isExternalAgent) {
+        if (isExternalAgent && botDetail.id !== agentId) {
           State.endSession(agentId);
         } else {
           State.updateTask(agentId, "idle");
@@ -448,7 +482,9 @@ function handleHook(island: Island, payload: HookPayload) {
     case "StopFailure":
       ensurePill();
       State.updateTask(agentId, "error");
+      if (isCursor) cursorSaid(payload.message || "La sesión falló.", "error");
       Sound.play("error");
+      if (cursorInChat) break;
       if (focused) surface("error", true);
       else State.setPillBadge(agentId, "error");
       break;
@@ -458,7 +494,9 @@ function handleHook(island: Island, payload: HookPayload) {
       break;
 
     case "SessionEnd":
-      if (isExternalAgent) {
+      if (cursorInChat) {
+        State.updateTask(agentId, "idle");
+      } else if (isExternalAgent) {
         State.endSession(agentId);
       } else {
         State.updateTask(agentId, "idle");

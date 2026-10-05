@@ -3,7 +3,7 @@
 // in memory; the conversation (botchat.ts) keeps the lasting part.
 
 import { BOT_PREFIX, State, type GrokBot } from "./state";
-import type { MeetingStateEvent, ScreenShareEvent, VoiceEngineEvent } from "./botcmds";
+import type { CallLineEvent, CallStateEvent, MeetingStateEvent, ScreenShareEvent, VoiceEngineEvent } from "./botcmds";
 
 /** The Bot an event names: by id first, then by name (case-insensitive). */
 export function resolveBot(who: string | undefined | null): GrokBot | null {
@@ -24,6 +24,16 @@ export const BotLive = {
   dictation: new Map<string, string>(),
   /** The Bot being dictated to (set by the conversation's microphone button). */
   dictatingSlug: null as string | null,
+  /** The voice call in progress (null when there is none). */
+  call: null as CallStateEvent | null,
+  /** Its last lines, newest last. */
+  callLines: [] as CallLineEvent[],
+  /** Why the last call stopped or a participant could not answer. */
+  callError: null as string | null,
+
+  inCall(id: string): boolean {
+    return !!BotLive.call?.participants.some((p) => p.id === id);
+  },
 
   /** Latest step of a Bot (pill id), while it works. */
   step(taskId: string): { text: string; ts: number } | null {
