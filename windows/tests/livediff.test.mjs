@@ -8,6 +8,7 @@ import { emit } from "./tauri.mjs";
 import { registerHookHandlers } from "../src/island/hooks.ts";
 import { DEFAULT_SETTINGS, DIFF_TTL_MS, MAX_DIFFS_PER_PILL, State } from "../src/core/state.ts";
 import { parseDiffStep } from "../src/core/diff.ts";
+import { BotChat, CURSOR_CHAT, EDIT_LINES } from "../src/core/botchat.ts";
 
 const CLAUDE = "integration_claude";
 
@@ -118,6 +119,26 @@ test("an agent pill's diffs go with the pill", () => {
   // An event for a pill that does not exist stores nothing.
   edit({ coucou_agent: "ghost" });
   assert.equal(State.sessionDiffs.has("agent_ghost"), false);
+});
+
+test("a Cursor file edit shows up as code in its conversation, capped", () => {
+  const edits = (n) => [{ old_string: "x\n", new_string: Array.from({ length: n }, (_, i) => `line ${i}`).join("\n") }];
+  hook({
+    hook_event_name: "PostToolUse", coucou_agent: "cursor", tool_name: "Edit",
+    tool_input: { file_path: "C:\\p\\src\\app.ts", edits: edits(3) },
+  });
+  const entry = BotChat.list(CURSOR_CHAT).at(-1);
+  assert.equal(entry.kind, "edit");
+  assert.equal(entry.path, "C:\\p\\src\\app.ts");
+  assert.deepEqual([entry.added, entry.removed, entry.more], [3, 1, 0]);
+  assert.deepEqual(entry.lines.map((l) => l.k), ["-", "+", "+", "+"]);
+  hook({
+    hook_event_name: "PostToolUse", coucou_agent: "cursor", tool_name: "Edit",
+    tool_input: { file_path: "C:\\p\\src\\big.ts", edits: edits(EDIT_LINES + 10) },
+  });
+  const big = BotChat.list(CURSOR_CHAT).at(-1);
+  assert.equal(big.lines.length, EDIT_LINES);
+  assert.equal(big.more, 11);
 });
 
 // ── Final message ─────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@
 import { Bridge } from "./bridge";
 import { Outbox, botErrorText, toWire, type PendingAttachment } from "./attachments";
 import type { BotDecision } from "./botlog";
+import type { FileDiff } from "./diff";
 import { CMD, callCmd, playSound } from "./botcmds";
 import { BotLive } from "./botlive";
 import { BOT_PREFIX, CURSOR_AGENT_ID, State } from "./state";
@@ -48,6 +49,8 @@ export type BotChatEntry =
       allowCustom?: boolean;
     }
   | { id: string; kind: "step"; at: number; text: string }
+  /** A file the agent edited (afterFileEdit, PostToolUse Edit): a capped copy of its diff. */
+  | { id: string; kind: "edit"; at: number; path: string; added: number; removed: number; lines: EditLine[]; more: number; tooLarge?: boolean }
   /** A file the Bot sent back (bot-attach) or a meeting transcript. Path only, opened by Rust. */
   | { id: string; kind: "file"; at: number; path: string; name: string; mime: string; size: number; source?: "bot" | "meeting"; caption?: string }
   /** A piece of a meeting transcript (meeting-chunk). */
@@ -63,6 +66,13 @@ export type BotChatEntry =
       truncated?: boolean;
       omitted?: boolean;
     };
+
+/** One line of an edit: added, removed, unchanged, or "…" between two hunks. */
+export interface EditLine { k: "+" | "-" | " " | "…"; t: string }
+
+/** An edit lives in localStorage with the rest: only its first lines, each cut short. */
+export const EDIT_LINES = 40;
+const EDIT_LINE_CHARS = 200;
 
 /** Distributes Omit over the union, so each kind keeps its own fields. */
 type NewEntry = BotChatEntry extends infer E ? (E extends BotChatEntry ? Omit<E, "id" | "at"> : never) : never;
@@ -140,6 +150,26 @@ export const BotChat = {
       }
     }
     BotChat.add(slug, { kind: "step", text: clean });
+  },
+
+  /** A file the agent edited, shown as code in the conversation. */
+  addEdit(slug: string, diff: FileDiff) {
+    const lines: EditLine[] = [];
+    let total = 0;
+    const keep = (line: EditLine) => {
+      total++;
+      if (lines.length < EDIT_LINES) lines.push(line);
+    };
+    diff.hunks.forEach((hunk, i) => {
+      if (i > 0) keep({ k: "…", t: "" });
+      for (const l of hunk.lines) {
+        keep({ k: l.kind === "added" ? "+" : l.kind === "removed" ? "-" : " ", t: l.text.slice(0, EDIT_LINE_CHARS) });
+      }
+    });
+    BotChat.add(slug, {
+      kind: "edit", path: diff.path, added: diff.added, removed: diff.removed, lines, more: total - lines.length,
+      ...(diff.tooLarge ? { tooLarge: true } : {}),
+    });
   },
 
   /** Changes a message in place (its delivery status, an error note). */

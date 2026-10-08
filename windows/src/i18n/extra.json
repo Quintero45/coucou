@@ -4979,6 +4979,17 @@
    "pt-BR": "Precisa de algo",
    "ru": "Что-то нужно",
    "id": "Butuh sesuatu"
+  },
+  "More lines: {count}": {
+   "zh-Hans": "更多行：{count}",
+   "hi": "और पंक्तियाँ: {count}",
+   "es": "Más líneas: {count}",
+   "ar": "أسطر أخرى: {count}",
+   "fr": "Lignes en plus : {count}",
+   "bn": "আরও লাইন: {count}",
+   "pt-BR": "Mais linhas: {count}",
+   "ru": "Ещё строк: {count}",
+   "id": "Baris lainnya: {count}"
   }
  }
 }

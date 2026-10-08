@@ -3078,6 +3078,136 @@ input[type="range"]::-webkit-slider-thumb {
   margin-left: 4px;
 }
 
+/* A file the agent edited: a small code window with its diff. */
+.bot-detail-edit {
+  display: flex;
+  flex-direction: column;
+  border-radius: 9px;
+  background: #0d0e11;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.bot-detail-edit-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 8px;
+  font: 400 10px var(--font);
+  color: var(--dim-3);
+}
+
+.bot-detail-edit.open .bot-detail-edit-head {
+  background: rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bot-detail-edit .bot-detail-chev {
+  transform: rotate(180deg);
+  transition: transform 0.15s ease-out;
+}
+
+.bot-detail-edit.open .bot-detail-chev {
+  transform: rotate(-90deg);
+}
+
+.bot-detail-edit-ext {
+  flex: 0 0 auto;
+  padding: 1px 3px;
+  border-radius: 3px;
+  font: 700 7.5px var(--mono);
+  color: #fff;
+  background: color-mix(in srgb, var(--bot, #3b82f6) 70%, #000);
+}
+
+.bot-detail-edit-head b {
+  font: 600 11px var(--mono);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.bot-detail-edit-head .plus,
+.bot-detail-edit-head .minus {
+  flex: 0 0 auto;
+  font: 500 10px var(--mono);
+}
+
+.bot-detail-edit-head .plus {
+  color: var(--green);
+}
+
+.bot-detail-edit-head .minus {
+  color: var(--red);
+}
+
+.bot-detail-edit-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  font: 400 9.5px var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bot-detail-edit-head .icon-btn {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.bot-detail-edit-head .time {
+  flex: 0 0 auto;
+  font: 400 9.5px var(--font);
+  font-variant-numeric: tabular-nums;
+}
+
+.bot-detail-edit-lines {
+  padding: 4px 0;
+  max-height: 180px;
+  overflow: auto;
+  scrollbar-width: none;
+  user-select: text;
+  cursor: text;
+}
+
+.bot-detail-edit-lines::-webkit-scrollbar {
+  display: none;
+}
+
+.bot-detail-edit-lines .diff-line {
+  padding: 0 8px 0 4px;
+  border-left: 2px solid transparent;
+}
+
+.bot-detail-edit-lines .diff-line.added {
+  border-left-color: var(--green);
+}
+
+.bot-detail-edit-lines .diff-line.removed {
+  border-left-color: var(--red);
+}
+
+.bot-detail-edit-lines .diff-line.removed .txt {
+  text-decoration: line-through;
+  text-decoration-color: rgba(252, 165, 165, 0.45);
+}
+
+.bot-detail-edit-lines .diff-line.gap {
+  justify-content: center;
+  color: #454850;
+}
+
+.bot-detail-edit-lines .diff-note {
+  padding: 3px 10px 0;
+}
+
 /* Conversation tools: context + microphone in the box, meeting + screen up top. */
 .bot-detail-tools {
   margin-left: auto;

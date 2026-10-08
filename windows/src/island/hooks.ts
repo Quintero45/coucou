@@ -10,7 +10,7 @@ import { Bridge, onEvent } from "../core/bridge";
 import { BotChat, CURSOR_CHAT } from "../core/botchat";
 import { CURSOR_WRITE, parseChoices, playSound } from "../core/botcmds";
 import { recordBotApproval, type BotDecision } from "../core/botlog";
-import { buildFileDiff, fileName, makeDiffStep, toOneLine } from "../core/diff";
+import { buildFileDiff, fileName, makeDiffStep, toOneLine, type FileDiff } from "../core/diff";
 import { setApprovalDetail } from "../core/layout";
 import { Sound } from "../core/sound";
 import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPillId, isHiddenAgent, type AskedQuestion } from "../core/state";
@@ -306,16 +306,16 @@ function clearFinalLine(id: string) {
  * ticker step with its +N −M counts. Nothing is kept for a pill that does not
  * exist, so a stray event cannot grow memory. An edit the relay had to cut
  * would give wrong counts: the PreToolUse step ("Edits · file") stands alone.
- * Returns the step's plain text, for the Cursor conversation.
+ * Returns the diff, for the conversations (Cursor, Grok Bots).
  */
-function recordDiff(agentId: string, payload: HookPayload): string | null {
+function recordDiff(agentId: string, payload: HookPayload): FileDiff | null {
   if (payload.coucou_diff_truncated) return null;
   if (!State.tasks.some((t) => t.id === agentId)) return null;
   const diff = buildFileDiff(payload.tool_name ?? "", payload.tool_input ?? {});
   if (!diff) return null;
   const id = State.appendSessionDiff(agentId, diff);
   State.appendStep(agentId, makeDiffStep(fileName(diff.path), diff.added, diff.removed, id));
-  return `${t("Edits")} · ${fileName(diff.path)} +${diff.added} −${diff.removed}`;
+  return diff;
 }
 
 export function registerHookHandlers(island: Island) {
@@ -520,7 +520,8 @@ function handleHook(island: Island, payload: HookPayload) {
       }
       State.updateTask(agentId, "working");
       const edited = recordDiff(agentId, payload);
-      if (edited && isCursor) BotChat.addStep(CURSOR_CHAT, edited);
+      if (edited && isCursor) BotChat.addEdit(CURSOR_CHAT, edited);
+      else if (edited && isBotPill) BotChat.addEdit(botSlug, edited);
       break;
     }
 

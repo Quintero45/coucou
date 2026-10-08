@@ -16,6 +16,7 @@ import { BotLive } from "../core/botlive";
 import { CMD, CURSOR_WRITE, callCmd, cmdErrorText } from "../core/botcmds";
 import { renderMarkdown } from "./markdown";
 import { buildChoices } from "./options";
+import { fileName } from "../core/diff";
 
 /** Small icons for the conversation's tools (24×24 paths, like ICONS). */
 const TOOL_ICONS = {
@@ -937,6 +938,8 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
 
   /** The newest entry: only its choices are still open. */
   let lastEntryId = "";
+  /** The newest file edit: open unless folded by hand (`open` toggles it). */
+  let lastEditId = "";
   let answeredIds = new Set<string>();
   /** The "Escribir en Cursor" request whose full text is unfolded. */
   let orderOpenFor = "";
@@ -953,6 +956,50 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       h("span", { class: "time", text: when(e.at) }));
     card.addEventListener("click", () => {
       Bridge.openAttachment(e.path).catch((err: unknown) => toolError(t("Open"), new Error(cmdErrorText(err))));
+    });
+    return card;
+  }
+
+  /** A file the agent edited: its name and +N −M; open, the changed lines as code. */
+  function editCard(e: Extract<BotChatEntry, { kind: "edit" }>): HTMLElement {
+    const isOpen = open.has(e.id) !== (e.id === lastEditId);
+    const name = fileName(e.path);
+    const extAt = name.lastIndexOf(".");
+    const ext = extAt > 0 ? name.slice(extAt + 1, extAt + 5).toUpperCase() : "";
+    const where = e.path.replace(/\\/g, "/").split("/").slice(-3).join("/");
+    const lines = isOpen
+      ? h("div", { class: "bot-detail-edit-lines" },
+          ...e.lines.map((l) => l.k === "…"
+            ? h("div", { class: "diff-line gap", text: "⋯" })
+            : h("div", { class: `diff-line ${l.k === "+" ? "added" : l.k === "-" ? "removed" : "context"}` },
+                h("span", { class: "sym", text: l.k === "-" ? "−" : l.k }),
+                h("span", { class: "txt", text: l.t }))),
+          e.more > 0 ? h("div", { class: "diff-note", text: t("More lines: {count}", { count: e.more }) }) : null,
+          e.tooLarge ? h("div", { class: "diff-note", text: t("Diff too large") }) : null)
+      : null;
+    const card = h("div", { class: isOpen ? "bot-detail-edit open" : "bot-detail-edit" },
+      h("div", { class: "bot-detail-edit-head", title: e.path },
+        h("span", { class: "bot-detail-chev" }, svg(ICONS.chevronLeft, 8, { stroke: 2.4 })),
+        ext ? h("span", { class: "bot-detail-edit-ext", text: ext }) : null,
+        h("b", { text: name }),
+        e.added > 0 ? h("span", { class: "plus", text: `+${e.added}` }) : null,
+        e.removed > 0 ? h("span", { class: "minus", text: `−${e.removed}` }) : null,
+        h("span", { class: "bot-detail-edit-path", text: where }),
+        h("button", {
+          class: "icon-btn", title: t("Open in VS Code"),
+          onclick: (ev: Event) => {
+            ev.stopPropagation();
+            void Bridge.openFileInVSCode(e.path);
+          },
+        }, svg(ICONS.arrowUpRight, 8)),
+        h("span", { class: "time", text: when(e.at) })),
+      lines);
+    card.addEventListener("click", (ev) => {
+      if ((ev.target as HTMLElement).closest(".bot-detail-edit-lines")) return; // let code be selected
+      if (open.has(e.id)) open.delete(e.id);
+      else open.add(e.id);
+      listKey = "";
+      if (last) draw(last.task, last.approvals, false);
     });
     return card;
   }
@@ -1053,6 +1100,8 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
           h("i"), h("span", { class: "bot-detail-text", text: e.text }), h("span", { class: "time", text: when(e.at) }));
       case "file":
         return fileCard(e);
+      case "edit":
+        return editCard(e);
       case "transcript":
         return h("div", { class: "bot-detail-step transcript" },
           h("span", { class: "bot-detail-perm-kind", text: t("Transcript") }),
@@ -1099,12 +1148,16 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
   function draw(task: AgentTask, approvals: BotApproval[] | null, follow: boolean) {
     const entries = BotChat.list(slug);
     lastEntryId = entries.at(-1)?.id ?? "";
-    // My messages the Bot already answered (a step, a reply or a file after them).
+    const newestEdit = [...entries].reverse().find((e) => e.kind === "edit")?.id ?? "";
+    // A newer edit takes over: the one before folds, whatever was done to it by hand.
+    if (newestEdit !== lastEditId) open.delete(lastEditId);
+    lastEditId = newestEdit;
+    // My messages the Bot already answered (a step, a reply, a file or an edit after them).
     answeredIds = new Set();
     let answer = false;
     for (let i = entries.length - 1; i >= 0; i--) {
       const e = entries[i];
-      if (e.kind === "bot" || e.kind === "step" || e.kind === "file") answer = true;
+      if (e.kind === "bot" || e.kind === "step" || e.kind === "file" || e.kind === "edit") answer = true;
       else if (e.kind === "me" && answer) answeredIds.add(e.id);
     }
     // Permissions the log knows but the conversation doesn't (older ones, or
