@@ -137,7 +137,7 @@ fn merged(existing: &Value) -> Result<Value, String> {
 }
 
 fn unexpected(what: &str) -> String {
-    crate::i18n::tf("settings.json: {what} has an unexpected type — Coucou has not touched it.", &[("what", what)])
+    crate::i18n::tf("settings.json: {what} has an unexpected type — ARIA has not touched it.", &[("what", what)])
 }
 
 /// Settings with every Coucou entry removed, and nothing else changed.
@@ -390,15 +390,28 @@ fn install_relay(src: &Path, dest: &Path) {
         (Ok(a), Ok(b)) => a.len() == b.len() && a.modified().ok() == b.modified().ok(),
         _ => false,
     };
-    if same {
+    let prefix = format!("{}.old-", platform::HOOK_EXE);
+    if let Some(Ok(entries)) = dest.parent().map(std::fs::read_dir) {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().starts_with(&prefix) {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+    if same || std::fs::copy(src, dest).is_ok() {
         return;
     }
-    // A hook may be running right now and hold the file open; keeping the old
-    // copy is fine, it is the same relay.
-    if let Err(err) = std::fs::copy(src, dest) {
+    // A running relay holds the file open, and Cursor keeps `--mcp` running for
+    // its whole session. Windows still lets a running exe be renamed: move it
+    // aside so new hooks start the new relay.
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let aside = dest.with_file_name(format!("{prefix}{stamp}"));
+    let result = std::fs::rename(dest, &aside).and_then(|_| std::fs::copy(src, dest).map(|_| ()));
+    if let Err(err) = result {
         if !dest.exists() {
-            crate::log::line(format!("could not install {}: {err}", platform::HOOK_EXE));
+            let _ = std::fs::rename(&aside, dest);
         }
+        crate::log::line(format!("could not install {}: {err}", platform::HOOK_EXE));
     }
 }
 
