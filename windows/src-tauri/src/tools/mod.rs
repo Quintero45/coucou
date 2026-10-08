@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use tauri::AppHandle;
 
 use crate::policy::{self, Risk};
-use crate::providers::{ToolCall, ToolSpec};
+use crate::providers::{Part, ToolCall, ToolSpec};
 use crate::{mcp, memory, selfmod};
 
 const MAX_OUTPUT: usize = 24_000;
@@ -20,14 +20,16 @@ const MAX_OUTPUT: usize = 24_000;
 pub struct Outcome {
     pub text: String,
     pub is_error: bool,
+    /// Images the tool returned (a screenshot from an MCP server), as Part::Image.
+    pub images: Vec<Part>,
 }
 
 impl Outcome {
     pub fn ok(text: impl Into<String>) -> Self {
-        Self { text: cap(text.into()), is_error: false }
+        Self { text: cap(text.into()), is_error: false, images: Vec::new() }
     }
     pub fn err(text: impl Into<String>) -> Self {
-        Self { text: cap(text.into()), is_error: true }
+        Self { text: cap(text.into()), is_error: true, images: Vec::new() }
     }
 }
 

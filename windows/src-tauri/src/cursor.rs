@@ -929,7 +929,13 @@ async fn handle(req: Request, token: &str) -> (u16, Value) {
     touch();
     let outcome = tools::run(app, &call).await;
     touch();
-    text_result(&outcome.text, outcome.is_error)
+    let mut content = vec![json!({ "type": "text", "text": outcome.text })];
+    for image in &outcome.images {
+        if let Part::Image { media, data } = image {
+            content.push(json!({ "type": "image", "data": data, "mimeType": media }));
+        }
+    }
+    (200, json!({ "result": { "content": content, "isError": outcome.is_error } }))
 }
 
 async fn serve(mut stream: TcpStream, token: &str) {

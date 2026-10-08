@@ -26,7 +26,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::oneshot;
 
 use crate::policy::{self, Risk};
-use crate::providers::{ToolCall, ToolSpec};
+use crate::providers::{Part, ToolCall, ToolSpec};
 use crate::tools::Outcome;
 use crate::{log, platform, secrets, settings};
 
@@ -34,6 +34,10 @@ pub const PREFIX: &str = "mcp__";
 const PROTOCOL_VERSION: &str = "2025-06-18";
 const INIT_TIMEOUT: Duration = Duration::from_secs(60);
 const CALL_TIMEOUT: Duration = Duration::from_secs(180);
+/// Images one tool result may hand the model, and their size as base64
+/// (the providers' own limit is about 5 MB per image).
+const MAX_IMAGES: usize = 2;
+const MAX_IMAGE_B64: usize = 5_000_000;
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -611,10 +615,20 @@ pub async fn call(app: &AppHandle, call: &ToolCall) -> Outcome {
     match conn.request("tools/call", params, CALL_TIMEOUT).await {
         Ok(result) => {
             let mut parts: Vec<String> = Vec::new();
+            let mut images: Vec<Part> = Vec::new();
             for item in result["content"].as_array().cloned().unwrap_or_default() {
                 match item["type"].as_str() {
                     Some("text") => parts.push(item["text"].as_str().unwrap_or_default().to_string()),
-                    Some("image") => parts.push("[image]".into()),
+                    Some("image") => {
+                        let data = item["data"].as_str().unwrap_or_default();
+                        let media = item["mimeType"].as_str().unwrap_or("image/png");
+                        if images.len() < MAX_IMAGES && !data.is_empty() && data.len() <= MAX_IMAGE_B64 && media.starts_with("image/") {
+                            images.push(Part::Image { media: media.to_string(), data: data.to_string() });
+                            parts.push("[image attached]".into());
+                        } else {
+                            parts.push("[image left out: too many or too large]".into());
+                        }
+                    }
                     Some("resource") => parts.push(
                         item["resource"]["text"].as_str().map(str::to_string).unwrap_or_else(|| "[resource]".into()),
                     ),
@@ -625,7 +639,9 @@ pub async fn call(app: &AppHandle, call: &ToolCall) -> Outcome {
                 parts.push(result["structuredContent"].to_string());
             }
             let text = if parts.is_empty() { "(no output)".to_string() } else { parts.join("\n") };
-            if result["isError"].as_bool() == Some(true) { Outcome::err(text) } else { Outcome::ok(text) }
+            let mut outcome = if result["isError"].as_bool() == Some(true) { Outcome::err(text) } else { Outcome::ok(text) };
+            outcome.images = images;
+            outcome
         }
         Err(err) => Outcome::err(format!("{label}: {err}")),
     }

@@ -172,7 +172,12 @@ pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -
         for (i, call) in calls.iter().enumerate() {
             if assistant.cancel.load(Ordering::Relaxed) {
                 for rest in &calls[i..] {
-                    msgs.push(Msg::Tool { id: rest.id.clone(), output: "Stopped by the owner.".into(), is_error: true });
+                    msgs.push(Msg::Tool {
+                        id: rest.id.clone(),
+                        output: "Stopped by the owner.".into(),
+                        is_error: true,
+                        images: Vec::new(),
+                    });
                 }
                 result = Err("Stopped.".into());
                 break 'turns;
@@ -180,7 +185,12 @@ pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -
             let label = step_label(&call.name, &tools::describe(&call.name, &call.input));
             let _ = app.emit_to(WINDOW_LABEL, "chat-step", json!({ "label": label }));
             let outcome = tools::run(&app, call).await;
-            msgs.push(Msg::Tool { id: call.id.clone(), output: outcome.text, is_error: outcome.is_error });
+            msgs.push(Msg::Tool {
+                id: call.id.clone(),
+                output: outcome.text,
+                is_error: outcome.is_error,
+                images: outcome.images,
+            });
         }
         if step == MAX_STEPS - 1 {
             let note = format!("(Me detuve tras {MAX_STEPS} pasos: dime «sigue» si hace falta.)");
@@ -193,6 +203,13 @@ pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -
     // matches what the model actually answered.
     if result.is_err() && msgs.len() == start_len + 1 {
         msgs.pop();
+    }
+    // A screenshot serves the turn that took it; carried on, every later
+    // message would pay for it again.
+    for m in &mut msgs {
+        if let Msg::Tool { images, .. } = m {
+            images.clear();
+        }
     }
     *assistant.history.lock().unwrap() = msgs;
 

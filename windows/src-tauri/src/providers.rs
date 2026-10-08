@@ -166,7 +166,8 @@ pub struct ToolCall {
 pub enum Msg {
     User(Vec<Part>),
     Assistant { text: String, calls: Vec<ToolCall> },
-    Tool { id: String, output: String, is_error: bool },
+    /// `images`: Part::Image only, what the tool showed (a screenshot).
+    Tool { id: String, output: String, is_error: bool, images: Vec<Part> },
 }
 
 #[derive(Clone, Debug)]
@@ -327,11 +328,20 @@ fn anthropic_messages(msgs: &[Msg]) -> Vec<Value> {
                 }
                 push_role(&mut out, "assistant", content);
             }
-            Msg::Tool { id, output, is_error } => push_role(
-                &mut out,
-                "user",
-                vec![json!({ "type": "tool_result", "tool_use_id": id, "content": output, "is_error": is_error })],
-            ),
+            Msg::Tool { id, output, is_error, images } => {
+                let content = if images.is_empty() {
+                    json!(output)
+                } else {
+                    let mut blocks = vec![json!({ "type": "text", "text": output })];
+                    blocks.extend(images.iter().map(anthropic_part));
+                    Value::Array(blocks)
+                };
+                push_role(
+                    &mut out,
+                    "user",
+                    vec![json!({ "type": "tool_result", "tool_use_id": id, "content": content, "is_error": is_error })],
+                )
+            }
         }
     }
     out
@@ -497,9 +507,29 @@ fn openai_user(provider: Provider, parts: &[Part]) -> Value {
     json!({ "role": "user", "content": content })
 }
 
+/// Chat Completions tool messages carry text only: what tools showed goes in a
+/// user message right after the run of tool results. Local servers often run
+/// models without vision, which would refuse the request, so they get none.
+fn flush_tool_images(provider: Provider, pending: &mut Vec<Part>, out: &mut Vec<Value>) {
+    if pending.is_empty() {
+        return;
+    }
+    let images = std::mem::take(pending);
+    if matches!(provider, Provider::Ollama | Provider::Lmstudio) {
+        return;
+    }
+    let mut parts = vec![Part::Text("(What the tool calls above showed.)".into())];
+    parts.extend(images);
+    out.push(openai_user(provider, &parts));
+}
+
 fn openai_messages(provider: Provider, system: &str, msgs: &[Msg]) -> Vec<Value> {
     let mut out = vec![json!({ "role": "system", "content": system })];
+    let mut pending: Vec<Part> = Vec::new();
     for m in msgs {
+        if !matches!(m, Msg::Tool { .. }) {
+            flush_tool_images(provider, &mut pending, &mut out);
+        }
         match m {
             Msg::User(parts) => out.push(openai_user(provider, parts)),
             Msg::Assistant { text, calls } => {
@@ -519,11 +549,13 @@ fn openai_messages(provider: Provider, system: &str, msgs: &[Msg]) -> Vec<Value>
                 }
                 out.push(Value::Object(msg));
             }
-            Msg::Tool { id, output, .. } => {
+            Msg::Tool { id, output, images, .. } => {
                 out.push(json!({ "role": "tool", "tool_call_id": id, "content": output }));
+                pending.extend(images.iter().cloned());
             }
         }
     }
+    flush_tool_images(provider, &mut pending, &mut out);
     out
 }
 
@@ -699,14 +731,43 @@ mod tests {
                     ToolCall { id: "b".into(), name: "list_dir".into(), input: json!({}) },
                 ],
             },
-            Msg::Tool { id: "a".into(), output: "x".into(), is_error: false },
-            Msg::Tool { id: "b".into(), output: "y".into(), is_error: true },
+            Msg::Tool { id: "a".into(), output: "x".into(), is_error: false, images: Vec::new() },
+            Msg::Tool { id: "b".into(), output: "y".into(), is_error: true, images: vec![png()] },
         ];
         let out = anthropic_messages(&msgs);
         assert_eq!(out.len(), 3);
         assert_eq!(out[2]["role"], "user");
         assert_eq!(out[2]["content"].as_array().unwrap().len(), 2);
         assert_eq!(out[1]["content"][0]["type"], "tool_use");
+        assert_eq!(out[2]["content"][0]["content"], "x");
+        assert_eq!(out[2]["content"][1]["content"][1]["source"]["data"], "AAA");
+    }
+
+    fn png() -> Part {
+        Part::Image { media: "image/png".into(), data: "AAA".into() }
+    }
+
+    #[test]
+    fn what_a_tool_showed_follows_the_tool_results_for_chat_completions() {
+        let msgs = vec![
+            Msg::User(vec![Part::Text("what's on screen?".into())]),
+            Msg::Assistant {
+                text: String::new(),
+                calls: vec![
+                    ToolCall { id: "s".into(), name: "mcp__windows__Screenshot".into(), input: json!({}) },
+                    ToolCall { id: "t".into(), name: "system_info".into(), input: json!({}) },
+                ],
+            },
+            Msg::Tool { id: "s".into(), output: "[image attached]".into(), is_error: false, images: vec![png()] },
+            Msg::Tool { id: "t".into(), output: "Windows".into(), is_error: false, images: Vec::new() },
+            Msg::Assistant { text: "Cursor is open.".into(), calls: Vec::new() },
+        ];
+        let out = openai_messages(Provider::Xai, "sys", &msgs);
+        let roles: Vec<&str> = out.iter().map(|m| m["role"].as_str().unwrap()).collect();
+        assert_eq!(roles, ["system", "user", "assistant", "tool", "tool", "user", "assistant"]);
+        assert_eq!(out[5]["content"][1]["image_url"]["url"], "data:image/png;base64,AAA");
+        let local = openai_messages(Provider::Ollama, "sys", &msgs);
+        assert_eq!(local.len(), 6);
     }
 
     #[test]
@@ -717,7 +778,7 @@ mod tests {
                 text: "ok".into(),
                 calls: vec![ToolCall { id: "c1".into(), name: "open_url".into(), input: json!({"url": "https://x"}) }],
             },
-            Msg::Tool { id: "c1".into(), output: "done".into(), is_error: false },
+            Msg::Tool { id: "c1".into(), output: "done".into(), is_error: false, images: Vec::new() },
         ];
         let out = openai_messages(Provider::Xai, "sys", &msgs);
         assert_eq!(out[0]["role"], "system");
@@ -765,7 +826,12 @@ mod tests {
         let messages = vec![
             messages[0].clone(),
             Msg::Assistant { text: turn.text, calls: turn.calls.clone() },
-            Msg::Tool { id: turn.calls[0].id.clone(), output: "Windows 11, 16 GB RAM".into(), is_error: false },
+            Msg::Tool {
+                id: turn.calls[0].id.clone(),
+                output: "Windows 11, 16 GB RAM".into(),
+                is_error: false,
+                images: Vec::new(),
+            },
         ];
         let req = Request { system: "You are a test assistant.", messages: &messages, tools: &tools, web_search: false };
         let mut streamed = String::new();
