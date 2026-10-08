@@ -34,16 +34,16 @@
    "ru": "+ субагент",
    "id": "+ subagen"
   },
-  "A hook group named \"coucou\" that Coucou did not write is already there — Coucou has not touched it.": {
-   "zh-Hans": "已存在一个并非 Coucou 写入的名为“coucou”的 hook 组 — Coucou 没有修改它。",
-   "hi": "“coucou” नाम का एक hook समूह पहले से है जिसे Coucou ने नहीं लिखा — Coucou ने इसे नहीं छुआ।",
-   "es": "Ya existe un grupo de hooks llamado «coucou» que no escribió Coucou — Coucou no lo ha tocado.",
-   "ar": "توجد بالفعل مجموعة hooks باسم «coucou» لم يكتبها Coucou — لم يمسّها Coucou.",
-   "fr": "Un groupe de hooks nommé « coucou » que Coucou n'a pas écrit existe déjà — Coucou n'y a pas touché.",
-   "bn": "“coucou” নামে একটি hook গ্রুপ আগে থেকেই আছে যা Coucou লেখেনি — Coucou এতে হাত দেয়নি।",
-   "pt-BR": "Já existe um grupo de hooks chamado “coucou” que não foi escrito pelo Coucou — o Coucou não mexeu nele.",
-   "ru": "Уже есть группа хуков «coucou», которую написал не Coucou, — Coucou её не трогал.",
-   "id": "Sudah ada grup hook bernama “coucou” yang tidak ditulis Coucou — Coucou tidak menyentuhnya."
+  "A hook group named \"coucou\" that ARIA did not write is already there — ARIA has not touched it.": {
+   "zh-Hans": "已存在一个并非 ARIA 写入的名为“coucou”的 hook 组 — ARIA 没有修改它。",
+   "hi": "“coucou” नाम का एक hook समूह पहले से है जिसे ARIA ने नहीं लिखा — ARIA ने इसे नहीं छुआ।",
+   "es": "Ya existe un grupo de hooks llamado «coucou» que no escribió ARIA — ARIA no lo ha tocado.",
+   "ar": "توجد بالفعل مجموعة hooks باسم «coucou» لم تكتبها ARIA — لم تمسّها ARIA.",
+   "fr": "Un groupe de hooks nommé « coucou » qu'ARIA n'a pas écrit existe déjà — ARIA n'y a pas touché.",
+   "bn": "“coucou” নামে একটি hook গ্রুপ আগে থেকেই আছে যা ARIA লেখেনি — ARIA এতে হাত দেয়নি।",
+   "pt-BR": "Já existe um grupo de hooks chamado “coucou” que não foi escrito pela ARIA — a ARIA não mexeu nele.",
+   "ru": "Уже есть группа хуков «coucou», которую написала не ARIA, — ARIA её не трогала.",
+   "id": "Sudah ada grup hook bernama “coucou” yang tidak ditulis ARIA — ARIA tidak menyentuhnya."
   },
   "AI for the chat": {
    "zh-Hans": "聊天用的 AI",
@@ -430,38 +430,38 @@
    "ru": "Копировать изображения здесь нельзя — используйте «Сохранить изображение».",
    "id": "Menyalin gambar tidak tersedia di sini — gunakan Simpan gambar."
   },
-  "Coucou could not list the agents.": {
-   "zh-Hans": "Coucou 无法列出代理。",
-   "hi": "Coucou एजेंटों की सूची नहीं बना सका।",
-   "es": "Coucou no pudo listar los agentes.",
-   "ar": "تعذّر على Coucou سرد الوكلاء.",
-   "fr": "Coucou n'a pas pu lister les agents.",
-   "bn": "Coucou এজেন্টদের তালিকা করতে পারেনি।",
-   "pt-BR": "O Coucou não conseguiu listar os agentes.",
-   "ru": "Coucou не удалось получить список агентов.",
-   "id": "Coucou tidak dapat menampilkan daftar agen."
+  "ARIA could not list the agents.": {
+   "zh-Hans": "ARIA 无法列出代理。",
+   "hi": "ARIA एजेंटों की सूची नहीं बना सकी।",
+   "es": "ARIA no pudo listar los agentes.",
+   "ar": "تعذّر على ARIA سرد الوكلاء.",
+   "fr": "ARIA n'a pas pu lister les agents.",
+   "bn": "ARIA এজেন্টদের তালিকা করতে পারেনি।",
+   "pt-BR": "A ARIA não conseguiu listar os agentes.",
+   "ru": "ARIA не удалось получить список агентов.",
+   "id": "ARIA tidak dapat menampilkan daftar agen."
   },
-  "Coucou counts your agent sessions as they happen — check back next Monday.": {
-   "zh-Hans": "Coucou 会实时统计你的代理会话 — 下周一再来看看吧。",
-   "hi": "Coucou आपके एजेंट सत्रों को होते-होते गिनता है — अगले सोमवार फिर देखें।",
-   "es": "Coucou cuenta tus sesiones de agentes a medida que ocurren — vuelve el próximo lunes.",
-   "ar": "يحسب Coucou جلسات وكلائك أثناء حدوثها — عُد يوم الاثنين القادم.",
-   "fr": "Coucou compte tes sessions d'agents au fil de l'eau — reviens lundi prochain.",
-   "bn": "Coucou আপনার এজেন্ট সেশন ঘটার সঙ্গে সঙ্গে গোনে — পরের সোমবার আবার দেখুন।",
-   "pt-BR": "O Coucou conta suas sessões de agentes conforme acontecem — volte na próxima segunda-feira.",
-   "ru": "Coucou считает ваши сессии агентов по ходу дела — загляните в следующий понедельник.",
-   "id": "Coucou menghitung sesi agen Anda saat berlangsung — cek lagi Senin depan."
+  "ARIA counts your agent sessions as they happen — check back next Monday.": {
+   "zh-Hans": "ARIA 会实时统计你的代理会话 — 下周一再来看看吧。",
+   "hi": "ARIA आपके एजेंट सत्रों को होते-होते गिनती है — अगले सोमवार फिर देखें।",
+   "es": "ARIA cuenta tus sesiones de agentes a medida que ocurren — vuelve el próximo lunes.",
+   "ar": "تحسب ARIA جلسات وكلائك أثناء حدوثها — عُد يوم الاثنين القادم.",
+   "fr": "ARIA compte tes sessions d'agents au fil de l'eau — reviens lundi prochain.",
+   "bn": "ARIA আপনার এজেন্ট সেশন ঘটার সঙ্গে সঙ্গে গোনে — পরের সোমবার আবার দেখুন।",
+   "pt-BR": "A ARIA conta suas sessões de agentes conforme acontecem — volte na próxima segunda-feira.",
+   "ru": "ARIA считает ваши сессии агентов по ходу дела — загляните в следующий понедельник.",
+   "id": "ARIA menghitung sesi agen Anda saat berlangsung — cek lagi Senin depan."
   },
-  "Coucou is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there.": {
-   "zh-Hans": "Coucou 已接入你的 Claude Code 会话。工具调用、问题和权限请求都会显示在岛中，你可以直接在那里回应。",
-   "hi": "Coucou आपके Claude Code सत्रों से जुड़ा है। टूल कॉल, प्रश्न और अनुमति अनुरोध आइलैंड में दिखते हैं, और आप वहीं उनका जवाब दे सकते हैं।",
-   "es": "Coucou está conectado a tus sesiones de Claude Code. Las llamadas a herramientas, las preguntas y las solicitudes de permiso aparecen en la isla y puedes responderlas ahí.",
-   "ar": "Coucou متصل بجلسات Claude Code لديك. تظهر استدعاءات الأدوات والأسئلة وطلبات الإذن في الشريط، ويمكنك الرد عليها من هناك.",
-   "fr": "Coucou est branché sur tes sessions Claude Code. Les appels d'outils, les questions et les demandes de permission s'affichent dans l'île, et tu peux y répondre directement.",
-   "bn": "Coucou আপনার Claude Code সেশনের সঙ্গে যুক্ত। টুল কল, প্রশ্ন আর অনুমতির অনুরোধ আইল্যান্ডে দেখা যায়, এবং আপনি সেখানেই উত্তর দিতে পারেন।",
-   "pt-BR": "O Coucou está conectado às suas sessões do Claude Code. Chamadas de ferramentas, perguntas e pedidos de permissão aparecem na ilha, e você pode respondê-los ali.",
-   "ru": "Coucou подключён к вашим сессиям Claude Code. Вызовы инструментов, вопросы и запросы разрешений появляются в острове, и отвечать можно прямо там.",
-   "id": "Coucou terhubung ke sesi Claude Code Anda. Panggilan alat, pertanyaan, dan permintaan izin muncul di pulau, dan Anda bisa menjawabnya di sana."
+  "ARIA is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there.": {
+   "zh-Hans": "ARIA 已接入你的 Claude Code 会话。工具调用、问题和权限请求都会显示在岛中，你可以直接在那里回应。",
+   "hi": "ARIA आपके Claude Code सत्रों से जुड़ी है। टूल कॉल, प्रश्न और अनुमति अनुरोध आइलैंड में दिखते हैं, और आप वहीं उनका जवाब दे सकते हैं।",
+   "es": "ARIA está conectada a tus sesiones de Claude Code. Las llamadas a herramientas, las preguntas y las solicitudes de permiso aparecen en la isla y puedes responderlas ahí.",
+   "ar": "ARIA متصلة بجلسات Claude Code لديك. تظهر استدعاءات الأدوات والأسئلة وطلبات الإذن في الشريط، ويمكنك الرد عليها من هناك.",
+   "fr": "ARIA est branchée sur tes sessions Claude Code. Les appels d'outils, les questions et les demandes de permission s'affichent dans l'île, et tu peux y répondre directement.",
+   "bn": "ARIA আপনার Claude Code সেশনের সঙ্গে যুক্ত। টুল কল, প্রশ্ন আর অনুমতির অনুরোধ আইল্যান্ডে দেখা যায়, এবং আপনি সেখানেই উত্তর দিতে পারেন।",
+   "pt-BR": "A ARIA está conectada às suas sessões do Claude Code. Chamadas de ferramentas, perguntas e pedidos de permissão aparecem na ilha, e você pode respondê-los ali.",
+   "ru": "ARIA подключена к вашим сессиям Claude Code. Вызовы инструментов, вопросы и запросы разрешений появляются в острове, и отвечать можно прямо там.",
+   "id": "ARIA terhubung ke sesi Claude Code Anda. Panggilan alat, pertanyaan, dan permintaan izin muncul di pulau, dan Anda bisa menjawabnya di sana."
   },
   "Could not remove {path}: {error}": {
    "zh-Hans": "无法删除 {path}：{error}",
@@ -1035,16 +1035,16 @@
    "ru": "Без звука",
    "id": "Bisukan"
   },
-  "Mute or unmute Mochi": {
-   "zh-Hans": "静音或取消静音 Mochi",
-   "hi": "Mochi को म्यूट या अनम्यूट करें",
-   "es": "Silenciar o activar a Mochi",
-   "ar": "كتم صوت Mochi أو إلغاء كتمه",
-   "fr": "Couper ou remettre le son de Mochi",
-   "bn": "Mochi-কে মিউট বা আনমিউট করুন",
-   "pt-BR": "Silenciar ou ativar o som do Mochi",
-   "ru": "Выключить или включить звук Mochi",
-   "id": "Bisukan atau bunyikan Mochi"
+  "Mute or unmute ARIA": {
+   "zh-Hans": "静音或取消静音 ARIA",
+   "hi": "ARIA को म्यूट या अनम्यूट करें",
+   "es": "Silenciar o activar a ARIA",
+   "ar": "كتم صوت ARIA أو إلغاء كتمه",
+   "fr": "Couper ou remettre le son d'ARIA",
+   "bn": "ARIA-কে মিউট বা আনমিউট করুন",
+   "pt-BR": "Silenciar ou ativar o som da ARIA",
+   "ru": "Выключить или включить звук ARIA",
+   "id": "Bisukan atau bunyikan ARIA"
   },
   "Next or previous pill": {
    "zh-Hans": "下一个或上一个标签",
@@ -1332,16 +1332,16 @@
    "ru": "Разрешения",
    "id": "Izin"
   },
-  "Pick up to {max} pills to show next to Mochi — {used}/{max} in use. Keys are stored in the {store}, never on disk.": {
-   "zh-Hans": "最多选择 {max} 个标签显示在 Mochi 旁边 — 已用 {used}/{max}。密钥保存在 {store} 中，绝不写入磁盘。",
-   "hi": "Mochi के बगल में दिखाने के लिए अधिकतम {max} टैब चुनें — {used}/{max} उपयोग में। कुंजियाँ {store} में रखी जाती हैं, डिस्क पर कभी नहीं।",
-   "es": "Elige hasta {max} pestañas para mostrar junto a Mochi — {used}/{max} en uso. Las claves se guardan en {store}, nunca en el disco.",
-   "ar": "اختر حتى {max} تبويبات لعرضها بجانب Mochi — {used}/{max} مستخدمة. تُحفظ المفاتيح في {store}، ولا تُكتب على القرص أبدًا.",
-   "fr": "Choisis jusqu'à {max} onglets à afficher à côté de Mochi — {used}/{max} utilisés. Les clés sont stockées dans {store}, jamais sur le disque.",
-   "bn": "Mochi-র পাশে দেখাতে সর্বোচ্চ {max}টি ট্যাব বেছে নিন — {used}/{max} ব্যবহৃত। কী {store}-এ রাখা হয়, কখনো ডিস্কে নয়।",
-   "pt-BR": "Escolha até {max} abas para mostrar ao lado do Mochi — {used}/{max} em uso. As chaves ficam em {store}, nunca no disco.",
-   "ru": "Выберите до {max} вкладок рядом с Mochi — занято {used}/{max}. Ключи хранятся в {store}, никогда на диске.",
-   "id": "Pilih hingga {max} tab untuk ditampilkan di samping Mochi — {used}/{max} terpakai. Kunci disimpan di {store}, tidak pernah di disk."
+  "Pick up to {max} pills to show next to ARIA — {used}/{max} in use. Keys are stored in the {store}, never on disk.": {
+   "zh-Hans": "最多选择 {max} 个标签显示在 ARIA 旁边 — 已用 {used}/{max}。密钥保存在 {store} 中，绝不写入磁盘。",
+   "hi": "ARIA के बगल में दिखाने के लिए अधिकतम {max} टैब चुनें — {used}/{max} उपयोग में। कुंजियाँ {store} में रखी जाती हैं, डिस्क पर कभी नहीं।",
+   "es": "Elige hasta {max} pestañas para mostrar junto a ARIA — {used}/{max} en uso. Las claves se guardan en {store}, nunca en el disco.",
+   "ar": "اختر حتى {max} تبويبات لعرضها بجانب ARIA — {used}/{max} مستخدمة. تُحفظ المفاتيح في {store}، ولا تُكتب على القرص أبدًا.",
+   "fr": "Choisis jusqu'à {max} onglets à afficher à côté d'ARIA — {used}/{max} utilisés. Les clés sont stockées dans {store}, jamais sur le disque.",
+   "bn": "ARIA-র পাশে দেখাতে সর্বোচ্চ {max}টি ট্যাব বেছে নিন — {used}/{max} ব্যবহৃত। কী {store}-এ রাখা হয়, কখনো ডিস্কে নয়।",
+   "pt-BR": "Escolha até {max} abas para mostrar ao lado da ARIA — {used}/{max} em uso. As chaves ficam em {store}, nunca no disco.",
+   "ru": "Выберите до {max} вкладок рядом с ARIA — занято {used}/{max}. Ключи хранятся в {store}, никогда на диске.",
+   "id": "Pilih hingga {max} tab untuk ditampilkan di samping ARIA — {used}/{max} terpakai. Kunci disimpan di {store}, tidak pernah di disk."
   },
   "Press keys…": {
    "zh-Hans": "请按键…",
@@ -1607,16 +1607,16 @@
    "ru": "Секретный ключ",
    "id": "Kunci rahasia"
   },
-  "Send Mochi to the desktop": {
-   "zh-Hans": "把 Mochi 送到桌面",
-   "hi": "Mochi को डेस्कटॉप पर भेजें",
-   "es": "Enviar a Mochi al escritorio",
-   "ar": "إرسال Mochi إلى سطح المكتب",
-   "fr": "Envoyer Mochi sur le bureau",
-   "bn": "Mochi-কে ডেস্কটপে পাঠান",
-   "pt-BR": "Enviar o Mochi para a área de trabalho",
-   "ru": "Отправить Mochi на рабочий стол",
-   "id": "Kirim Mochi ke desktop"
+  "Send ARIA to the desktop": {
+   "zh-Hans": "把 ARIA 送到桌面",
+   "hi": "ARIA को डेस्कटॉप पर भेजें",
+   "es": "Enviar a ARIA al escritorio",
+   "ar": "إرسال ARIA إلى سطح المكتب",
+   "fr": "Envoyer ARIA sur le bureau",
+   "bn": "ARIA-কে ডেস্কটপে পাঠান",
+   "pt-BR": "Enviar a ARIA para a área de trabalho",
+   "ru": "Отправить ARIA на рабочий стол",
+   "id": "Kirim ARIA ke desktop"
   },
   "Send the message": {
    "zh-Hans": "发送消息",
@@ -1728,38 +1728,38 @@
    "ru": "Показать в папке",
    "id": "Tampilkan di folder"
   },
-  "Show other coding agents in the island. Coucou adds its entries to each agent's own config: you see the exact change and where the backup goes before anything is written, and uninstalling removes only what Coucou added.": {
-   "zh-Hans": "在岛中显示其他编程代理。Coucou 会把自己的条目添加到各代理的配置中：写入之前，你会看到确切的改动和备份位置；卸载只会移除 Coucou 添加的内容。",
-   "hi": "दूसरे कोडिंग एजेंटों को आइलैंड में दिखाएँ। Coucou हर एजेंट की अपनी कॉन्फ़िग में अपनी प्रविष्टियाँ जोड़ता है: कुछ भी लिखे जाने से पहले आप सटीक बदलाव और बैकअप की जगह देखते हैं, और अनइंस्टॉल करने पर केवल वही हटता है जो Coucou ने जोड़ा था।",
-   "es": "Muestra otros agentes de programación en la isla. Coucou añade sus entradas a la configuración de cada agente: ves el cambio exacto y dónde va la copia de seguridad antes de que se escriba nada, y al desinstalar solo se quita lo que añadió Coucou.",
-   "ar": "اعرض وكلاء البرمجة الآخرين في الشريط. يضيف Coucou إدخالاته إلى إعدادات كل وكيل: ترى التغيير بالضبط ومكان النسخة الاحتياطية قبل كتابة أي شيء، وإلغاء التثبيت يزيل فقط ما أضافه Coucou.",
-   "fr": "Affiche les autres agents de code dans l'île. Coucou ajoute ses entrées à la configuration de chaque agent : tu vois la modification exacte et l'emplacement de la sauvegarde avant que quoi que ce soit soit écrit, et la désinstallation ne retire que ce que Coucou a ajouté.",
-   "bn": "অন্যান্য কোডিং এজেন্টকে আইল্যান্ডে দেখান। Coucou প্রতিটি এজেন্টের নিজস্ব কনফিগে তার এন্ট্রি যোগ করে: কিছু লেখার আগে আপনি সঠিক পরিবর্তন এবং ব্যাকআপ কোথায় যাবে তা দেখতে পান, আর আনইনস্টল করলে শুধু Coucou যা যোগ করেছিল তা-ই সরানো হয়।",
-   "pt-BR": "Mostre outros agentes de programação na ilha. O Coucou adiciona as próprias entradas à configuração de cada agente: você vê a alteração exata e para onde vai o backup antes de qualquer gravação, e desinstalar remove só o que o Coucou adicionou.",
-   "ru": "Показывайте другие агенты для кода в острове. Coucou добавляет свои записи в конфигурацию каждого агента: до любой записи вы видите точное изменение и куда пойдёт резервная копия, а удаление убирает только то, что добавил Coucou.",
-   "id": "Tampilkan agen coding lain di pulau. Coucou menambahkan entrinya ke konfigurasi masing-masing agen: Anda melihat perubahan persisnya dan lokasi cadangan sebelum apa pun ditulis, dan mencopot pemasangan hanya menghapus yang ditambahkan Coucou."
+  "Show other coding agents in the island. ARIA adds its entries to each agent's own config: you see the exact change and where the backup goes before anything is written, and uninstalling removes only what ARIA added.": {
+   "zh-Hans": "在岛中显示其他编程代理。ARIA 会把自己的条目添加到各代理的配置中：写入之前，你会看到确切的改动和备份位置；卸载只会移除 ARIA 添加的内容。",
+   "hi": "दूसरे कोडिंग एजेंटों को आइलैंड में दिखाएँ। ARIA हर एजेंट की अपनी कॉन्फ़िग में अपनी प्रविष्टियाँ जोड़ती है: कुछ भी लिखे जाने से पहले आप सटीक बदलाव और बैकअप की जगह देखते हैं, और अनइंस्टॉल करने पर केवल वही हटता है जो ARIA ने जोड़ा था।",
+   "es": "Muestra otros agentes de programación en la isla. ARIA añade sus entradas a la configuración de cada agente: ves el cambio exacto y dónde va la copia de seguridad antes de que se escriba nada, y al desinstalar solo se quita lo que añadió ARIA.",
+   "ar": "اعرض وكلاء البرمجة الآخرين في الشريط. تضيف ARIA إدخالاتها إلى إعدادات كل وكيل: ترى التغيير بالضبط ومكان النسخة الاحتياطية قبل كتابة أي شيء، وإلغاء التثبيت يزيل فقط ما أضافته ARIA.",
+   "fr": "Affiche les autres agents de code dans l'île. ARIA ajoute ses entrées à la configuration de chaque agent : tu vois la modification exacte et l'emplacement de la sauvegarde avant que quoi que ce soit soit écrit, et la désinstallation ne retire que ce qu'ARIA a ajouté.",
+   "bn": "অন্যান্য কোডিং এজেন্টকে আইল্যান্ডে দেখান। ARIA প্রতিটি এজেন্টের নিজস্ব কনফিগে তার এন্ট্রি যোগ করে: কিছু লেখার আগে আপনি সঠিক পরিবর্তন এবং ব্যাকআপ কোথায় যাবে তা দেখতে পান, আর আনইনস্টল করলে শুধু ARIA যা যোগ করেছিল তা-ই সরানো হয়।",
+   "pt-BR": "Mostre outros agentes de programação na ilha. A ARIA adiciona as próprias entradas à configuração de cada agente: você vê a alteração exata e para onde vai o backup antes de qualquer gravação, e desinstalar remove só o que a ARIA adicionou.",
+   "ru": "Показывайте другие агенты для кода в острове. ARIA добавляет свои записи в конфигурацию каждого агента: до любой записи вы видите точное изменение и куда пойдёт резервная копия, а удаление убирает только то, что добавила ARIA.",
+   "id": "Tampilkan agen coding lain di pulau. ARIA menambahkan entrinya ke konfigurasi masing-masing agen: Anda melihat perubahan persisnya dan lokasi cadangan sebelum apa pun ditulis, dan mencopot pemasangan hanya menghapus yang ditambahkan ARIA."
   },
-  "Shows your Claude plan usage (5-hour and weekly limits) in the island's header. Coucou adds a status line relay in ~/.claude/settings.json. If you already have a status line, it keeps working as before. Pro and Max plans only.": {
-   "zh-Hans": "在岛的顶栏显示你的 Claude 套餐用量（5 小时和每周限额）。Coucou 会在 ~/.claude/settings.json 中添加一个状态栏中继。如果你已有状态栏，它会照常工作。仅限 Pro 和 Max 套餐。",
-   "hi": "आइलैंड के हेडर में आपके Claude प्लान का उपयोग (5 घंटे और साप्ताहिक सीमा) दिखाता है। Coucou ~/.claude/settings.json में एक स्टेटस लाइन रिले जोड़ता है। अगर आपके पास पहले से स्टेटस लाइन है, तो वह पहले की तरह चलती रहेगी। केवल Pro और Max प्लान।",
-   "es": "Muestra el uso de tu plan de Claude (límites de 5 horas y semanal) en la cabecera de la isla. Coucou añade un relay de línea de estado en ~/.claude/settings.json. Si ya tienes una línea de estado, sigue funcionando como antes. Solo planes Pro y Max.",
-   "ar": "يعرض استخدام خطة Claude (حدّا الخمس ساعات والأسبوع) في رأس الشريط. يضيف Coucou مُرحِّلًا لسطر الحالة في ~/.claude/settings.json. إن كان لديك سطر حالة فسيستمر في العمل كما كان. لخطتَي Pro وMax فقط.",
-   "fr": "Affiche l'utilisation de ton forfait Claude (limites sur 5 heures et à la semaine) dans l'en-tête de l'île. Coucou ajoute un relais de ligne d'état dans ~/.claude/settings.json. Si tu as déjà une ligne d'état, elle continue de fonctionner comme avant. Forfaits Pro et Max uniquement.",
-   "bn": "আইল্যান্ডের হেডারে আপনার Claude প্ল্যানের ব্যবহার (৫ ঘণ্টা ও সাপ্তাহিক সীমা) দেখায়। Coucou ~/.claude/settings.json-এ একটি স্ট্যাটাস লাইন রিলে যোগ করে। আপনার আগে থেকে স্ট্যাটাস লাইন থাকলে সেটি আগের মতোই চলবে। শুধু Pro ও Max প্ল্যান।",
-   "pt-BR": "Mostra o uso do seu plano Claude (limites de 5 horas e semanal) no cabeçalho da ilha. O Coucou adiciona um relay de linha de status em ~/.claude/settings.json. Se você já tem uma linha de status, ela continua funcionando como antes. Apenas planos Pro e Max.",
-   "ru": "Показывает использование тарифа Claude (лимиты на 5 часов и на неделю) в заголовке острова. Coucou добавляет ретранслятор строки состояния в ~/.claude/settings.json. Если у вас уже есть строка состояния, она работает как прежде. Только тарифы Pro и Max.",
-   "id": "Menampilkan pemakaian paket Claude Anda (batas 5 jam dan mingguan) di header pulau. Coucou menambahkan relay baris status di ~/.claude/settings.json. Jika Anda sudah punya baris status, baris itu tetap berjalan seperti biasa. Khusus paket Pro dan Max."
+  "Shows your Claude plan usage (5-hour and weekly limits) in the island's header. ARIA adds a status line relay in ~/.claude/settings.json. If you already have a status line, it keeps working as before. Pro and Max plans only.": {
+   "zh-Hans": "在岛的顶栏显示你的 Claude 套餐用量（5 小时和每周限额）。ARIA 会在 ~/.claude/settings.json 中添加一个状态栏中继。如果你已有状态栏，它会照常工作。仅限 Pro 和 Max 套餐。",
+   "hi": "आइलैंड के हेडर में आपके Claude प्लान का उपयोग (5 घंटे और साप्ताहिक सीमा) दिखाता है। ARIA ~/.claude/settings.json में एक स्टेटस लाइन रिले जोड़ती है। अगर आपके पास पहले से स्टेटस लाइन है, तो वह पहले की तरह चलती रहेगी। केवल Pro और Max प्लान।",
+   "es": "Muestra el uso de tu plan de Claude (límites de 5 horas y semanal) en la cabecera de la isla. ARIA añade un relay de línea de estado en ~/.claude/settings.json. Si ya tienes una línea de estado, sigue funcionando como antes. Solo planes Pro y Max.",
+   "ar": "يعرض استخدام خطة Claude (حدّا الخمس ساعات والأسبوع) في رأس الشريط. تضيف ARIA مُرحِّلًا لسطر الحالة في ~/.claude/settings.json. إن كان لديك سطر حالة فسيستمر في العمل كما كان. لخطتَي Pro وMax فقط.",
+   "fr": "Affiche l'utilisation de ton forfait Claude (limites sur 5 heures et à la semaine) dans l'en-tête de l'île. ARIA ajoute un relais de ligne d'état dans ~/.claude/settings.json. Si tu as déjà une ligne d'état, elle continue de fonctionner comme avant. Forfaits Pro et Max uniquement.",
+   "bn": "আইল্যান্ডের হেডারে আপনার Claude প্ল্যানের ব্যবহার (৫ ঘণ্টা ও সাপ্তাহিক সীমা) দেখায়। ARIA ~/.claude/settings.json-এ একটি স্ট্যাটাস লাইন রিলে যোগ করে। আপনার আগে থেকে স্ট্যাটাস লাইন থাকলে সেটি আগের মতোই চলবে। শুধু Pro ও Max প্ল্যান।",
+   "pt-BR": "Mostra o uso do seu plano Claude (limites de 5 horas e semanal) no cabeçalho da ilha. A ARIA adiciona um relay de linha de status em ~/.claude/settings.json. Se você já tem uma linha de status, ela continua funcionando como antes. Apenas planos Pro e Max.",
+   "ru": "Показывает использование тарифа Claude (лимиты на 5 часов и на неделю) в заголовке острова. ARIA добавляет ретранслятор строки состояния в ~/.claude/settings.json. Если у вас уже есть строка состояния, она работает как прежде. Только тарифы Pro и Max.",
+   "id": "Menampilkan pemakaian paket Claude Anda (batas 5 jam dan mingguan) di header pulau. ARIA menambahkan relay baris status di ~/.claude/settings.json. Jika Anda sudah punya baris status, baris itu tetap berjalan seperti biasa. Khusus paket Pro dan Max."
   },
-  "Shows your Codex plan usage (weekly limit and free resets left) in the island's header. Coucou asks the Codex CLI (codex app-server) when the pill shows; nothing is installed. Codex must be signed in with ChatGPT.": {
-   "zh-Hans": "在岛的顶栏显示你的 Codex 套餐用量（每周限额和剩余的免费重置次数）。标签显示时，Coucou 会询问 Codex CLI（codex app-server），不会安装任何东西。Codex 必须已用 ChatGPT 登录。",
-   "hi": "आइलैंड के हेडर में आपके Codex प्लान का उपयोग (साप्ताहिक सीमा और बचे मुफ़्त रीसेट) दिखाता है। टैब दिखने पर Coucou Codex CLI (codex app-server) से पूछता है; कुछ भी इंस्टॉल नहीं होता। Codex में ChatGPT से साइन इन होना ज़रूरी है।",
-   "es": "Muestra el uso de tu plan de Codex (límite semanal y reinicios gratuitos restantes) en la cabecera de la isla. Coucou consulta a la CLI de Codex (codex app-server) cuando aparece la pestaña; no se instala nada. Codex debe tener la sesión iniciada con ChatGPT.",
-   "ar": "يعرض استخدام خطة Codex (الحد الأسبوعي وإعادات التعيين المجانية المتبقية) في رأس الشريط. يسأل Coucou واجهة Codex CLI (codex app-server) عند ظهور التبويب، ولا يُثبَّت أي شيء. يجب تسجيل الدخول إلى Codex بحساب ChatGPT.",
-   "fr": "Affiche l'utilisation de ton forfait Codex (limite hebdomadaire et réinitialisations gratuites restantes) dans l'en-tête de l'île. Coucou interroge la CLI Codex (codex app-server) quand l'onglet s'affiche ; rien n'est installé. Codex doit être connecté avec ChatGPT.",
-   "bn": "আইল্যান্ডের হেডারে আপনার Codex প্ল্যানের ব্যবহার (সাপ্তাহিক সীমা ও বাকি ফ্রি রিসেট) দেখায়। ট্যাব দেখা গেলে Coucou Codex CLI (codex app-server)-কে জিজ্ঞেস করে; কিছুই ইনস্টল হয় না। Codex-এ ChatGPT দিয়ে সাইন ইন থাকতে হবে।",
-   "pt-BR": "Mostra o uso do seu plano Codex (limite semanal e redefinições grátis restantes) no cabeçalho da ilha. O Coucou consulta a CLI do Codex (codex app-server) quando a aba aparece; nada é instalado. O Codex precisa estar conectado com o ChatGPT.",
-   "ru": "Показывает использование тарифа Codex (недельный лимит и оставшиеся бесплатные сбросы) в заголовке острова. Coucou спрашивает Codex CLI (codex app-server), когда видна вкладка; ничего не устанавливается. В Codex нужно войти через ChatGPT.",
-   "id": "Menampilkan pemakaian paket Codex Anda (batas mingguan dan sisa reset gratis) di header pulau. Coucou menanyakan Codex CLI (codex app-server) saat tab tampil; tidak ada yang dipasang. Codex harus masuk dengan ChatGPT."
+  "Shows your Codex plan usage (weekly limit and free resets left) in the island's header. ARIA asks the Codex CLI (codex app-server) when the pill shows; nothing is installed. Codex must be signed in with ChatGPT.": {
+   "zh-Hans": "在岛的顶栏显示你的 Codex 套餐用量（每周限额和剩余的免费重置次数）。标签显示时，ARIA 会询问 Codex CLI（codex app-server），不会安装任何东西。Codex 必须已用 ChatGPT 登录。",
+   "hi": "आइलैंड के हेडर में आपके Codex प्लान का उपयोग (साप्ताहिक सीमा और बचे मुफ़्त रीसेट) दिखाता है। टैब दिखने पर ARIA Codex CLI (codex app-server) से पूछती है; कुछ भी इंस्टॉल नहीं होता। Codex में ChatGPT से साइन इन होना ज़रूरी है।",
+   "es": "Muestra el uso de tu plan de Codex (límite semanal y reinicios gratuitos restantes) en la cabecera de la isla. ARIA consulta a la CLI de Codex (codex app-server) cuando aparece la pestaña; no se instala nada. Codex debe tener la sesión iniciada con ChatGPT.",
+   "ar": "يعرض استخدام خطة Codex (الحد الأسبوعي وإعادات التعيين المجانية المتبقية) في رأس الشريط. تسأل ARIA واجهة Codex CLI (codex app-server) عند ظهور التبويب، ولا يُثبَّت أي شيء. يجب تسجيل الدخول إلى Codex بحساب ChatGPT.",
+   "fr": "Affiche l'utilisation de ton forfait Codex (limite hebdomadaire et réinitialisations gratuites restantes) dans l'en-tête de l'île. ARIA interroge la CLI Codex (codex app-server) quand l'onglet s'affiche ; rien n'est installé. Codex doit être connecté avec ChatGPT.",
+   "bn": "আইল্যান্ডের হেডারে আপনার Codex প্ল্যানের ব্যবহার (সাপ্তাহিক সীমা ও বাকি ফ্রি রিসেট) দেখায়। ট্যাব দেখা গেলে ARIA Codex CLI (codex app-server)-কে জিজ্ঞেস করে; কিছুই ইনস্টল হয় না। Codex-এ ChatGPT দিয়ে সাইন ইন থাকতে হবে।",
+   "pt-BR": "Mostra o uso do seu plano Codex (limite semanal e redefinições grátis restantes) no cabeçalho da ilha. A ARIA consulta a CLI do Codex (codex app-server) quando a aba aparece; nada é instalado. O Codex precisa estar conectado com o ChatGPT.",
+   "ru": "Показывает использование тарифа Codex (недельный лимит и оставшиеся бесплатные сбросы) в заголовке острова. ARIA спрашивает Codex CLI (codex app-server), когда видна вкладка; ничего не устанавливается. В Codex нужно войти через ChatGPT.",
+   "id": "Menampilkan pemakaian paket Codex Anda (batas mingguan dan sisa reset gratis) di header pulau. ARIA menanyakan Codex CLI (codex app-server) saat tab tampil; tidak ada yang dipasang. Codex harus masuk dengan ChatGPT."
   },
   "Start a new Antigravity conversation to pick the hooks up.": {
    "zh-Hans": "开启新的 Antigravity 对话即可启用 hooks。",
@@ -1904,16 +1904,16 @@
    "ru": "Ретранслятор ещё не установлен.",
    "id": "Relay belum terpasang."
   },
-  "The relay isn't installed yet. Restart Coucou.": {
-   "zh-Hans": "中继尚未安装。请重启 Coucou。",
-   "hi": "रिले अभी इंस्टॉल नहीं है। Coucou को फिर से शुरू करें।",
-   "es": "El relay aún no está instalado. Reinicia Coucou.",
-   "ar": "المُرحِّل غير مثبَّت بعد. أعد تشغيل Coucou.",
-   "fr": "Le relais n'est pas encore installé. Redémarre Coucou.",
-   "bn": "রিলে এখনো ইনস্টল হয়নি। Coucou আবার চালু করুন।",
-   "pt-BR": "O relay ainda não está instalado. Reinicie o Coucou.",
-   "ru": "Ретранслятор ещё не установлен. Перезапустите Coucou.",
-   "id": "Relay belum terpasang. Mulai ulang Coucou."
+  "The relay isn't installed yet. Restart ARIA.": {
+   "zh-Hans": "中继尚未安装。请重启 ARIA。",
+   "hi": "रिले अभी इंस्टॉल नहीं है। ARIA को फिर से शुरू करें।",
+   "es": "El relay aún no está instalado. Reinicia ARIA.",
+   "ar": "المُرحِّل غير مثبَّت بعد. أعد تشغيل ARIA.",
+   "fr": "Le relais n'est pas encore installé. Redémarre ARIA.",
+   "bn": "রিলে এখনো ইনস্টল হয়নি। ARIA আবার চালু করুন।",
+   "pt-BR": "O relay ainda não está instalado. Reinicie a ARIA.",
+   "ru": "Ретранслятор ещё не установлен. Перезапустите ARIA.",
+   "id": "Relay belum terpasang. Mulai ulang ARIA."
   },
   "This agent takes a plugin, not hook entries.": {
    "zh-Hans": "此代理使用插件，而不是 hook 条目。",
@@ -1948,16 +1948,16 @@
    "ru": "Вот что именно изменится в вашем settings.json. Ваши собственные хуки не затрагиваются.",
    "id": "Inilah persisnya yang akan berubah di settings.json Anda. Hooks milik Anda tidak disentuh."
   },
-  "This is exactly what will change: only the status line. If you already have one it keeps working, Coucou's relay runs it for you.": {
-   "zh-Hans": "这正是将发生的改动：只涉及状态栏。如果你已有状态栏，它会照常工作，由 Coucou 的中继替你运行。",
-   "hi": "ठीक यही बदलेगा: केवल स्टेटस लाइन। अगर आपके पास पहले से एक है तो वह चलती रहेगी, Coucou का रिले उसे आपके लिए चलाता है।",
-   "es": "Esto es exactamente lo que cambiará: solo la línea de estado. Si ya tienes una, sigue funcionando: el relay de Coucou la ejecuta por ti.",
-   "ar": "هذا بالضبط ما سيتغيّر: سطر الحالة فقط. إن كان لديك سطر حالة فسيستمر في العمل، إذ يشغّله مُرحِّل Coucou نيابةً عنك.",
-   "fr": "Voici exactement ce qui va changer : seulement la ligne d'état. Si tu en as déjà une, elle continue de fonctionner, le relais de Coucou la lance pour toi.",
-   "bn": "ঠিক এটাই বদলাবে: শুধু স্ট্যাটাস লাইন। আপনার আগে থেকে একটি থাকলে সেটি চলতেই থাকবে, Coucou-র রিলে আপনার হয়ে সেটি চালায়।",
-   "pt-BR": "Isto é exatamente o que vai mudar: apenas a linha de status. Se você já tem uma, ela continua funcionando: o relay do Coucou a executa para você.",
-   "ru": "Вот что именно изменится: только строка состояния. Если она у вас уже есть, она продолжит работать — её запускает ретранслятор Coucou.",
-   "id": "Inilah persisnya yang akan berubah: hanya baris status. Jika Anda sudah punya, baris itu tetap berjalan, relay Coucou menjalankannya untuk Anda."
+  "This is exactly what will change: only the status line. If you already have one it keeps working, ARIA's relay runs it for you.": {
+   "zh-Hans": "这正是将发生的改动：只涉及状态栏。如果你已有状态栏，它会照常工作，由 ARIA 的中继替你运行。",
+   "hi": "ठीक यही बदलेगा: केवल स्टेटस लाइन। अगर आपके पास पहले से एक है तो वह चलती रहेगी, ARIA का रिले उसे आपके लिए चलाता है।",
+   "es": "Esto es exactamente lo que cambiará: solo la línea de estado. Si ya tienes una, sigue funcionando: el relay de ARIA la ejecuta por ti.",
+   "ar": "هذا بالضبط ما سيتغيّر: سطر الحالة فقط. إن كان لديك سطر حالة فسيستمر في العمل، إذ يشغّله مُرحِّل ARIA نيابةً عنك.",
+   "fr": "Voici exactement ce qui va changer : seulement la ligne d'état. Si tu en as déjà une, elle continue de fonctionner, le relais d'ARIA la lance pour toi.",
+   "bn": "ঠিক এটাই বদলাবে: শুধু স্ট্যাটাস লাইন। আপনার আগে থেকে একটি থাকলে সেটি চলতেই থাকবে, ARIA-র রিলে আপনার হয়ে সেটি চালায়।",
+   "pt-BR": "Isto é exatamente o que vai mudar: apenas a linha de status. Se você já tem uma, ela continua funcionando: o relay da ARIA a executa para você.",
+   "ru": "Вот что именно изменится: только строка состояния. Если она у вас уже есть, она продолжит работать — её запускает ретранслятор ARIA.",
+   "id": "Inilah persisnya yang akan berubah: hanya baris status. Jika Anda sudah punya, baris itu tetap berjalan, relay ARIA menjalankannya untuk Anda."
   },
   "This puts your previous status line back, or removes the entry if there was none.": {
    "zh-Hans": "这会恢复你之前的状态栏；如果之前没有，则移除该条目。",
@@ -1970,27 +1970,27 @@
    "ru": "Возвращается ваша прежняя строка состояния, а если её не было — запись удаляется.",
    "id": "Ini mengembalikan baris status Anda sebelumnya, atau menghapus entri jika sebelumnya tidak ada."
   },
-  "This removes Coucou's entries only. Everything else stays.": {
-   "zh-Hans": "这只会移除 Coucou 的条目，其余内容保持不变。",
-   "hi": "यह केवल Coucou की प्रविष्टियाँ हटाता है। बाकी सब वैसा ही रहता है।",
-   "es": "Esto solo quita las entradas de Coucou. Todo lo demás se queda.",
-   "ar": "يزيل هذا إدخالات Coucou فقط. يبقى كل شيء آخر كما هو.",
-   "fr": "Seules les entrées de Coucou sont retirées. Tout le reste est conservé.",
-   "bn": "এটি শুধু Coucou-র এন্ট্রি সরায়। বাকি সব থেকে যায়।",
-   "pt-BR": "Isto remove apenas as entradas do Coucou. O resto continua.",
-   "ru": "Удаляются только записи Coucou. Всё остальное остаётся.",
-   "id": "Ini hanya menghapus entri Coucou. Yang lain tetap ada."
+  "This removes ARIA's entries only. Everything else stays.": {
+   "zh-Hans": "这只会移除 ARIA 的条目，其余内容保持不变。",
+   "hi": "यह केवल ARIA की प्रविष्टियाँ हटाता है। बाकी सब वैसा ही रहता है।",
+   "es": "Esto solo quita las entradas de ARIA. Todo lo demás se queda.",
+   "ar": "يزيل هذا إدخالات ARIA فقط. يبقى كل شيء آخر كما هو.",
+   "fr": "Seules les entrées d'ARIA sont retirées. Tout le reste est conservé.",
+   "bn": "এটি শুধু ARIA-র এন্ট্রি সরায়। বাকি সব থেকে যায়।",
+   "pt-BR": "Isto remove apenas as entradas da ARIA. O resto continua.",
+   "ru": "Удаляются только записи ARIA. Всё остальное остаётся.",
+   "id": "Ini hanya menghapus entri ARIA. Yang lain tetap ada."
   },
-  "This removes Coucou's entries only. Your own hooks are left untouched.": {
-   "zh-Hans": "这只会移除 Coucou 的条目。你自己的 hooks 不会被触碰。",
-   "hi": "यह केवल Coucou की प्रविष्टियाँ हटाता है। आपके अपने hooks नहीं छुए जाते।",
-   "es": "Esto solo quita las entradas de Coucou. Tus propios hooks no se tocan.",
-   "ar": "يزيل هذا إدخالات Coucou فقط. لن تُمسّ hooks الخاصة بك.",
-   "fr": "Seules les entrées de Coucou sont retirées. Tes propres hooks ne sont pas touchés.",
-   "bn": "এটি শুধু Coucou-র এন্ট্রি সরায়। আপনার নিজের hooks-এ হাত দেওয়া হয় না।",
-   "pt-BR": "Isto remove apenas as entradas do Coucou. Seus próprios hooks não são alterados.",
-   "ru": "Удаляются только записи Coucou. Ваши собственные хуки не затрагиваются.",
-   "id": "Ini hanya menghapus entri Coucou. Hooks milik Anda tidak disentuh."
+  "This removes ARIA's entries only. Your own hooks are left untouched.": {
+   "zh-Hans": "这只会移除 ARIA 的条目。你自己的 hooks 不会被触碰。",
+   "hi": "यह केवल ARIA की प्रविष्टियाँ हटाता है। आपके अपने hooks नहीं छुए जाते।",
+   "es": "Esto solo quita las entradas de ARIA. Tus propios hooks no se tocan.",
+   "ar": "يزيل هذا إدخالات ARIA فقط. لن تُمسّ hooks الخاصة بك.",
+   "fr": "Seules les entrées d'ARIA sont retirées. Tes propres hooks ne sont pas touchés.",
+   "bn": "এটি শুধু ARIA-র এন্ট্রি সরায়। আপনার নিজের hooks-এ হাত দেওয়া হয় না।",
+   "pt-BR": "Isto remove apenas as entradas da ARIA. Seus próprios hooks não são alterados.",
+   "ru": "Удаляются только записи ARIA. Ваши собственные хуки не затрагиваются.",
+   "id": "Ini hanya menghapus entri ARIA. Hooks milik Anda tidak disentuh."
   },
   "Thursday": {
    "zh-Hans": "星期四",
@@ -2256,16 +2256,16 @@
    "ru": "всё зелёное",
    "id": "semua hijau"
   },
-  "coucou-hook.exe is not in place yet. Restart Coucou; if it still fails, build it with `cargo build -p coucou-hook`.": {
-   "zh-Hans": "coucou-hook.exe 尚未就位。请重启 Coucou；如果仍然失败，请用 `cargo build -p coucou-hook` 构建它。",
-   "hi": "coucou-hook.exe अभी अपनी जगह पर नहीं है। Coucou फिर से शुरू करें; अगर फिर भी न हो, तो इसे `cargo build -p coucou-hook` से बनाएँ।",
-   "es": "coucou-hook.exe aún no está en su sitio. Reinicia Coucou; si sigue fallando, compílalo con `cargo build -p coucou-hook`.",
-   "ar": "coucou-hook.exe ليس في مكانه بعد. أعد تشغيل Coucou؛ وإن استمر الفشل فابنِه بالأمر `cargo build -p coucou-hook`.",
-   "fr": "coucou-hook.exe n'est pas encore en place. Redémarre Coucou ; si ça échoue encore, compile-le avec `cargo build -p coucou-hook`.",
-   "bn": "coucou-hook.exe এখনো জায়গামতো নেই। Coucou আবার চালু করুন; তবুও না হলে `cargo build -p coucou-hook` দিয়ে এটি বানান।",
-   "pt-BR": "O coucou-hook.exe ainda não está no lugar. Reinicie o Coucou; se continuar falhando, compile-o com `cargo build -p coucou-hook`.",
-   "ru": "coucou-hook.exe ещё не на месте. Перезапустите Coucou; если не поможет, соберите его командой `cargo build -p coucou-hook`.",
-   "id": "coucou-hook.exe belum ada di tempatnya. Mulai ulang Coucou; jika masih gagal, build dengan `cargo build -p coucou-hook`."
+  "coucou-hook.exe is not in place yet. Restart ARIA; if it still fails, build it with `cargo build -p coucou-hook`.": {
+   "zh-Hans": "coucou-hook.exe 尚未就位。请重启 ARIA；如果仍然失败，请用 `cargo build -p coucou-hook` 构建它。",
+   "hi": "coucou-hook.exe अभी अपनी जगह पर नहीं है। ARIA फिर से शुरू करें; अगर फिर भी न हो, तो इसे `cargo build -p coucou-hook` से बनाएँ।",
+   "es": "coucou-hook.exe aún no está en su sitio. Reinicia ARIA; si sigue fallando, compílalo con `cargo build -p coucou-hook`.",
+   "ar": "coucou-hook.exe ليس في مكانه بعد. أعد تشغيل ARIA؛ وإن استمر الفشل فابنِه بالأمر `cargo build -p coucou-hook`.",
+   "fr": "coucou-hook.exe n'est pas encore en place. Redémarre ARIA ; si ça échoue encore, compile-le avec `cargo build -p coucou-hook`.",
+   "bn": "coucou-hook.exe এখনো জায়গামতো নেই। ARIA আবার চালু করুন; তবুও না হলে `cargo build -p coucou-hook` দিয়ে এটি বানান।",
+   "pt-BR": "O coucou-hook.exe ainda não está no lugar. Reinicie a ARIA; se continuar falhando, compile-o com `cargo build -p coucou-hook`.",
+   "ru": "coucou-hook.exe ещё не на месте. Перезапустите ARIA; если не поможет, соберите его командой `cargo build -p coucou-hook`.",
+   "id": "coucou-hook.exe belum ada di tempatnya. Mulai ulang ARIA; jika masih gagal, build dengan `cargo build -p coucou-hook`."
   },
   "failing": {
    "zh-Hans": "失败",
@@ -2399,16 +2399,16 @@
    "ru": "секунд после ухода с острова",
    "id": "detik setelah Anda meninggalkan pulau"
   },
-  "settings.json: {what} has an unexpected type — Coucou has not touched it.": {
-   "zh-Hans": "settings.json：{what} 的类型不符合预期 — Coucou 没有修改它。",
-   "hi": "settings.json: {what} का प्रकार अपेक्षित नहीं है — Coucou ने इसे नहीं छुआ।",
-   "es": "settings.json: {what} tiene un tipo inesperado — Coucou no lo ha tocado.",
-   "ar": "settings.json: {what} من نوع غير متوقع — لم يمسّه Coucou.",
-   "fr": "settings.json : {what} a un type inattendu — Coucou n'y a pas touché.",
-   "bn": "settings.json: {what}-এর ধরন অপ্রত্যাশিত — Coucou এতে হাত দেয়নি।",
-   "pt-BR": "settings.json: {what} tem um tipo inesperado — o Coucou não mexeu nele.",
-   "ru": "settings.json: у {what} неожиданный тип — Coucou его не трогал.",
-   "id": "settings.json: {what} bertipe tak terduga — Coucou tidak menyentuhnya."
+  "settings.json: {what} has an unexpected type — ARIA has not touched it.": {
+   "zh-Hans": "settings.json：{what} 的类型不符合预期 — ARIA 没有修改它。",
+   "hi": "settings.json: {what} का प्रकार अपेक्षित नहीं है — ARIA ने इसे नहीं छुआ।",
+   "es": "settings.json: {what} tiene un tipo inesperado — ARIA no lo ha tocado.",
+   "ar": "settings.json: {what} من نوع غير متوقع — لم تمسّه ARIA.",
+   "fr": "settings.json : {what} a un type inattendu — ARIA n'y a pas touché.",
+   "bn": "settings.json: {what}-এর ধরন অপ্রত্যাশিত — ARIA এতে হাত দেয়নি।",
+   "pt-BR": "settings.json: {what} tem um tipo inesperado — a ARIA não mexeu nele.",
+   "ru": "settings.json: у {what} неожиданный тип — ARIA его не трогала.",
+   "id": "settings.json: {what} bertipe tak terduga — ARIA tidak menyentuhnya."
   },
   "unknown": {
    "zh-Hans": "未知",
@@ -2516,38 +2516,38 @@
     "other": "{count} repositori"
    }
   },
-  "{file} isn't UTF-8 text — Coucou won't touch it.": {
-   "zh-Hans": "{file} 不是 UTF-8 文本 — Coucou 不会修改它。",
-   "hi": "{file} UTF-8 टेक्स्ट नहीं है — Coucou इसे नहीं छुएगा।",
-   "es": "{file} no es texto UTF-8 — Coucou no lo tocará.",
-   "ar": "{file} ليس نصًا بترميز UTF-8 — لن يمسّه Coucou.",
-   "fr": "{file} n'est pas du texte UTF-8 — Coucou n'y touchera pas.",
-   "bn": "{file} UTF-8 টেক্সট নয় — Coucou এতে হাত দেবে না।",
-   "pt-BR": "{file} não é texto UTF-8 — o Coucou não vai mexer nele.",
-   "ru": "{file} — не текст в UTF-8, Coucou его не тронет.",
-   "id": "{file} bukan teks UTF-8 — Coucou tidak akan menyentuhnya."
+  "{file} isn't UTF-8 text — ARIA won't touch it.": {
+   "zh-Hans": "{file} 不是 UTF-8 文本 — ARIA 不会修改它。",
+   "hi": "{file} UTF-8 टेक्स्ट नहीं है — ARIA इसे नहीं छुएगी।",
+   "es": "{file} no es texto UTF-8 — ARIA no lo tocará.",
+   "ar": "{file} ليس نصًا بترميز UTF-8 — لن تمسّه ARIA.",
+   "fr": "{file} n'est pas du texte UTF-8 — ARIA n'y touchera pas.",
+   "bn": "{file} UTF-8 টেক্সট নয় — ARIA এতে হাত দেবে না।",
+   "pt-BR": "{file} não é texto UTF-8 — a ARIA não vai mexer nele.",
+   "ru": "{file} — не текст в UTF-8, ARIA его не тронет.",
+   "id": "{file} bukan teks UTF-8 — ARIA tidak akan menyentuhnya."
   },
-  "{file} isn't a JSON object — Coucou won't touch it.": {
-   "zh-Hans": "{file} 不是 JSON 对象 — Coucou 不会修改它。",
-   "hi": "{file} JSON ऑब्जेक्ट नहीं है — Coucou इसे नहीं छुएगा।",
-   "es": "{file} no es un objeto JSON — Coucou no lo tocará.",
-   "ar": "{file} ليس كائن JSON — لن يمسّه Coucou.",
-   "fr": "{file} n'est pas un objet JSON — Coucou n'y touchera pas.",
-   "bn": "{file} JSON অবজেক্ট নয় — Coucou এতে হাত দেবে না।",
-   "pt-BR": "{file} não é um objeto JSON — o Coucou não vai mexer nele.",
-   "ru": "{file} — не объект JSON, Coucou его не тронет.",
-   "id": "{file} bukan objek JSON — Coucou tidak akan menyentuhnya."
+  "{file} isn't a JSON object — ARIA won't touch it.": {
+   "zh-Hans": "{file} 不是 JSON 对象 — ARIA 不会修改它。",
+   "hi": "{file} JSON ऑब्जेक्ट नहीं है — ARIA इसे नहीं छुएगी।",
+   "es": "{file} no es un objeto JSON — ARIA no lo tocará.",
+   "ar": "{file} ليس كائن JSON — لن تمسّه ARIA.",
+   "fr": "{file} n'est pas un objet JSON — ARIA n'y touchera pas.",
+   "bn": "{file} JSON অবজেক্ট নয় — ARIA এতে হাত দেবে না।",
+   "pt-BR": "{file} não é um objeto JSON — a ARIA não vai mexer nele.",
+   "ru": "{file} — не объект JSON, ARIA его не тронет.",
+   "id": "{file} bukan objek JSON — ARIA tidak akan menyentuhnya."
   },
-  "{file} isn't valid JSON ({error}). Fix or move it, then try again — Coucou won't overwrite it.": {
-   "zh-Hans": "{file} 不是有效的 JSON（{error}）。请修复或移走它后重试 — Coucou 不会覆盖它。",
-   "hi": "{file} मान्य JSON नहीं है ({error})। इसे ठीक करें या हटाएँ, फिर दोबारा कोशिश करें — Coucou इसे ओवरराइट नहीं करेगा।",
-   "es": "{file} no es un JSON válido ({error}). Corrígelo o muévelo y vuelve a intentarlo — Coucou no lo sobrescribirá.",
-   "ar": "{file} ليس JSON صالحًا ({error}). أصلحه أو انقله ثم حاول مجددًا — لن يكتب Coucou فوقه.",
-   "fr": "{file} n'est pas un JSON valide ({error}). Corrige-le ou déplace-le, puis réessaie — Coucou ne l'écrasera pas.",
-   "bn": "{file} বৈধ JSON নয় ({error})। এটি ঠিক করুন বা সরান, তারপর আবার চেষ্টা করুন — Coucou এটি ওভাররাইট করবে না।",
-   "pt-BR": "{file} não é um JSON válido ({error}). Corrija ou mova o arquivo e tente de novo — o Coucou não vai sobrescrevê-lo.",
-   "ru": "{file} — некорректный JSON ({error}). Исправьте или переместите его и попробуйте снова — Coucou не будет его перезаписывать.",
-   "id": "{file} bukan JSON yang valid ({error}). Perbaiki atau pindahkan, lalu coba lagi — Coucou tidak akan menimpanya."
+  "{file} isn't valid JSON ({error}). Fix or move it, then try again — ARIA won't overwrite it.": {
+   "zh-Hans": "{file} 不是有效的 JSON（{error}）。请修复或移走它后重试 — ARIA 不会覆盖它。",
+   "hi": "{file} मान्य JSON नहीं है ({error})। इसे ठीक करें या हटाएँ, फिर दोबारा कोशिश करें — ARIA इसे ओवरराइट नहीं करेगी।",
+   "es": "{file} no es un JSON válido ({error}). Corrígelo o muévelo y vuelve a intentarlo — ARIA no lo sobrescribirá.",
+   "ar": "{file} ليس JSON صالحًا ({error}). أصلحه أو انقله ثم حاول مجددًا — لن تكتب ARIA فوقه.",
+   "fr": "{file} n'est pas un JSON valide ({error}). Corrige-le ou déplace-le, puis réessaie — ARIA ne l'écrasera pas.",
+   "bn": "{file} বৈধ JSON নয় ({error})। এটি ঠিক করুন বা সরান, তারপর আবার চেষ্টা করুন — ARIA এটি ওভাররাইট করবে না।",
+   "pt-BR": "{file} não é um JSON válido ({error}). Corrija ou mova o arquivo e tente de novo — a ARIA não vai sobrescrevê-lo.",
+   "ru": "{file} — некорректный JSON ({error}). Исправьте или переместите его и попробуйте снова — ARIA не будет его перезаписывать.",
+   "id": "{file} bukan JSON yang valid ({error}). Perbaiki atau pindahkan, lalu coba lagi — ARIA tidak akan menimpanya."
   },
   "{h}h {m}m": {
    "zh-Hans": "{h} 小时 {m} 分钟",
@@ -2571,16 +2571,16 @@
    "ru": "{keys} вводит «{char}» на вашей клавиатуре, поэтому не может быть сочетанием. Выберите другую клавишу.",
    "id": "{keys} mengetik “{char}” di keyboard Anda, jadi tidak bisa menjadi pintasan. Pilih tombol lain."
   },
-  "{name} wasn't written by Coucou — Coucou has not touched it.": {
-   "zh-Hans": "{name} 不是由 Coucou 写入的 — Coucou 没有修改它。",
-   "hi": "{name} Coucou ने नहीं लिखा था — Coucou ने इसे नहीं छुआ।",
-   "es": "{name} no lo escribió Coucou — Coucou no lo ha tocado.",
-   "ar": "لم يكتب Coucou الملف {name} — لم يمسّه Coucou.",
-   "fr": "{name} n'a pas été écrit par Coucou — Coucou n'y a pas touché.",
-   "bn": "{name} Coucou লেখেনি — Coucou এতে হাত দেয়নি।",
-   "pt-BR": "{name} não foi escrito pelo Coucou — o Coucou não mexeu nele.",
-   "ru": "{name} записан не Coucou — Coucou его не трогал.",
-   "id": "{name} tidak ditulis oleh Coucou — Coucou tidak menyentuhnya."
+  "{name} wasn't written by ARIA — ARIA has not touched it.": {
+   "zh-Hans": "{name} 不是由 ARIA 写入的 — ARIA 没有修改它。",
+   "hi": "{name} ARIA ने नहीं लिखा था — ARIA ने इसे नहीं छुआ।",
+   "es": "{name} no lo escribió ARIA — ARIA no lo ha tocado.",
+   "ar": "لم تكتب ARIA الملف {name} — لم تمسّه ARIA.",
+   "fr": "{name} n'a pas été écrit par ARIA — ARIA n'y a pas touché.",
+   "bn": "{name} ARIA লেখেনি — ARIA এতে হাত দেয়নি।",
+   "pt-BR": "{name} não foi escrito pela ARIA — a ARIA não mexeu nele.",
+   "ru": "{name} записан не ARIA — ARIA его не трогала.",
+   "id": "{name} tidak ditulis oleh ARIA — ARIA tidak menyentuhnya."
   },
   "{name} — {width}×{height} at {x},{y}": {
    "zh-Hans": "{name} — {width}×{height}，位于 {x},{y}",
@@ -2681,27 +2681,27 @@
    "ru": "Занято мест: {used}/{max} — основной инструмент место не занимает.",
    "id": "{used}/{max} slot terpakai — alat utama tidak memakai slot."
   },
-  "\"{name}\" in mcp.json is not Coucou's — Coucou has not touched it.": {
-   "zh-Hans": "mcp.json 中的“{name}”不属于 Coucou — Coucou 没有修改它。",
-   "hi": "mcp.json में \"{name}\" Coucou का नहीं है — Coucou ने इसे नहीं छुआ।",
-   "es": "«{name}» en mcp.json no es de Coucou — Coucou no lo ha tocado.",
-   "ar": "\"{name}\" في mcp.json ليس تابعًا لـ Coucou — لم يمسّه Coucou.",
-   "fr": "« {name} » dans mcp.json n'appartient pas à Coucou — Coucou n'y a pas touché.",
-   "bn": "mcp.json-এর \"{name}\" Coucou-এর নয় — Coucou এতে হাত দেয়নি।",
-   "pt-BR": "\"{name}\" no mcp.json não é do Coucou — o Coucou não mexeu nele.",
-   "ru": "«{name}» в mcp.json не принадлежит Coucou — Coucou его не трогал.",
-   "id": "\"{name}\" di mcp.json bukan milik Coucou — Coucou tidak menyentuhnya."
+  "\"{name}\" in mcp.json is not ARIA's — ARIA has not touched it.": {
+   "zh-Hans": "mcp.json 中的“{name}”不属于 ARIA — ARIA 没有修改它。",
+   "hi": "mcp.json में \"{name}\" ARIA का नहीं है — ARIA ने इसे नहीं छुआ।",
+   "es": "«{name}» en mcp.json no es de ARIA — ARIA no lo ha tocado.",
+   "ar": "\"{name}\" في mcp.json ليس تابعًا لـ ARIA — لم تمسّه ARIA.",
+   "fr": "« {name} » dans mcp.json n'appartient pas à ARIA — ARIA n'y a pas touché.",
+   "bn": "mcp.json-এর \"{name}\" ARIA-এর নয় — ARIA এতে হাত দেয়নি।",
+   "pt-BR": "\"{name}\" no mcp.json não é da ARIA — a ARIA não mexeu nele.",
+   "ru": "«{name}» в mcp.json не принадлежит ARIA — ARIA его не трогала.",
+   "id": "\"{name}\" di mcp.json bukan milik ARIA — ARIA tidak menyentuhnya."
   },
-  "{what} has an unexpected type — Coucou has not touched it.": {
-   "zh-Hans": "{what} 的类型不符合预期 — Coucou 没有修改它。",
-   "hi": "{what} का प्रकार अपेक्षित नहीं है — Coucou ने इसे नहीं छुआ।",
-   "es": "{what} tiene un tipo inesperado — Coucou no lo ha tocado.",
-   "ar": "{what} من نوع غير متوقع — لم يمسّه Coucou.",
-   "fr": "{what} a un type inattendu — Coucou n'y a pas touché.",
-   "bn": "{what}-এর ধরন অপ্রত্যাশিত — Coucou এতে হাত দেয়নি।",
-   "pt-BR": "{what} tem um tipo inesperado — o Coucou não mexeu nele.",
-   "ru": "У {what} неожиданный тип — Coucou его не трогал.",
-   "id": "{what} bertipe tak terduga — Coucou tidak menyentuhnya."
+  "{what} has an unexpected type — ARIA has not touched it.": {
+   "zh-Hans": "{what} 的类型不符合预期 — ARIA 没有修改它。",
+   "hi": "{what} का प्रकार अपेक्षित नहीं है — ARIA ने इसे नहीं छुआ।",
+   "es": "{what} tiene un tipo inesperado — ARIA no lo ha tocado.",
+   "ar": "{what} من نوع غير متوقع — لم تمسّه ARIA.",
+   "fr": "{what} a un type inattendu — ARIA n'y a pas touché.",
+   "bn": "{what}-এর ধরন অপ্রত্যাশিত — ARIA এতে হাত দেয়নি।",
+   "pt-BR": "{what} tem um tipo inesperado — a ARIA não mexeu nele.",
+   "ru": "У {what} неожиданный тип — ARIA его не трогала.",
+   "id": "{what} bertipe tak terduga — ARIA tidak menyentuhnya."
   },
   "• subagent done": {
    "zh-Hans": "• 子代理完成",
@@ -2780,16 +2780,16 @@
    "ru": "Сеанс завершился с ошибкой.",
    "id": "Sesi gagal."
   },
-  "Installed by an older version of Coucou: reinstall so questions and mode changes reach the island.": {
-   "zh-Hans": "由旧版 Coucou 安装：请重新安装，让提问和模式切换显示在灵动岛中。",
-   "hi": "Coucou के पुराने संस्करण से इंस्टॉल किया गया: दोबारा इंस्टॉल करें ताकि सवाल और मोड बदलाव आइलैंड में आएँ।",
-   "es": "Instalado con una versión anterior de Coucou: reinstálalo para que las preguntas y los cambios de modo lleguen a la isla.",
-   "ar": "مثبَّت بإصدار أقدم من Coucou: أعد التثبيت لتصل الأسئلة وتغييرات الوضع إلى الجزيرة.",
-   "fr": "Installé par une ancienne version de Coucou : réinstallez pour que les questions et les changements de mode arrivent dans l'île.",
-   "bn": "Coucou-এর পুরোনো সংস্করণ দিয়ে ইনস্টল করা: আবার ইনস্টল করুন যাতে প্রশ্ন ও মোড পরিবর্তন আইল্যান্ডে আসে।",
-   "pt-BR": "Instalado por uma versão anterior do Coucou: reinstale para que as perguntas e as mudanças de modo cheguem à ilha.",
-   "ru": "Установлено старой версией Coucou: переустановите, чтобы вопросы и смена режима появлялись на острове.",
-   "id": "Dipasang oleh versi Coucou yang lebih lama: pasang ulang agar pertanyaan dan pergantian mode muncul di pulau."
+  "Installed by an older version of ARIA: reinstall so questions and mode changes reach the island.": {
+   "zh-Hans": "由旧版 ARIA 安装：请重新安装，让提问和模式切换显示在灵动岛中。",
+   "hi": "ARIA के पुराने संस्करण से इंस्टॉल किया गया: दोबारा इंस्टॉल करें ताकि सवाल और मोड बदलाव आइलैंड में आएँ।",
+   "es": "Instalado con una versión anterior de ARIA: reinstálalo para que las preguntas y los cambios de modo lleguen a la isla.",
+   "ar": "مثبَّت بإصدار أقدم من ARIA: أعد التثبيت لتصل الأسئلة وتغييرات الوضع إلى الجزيرة.",
+   "fr": "Installé par une ancienne version d'ARIA : réinstallez pour que les questions et les changements de mode arrivent dans l'île.",
+   "bn": "ARIA-এর পুরোনো সংস্করণ দিয়ে ইনস্টল করা: আবার ইনস্টল করুন যাতে প্রশ্ন ও মোড পরিবর্তন আইল্যান্ডে আসে।",
+   "pt-BR": "Instalado por uma versão anterior da ARIA: reinstale para que as perguntas e as mudanças de modo cheguem à ilha.",
+   "ru": "Установлено старой версией ARIA: переустановите, чтобы вопросы и смена режима появлялись на острове.",
+   "id": "Dipasang oleh versi ARIA yang lebih lama: pasang ulang agar pertanyaan dan pergantian mode muncul di pulau."
   },
   "Approve shell and MCP commands from the island": {
    "zh-Hans": "在灵动岛中批准 shell 和 MCP 命令",
@@ -2868,27 +2868,27 @@
    "ru": "Другие агенты",
    "id": "Agen lain"
   },
-  "Claude Code (VS Code), Codex, Gemini CLI and the rest: their pills, alerts and hooks. Off, the island only shows Mochi, your Grok Bots, the Cursor agent and your integrations.": {
-   "zh-Hans": "Claude Code（VS Code）、Codex、Gemini CLI 等：它们的胶囊、提醒和钩子。关闭后，灵动岛只显示 Mochi、你的 Grok Bots、Cursor 智能体和你的集成。",
-   "hi": "Claude Code (VS Code), Codex, Gemini CLI और बाकी: उनकी पिल्स, अलर्ट और हुक। बंद होने पर आइलैंड सिर्फ़ Mochi, आपके Grok Bots, Cursor एजेंट और आपके इंटीग्रेशन दिखाता है।",
-   "es": "Claude Code (VS Code), Codex, Gemini CLI y los demás: sus píldoras, avisos y hooks. Apagado, la isla solo muestra a Mochi, tus Grok Bots, el agente de Cursor y tus integraciones.",
-   "ar": "Claude Code (VS Code) وCodex وGemini CLI وغيرها: حبوبها وتنبيهاتها وخطافاتها. عند الإيقاف، لا تعرض الجزيرة سوى Mochi وGrok Bots الخاصة بك ووكيل Cursor وتكاملاتك.",
-   "fr": "Claude Code (VS Code), Codex, Gemini CLI et les autres : leurs pastilles, alertes et hooks. Désactivé, l'île n'affiche que Mochi, vos Grok Bots, l'agent Cursor et vos intégrations.",
-   "bn": "Claude Code (VS Code), Codex, Gemini CLI এবং বাকিরা: তাদের পিল, সতর্কতা ও হুক। বন্ধ থাকলে আইল্যান্ড শুধু Mochi, আপনার Grok Bots, Cursor এজেন্ট আর আপনার ইন্টিগ্রেশন দেখায়।",
-   "pt-BR": "Claude Code (VS Code), Codex, Gemini CLI e os demais: suas pílulas, alertas e hooks. Desligado, a ilha mostra só o Mochi, seus Grok Bots, o agente do Cursor e suas integrações.",
-   "ru": "Claude Code (VS Code), Codex, Gemini CLI и остальные: их пилюли, оповещения и хуки. Если выключено, остров показывает только Mochi, ваших Grok Bots, агента Cursor и ваши интеграции.",
-   "id": "Claude Code (VS Code), Codex, Gemini CLI, dan lainnya: pil, peringatan, dan hook mereka. Jika mati, pulau hanya menampilkan Mochi, Grok Bots Anda, agen Cursor, dan integrasi Anda."
+  "Claude Code (VS Code), Codex, Gemini CLI and the rest: their pills, alerts and hooks. Off, the island only shows ARIA, your Grok Bots, the Cursor agent and your integrations.": {
+   "zh-Hans": "Claude Code（VS Code）、Codex、Gemini CLI 等：它们的胶囊、提醒和钩子。关闭后，灵动岛只显示 ARIA、你的 Grok Bots、Cursor 智能体和你的集成。",
+   "hi": "Claude Code (VS Code), Codex, Gemini CLI और बाकी: उनकी पिल्स, अलर्ट और हुक। बंद होने पर आइलैंड सिर्फ़ ARIA, आपके Grok Bots, Cursor एजेंट और आपके इंटीग्रेशन दिखाता है।",
+   "es": "Claude Code (VS Code), Codex, Gemini CLI y los demás: sus píldoras, avisos y hooks. Apagado, la isla solo muestra a ARIA, tus Grok Bots, el agente de Cursor y tus integraciones.",
+   "ar": "Claude Code (VS Code) وCodex وGemini CLI وغيرها: حبوبها وتنبيهاتها وخطافاتها. عند الإيقاف، لا تعرض الجزيرة سوى ARIA وGrok Bots الخاصة بك ووكيل Cursor وتكاملاتك.",
+   "fr": "Claude Code (VS Code), Codex, Gemini CLI et les autres : leurs pastilles, alertes et hooks. Désactivé, l'île n'affiche qu'ARIA, vos Grok Bots, l'agent Cursor et vos intégrations.",
+   "bn": "Claude Code (VS Code), Codex, Gemini CLI এবং বাকিরা: তাদের পিল, সতর্কতা ও হুক। বন্ধ থাকলে আইল্যান্ড শুধু ARIA, আপনার Grok Bots, Cursor এজেন্ট আর আপনার ইন্টিগ্রেশন দেখায়।",
+   "pt-BR": "Claude Code (VS Code), Codex, Gemini CLI e os demais: suas pílulas, alertas e hooks. Desligado, a ilha mostra só a ARIA, seus Grok Bots, o agente do Cursor e suas integrações.",
+   "ru": "Claude Code (VS Code), Codex, Gemini CLI и остальные: их пилюли, оповещения и хуки. Если выключено, остров показывает только ARIA, ваших Grok Bots, агента Cursor и ваши интеграции.",
+   "id": "Claude Code (VS Code), Codex, Gemini CLI, dan lainnya: pil, peringatan, dan hook mereka. Jika mati, pulau hanya menampilkan ARIA, Grok Bots Anda, agen Cursor, dan integrasi Anda."
   },
-  "Ask Mochi": {
-   "zh-Hans": "问 Mochi",
-   "hi": "Mochi से पूछें",
-   "es": "Pregúntale a Mochi",
-   "ar": "اسأل Mochi",
-   "fr": "Demander à Mochi",
-   "bn": "Mochi-কে জিজ্ঞেস করুন",
-   "pt-BR": "Pergunte ao Mochi",
-   "ru": "Спросить Mochi",
-   "id": "Tanya Mochi"
+  "Ask ARIA": {
+   "zh-Hans": "问 ARIA",
+   "hi": "ARIA से पूछें",
+   "es": "Pregúntale a ARIA",
+   "ar": "اسأل ARIA",
+   "fr": "Demander à ARIA",
+   "bn": "ARIA-কে জিজ্ঞেস করুন",
+   "pt-BR": "Pergunte à ARIA",
+   "ru": "Спросить ARIA",
+   "id": "Tanya ARIA"
   },
   "Stop": {
    "zh-Hans": "停止",
@@ -3154,16 +3154,16 @@
    "ru": "Движок",
    "id": "Mesin"
   },
-  "Mochi thinks with Grok through your Cursor account, the same one as your Grok Bots. 1) At cursor.com/dashboard/integrations, create a “User API Key”. 2) Paste it in “Cursor key” and click Save. 3) Click “Install engine”. 4) Write to Mochi. Cursor's own tools stay off: Mochi only acts with its own, and every action asks for your permission in the island.": {
-   "zh-Hans": "Mochi 通过你的 Cursor 账户使用 Grok 思考，与你的 Grok Bots 是同一个账户。1) 在 cursor.com/dashboard/integrations 创建一个 “User API Key”。2) 粘贴到 “Cursor 密钥” 并点击保存。3) 点击 “安装引擎”。4) 给 Mochi 写消息。Cursor 自带的工具保持关闭：Mochi 只用自己的工具，每个操作都会在灵动岛中征求你的许可。",
-   "hi": "Mochi आपके Cursor खाते से Grok के साथ सोचता है, वही खाता जो आपके Grok Bots का है। 1) cursor.com/dashboard/integrations पर एक “User API Key” बनाएँ। 2) उसे “Cursor कुंजी” में चिपकाएँ और सहेजें दबाएँ। 3) “इंजन इंस्टॉल करें” दबाएँ। 4) Mochi को लिखें। Cursor के अपने टूल बंद रहते हैं: Mochi सिर्फ़ अपने टूल से काम करता है, और हर काम के लिए आइलैंड में आपकी अनुमति माँगता है।",
-   "es": "Mochi piensa con Grok a través de tu cuenta de Cursor, la misma de tus Bots de Grok. 1) En cursor.com/dashboard/integrations crea una «User API Key». 2) Pégala en «Clave de Cursor» y pulsa Guardar. 3) Pulsa «Instalar motor». 4) Escríbele a Mochi. Las herramientas de Cursor quedan apagadas: Mochi solo actúa con las suyas, y cada acción te pide permiso en la isla.",
-   "ar": "يفكّر Mochi باستخدام Grok عبر حسابك في Cursor، وهو نفس حساب Grok Bots الخاص بك. 1) في cursor.com/dashboard/integrations أنشئ «User API Key». 2) الصقه في «مفتاح Cursor» واضغط حفظ. 3) اضغط «تثبيت المحرّك». 4) اكتب إلى Mochi. تبقى أدوات Cursor نفسها معطّلة: لا يعمل Mochi إلا بأدواته، وكل إجراء يطلب إذنك في الجزيرة.",
-   "fr": "Mochi réfléchit avec Grok via votre compte Cursor, le même que vos Grok Bots. 1) Sur cursor.com/dashboard/integrations, créez une « User API Key ». 2) Collez-la dans « Clé Cursor » et cliquez sur Enregistrer. 3) Cliquez sur « Installer le moteur ». 4) Écrivez à Mochi. Les outils de Cursor restent désactivés : Mochi n'agit qu'avec les siens, et chaque action demande votre permission dans l'île.",
-   "bn": "Mochi আপনার Cursor অ্যাকাউন্টের মাধ্যমে Grok দিয়ে ভাবে, যেটা আপনার Grok Bots-এরও অ্যাকাউন্ট। 1) cursor.com/dashboard/integrations-এ একটি “User API Key” তৈরি করুন। 2) সেটি “Cursor কী”-তে পেস্ট করে সংরক্ষণ চাপুন। 3) “ইঞ্জিন ইনস্টল করুন” চাপুন। 4) Mochi-কে লিখুন। Cursor-এর নিজের টুল বন্ধ থাকে: Mochi শুধু নিজের টুল দিয়ে কাজ করে, আর প্রতিটি কাজের জন্য আইল্যান্ডে আপনার অনুমতি চায়।",
-   "pt-BR": "O Mochi pensa com o Grok pela sua conta do Cursor, a mesma dos seus Grok Bots. 1) Em cursor.com/dashboard/integrations, crie uma “User API Key”. 2) Cole-a em “Chave do Cursor” e clique em Salvar. 3) Clique em “Instalar motor”. 4) Escreva para o Mochi. As ferramentas do próprio Cursor ficam desligadas: o Mochi só age com as dele, e cada ação pede sua permissão na ilha.",
-   "ru": "Mochi думает с помощью Grok через ваш аккаунт Cursor — тот же, что у ваших Grok Bots. 1) На cursor.com/dashboard/integrations создайте «User API Key». 2) Вставьте его в поле «Ключ Cursor» и нажмите «Сохранить». 3) Нажмите «Установить движок». 4) Напишите Mochi. Собственные инструменты Cursor остаются выключенными: Mochi действует только своими, и каждое действие спрашивает разрешения на острове.",
-   "id": "Mochi berpikir dengan Grok melalui akun Cursor Anda, akun yang sama dengan Grok Bots Anda. 1) Di cursor.com/dashboard/integrations, buat “User API Key”. 2) Tempel di “Kunci Cursor” lalu klik Simpan. 3) Klik “Pasang mesin”. 4) Tulis ke Mochi. Alat bawaan Cursor tetap mati: Mochi hanya bertindak dengan alatnya sendiri, dan setiap tindakan meminta izin Anda di pulau."
+  "ARIA thinks with Grok through your Cursor account, the same one as your Grok Bots. 1) At cursor.com/dashboard/integrations, create a “User API Key”. 2) Paste it in “Cursor key” and click Save. 3) Click “Install engine”. 4) Write to ARIA. Cursor's own tools stay off: ARIA only acts with its own, and every action asks for your permission in the island.": {
+   "zh-Hans": "ARIA 通过你的 Cursor 账户使用 Grok 思考，与你的 Grok Bots 是同一个账户。1) 在 cursor.com/dashboard/integrations 创建一个 “User API Key”。2) 粘贴到 “Cursor 密钥” 并点击保存。3) 点击 “安装引擎”。4) 给 ARIA 写消息。Cursor 自带的工具保持关闭：ARIA 只用自己的工具，每个操作都会在灵动岛中征求你的许可。",
+   "hi": "ARIA आपके Cursor खाते से Grok के साथ सोचती है, वही खाता जो आपके Grok Bots का है। 1) cursor.com/dashboard/integrations पर एक “User API Key” बनाएँ। 2) उसे “Cursor कुंजी” में चिपकाएँ और सहेजें दबाएँ। 3) “इंजन इंस्टॉल करें” दबाएँ। 4) ARIA को लिखें। Cursor के अपने टूल बंद रहते हैं: ARIA सिर्फ़ अपने टूल से काम करती है, और हर काम के लिए आइलैंड में आपकी अनुमति माँगती है।",
+   "es": "ARIA piensa con Grok a través de tu cuenta de Cursor, la misma de tus Bots de Grok. 1) En cursor.com/dashboard/integrations crea una «User API Key». 2) Pégala en «Clave de Cursor» y pulsa Guardar. 3) Pulsa «Instalar motor». 4) Escríbele a ARIA. Las herramientas de Cursor quedan apagadas: ARIA solo actúa con las suyas, y cada acción te pide permiso en la isla.",
+   "ar": "تفكّر ARIA باستخدام Grok عبر حسابك في Cursor، وهو نفس حساب Grok Bots الخاص بك. 1) في cursor.com/dashboard/integrations أنشئ «User API Key». 2) الصقه في «مفتاح Cursor» واضغط حفظ. 3) اضغط «تثبيت المحرّك». 4) اكتب إلى ARIA. تبقى أدوات Cursor نفسها معطّلة: لا تعمل ARIA إلا بأدواتها، وكل إجراء يطلب إذنك في الجزيرة.",
+   "fr": "ARIA réfléchit avec Grok via votre compte Cursor, le même que vos Grok Bots. 1) Sur cursor.com/dashboard/integrations, créez une « User API Key ». 2) Collez-la dans « Clé Cursor » et cliquez sur Enregistrer. 3) Cliquez sur « Installer le moteur ». 4) Écrivez à ARIA. Les outils de Cursor restent désactivés : ARIA n'agit qu'avec les siens, et chaque action demande votre permission dans l'île.",
+   "bn": "ARIA আপনার Cursor অ্যাকাউন্টের মাধ্যমে Grok দিয়ে ভাবে, যেটা আপনার Grok Bots-এরও অ্যাকাউন্ট। 1) cursor.com/dashboard/integrations-এ একটি “User API Key” তৈরি করুন। 2) সেটি “Cursor কী”-তে পেস্ট করে সংরক্ষণ চাপুন। 3) “ইঞ্জিন ইনস্টল করুন” চাপুন। 4) ARIA-কে লিখুন। Cursor-এর নিজের টুল বন্ধ থাকে: ARIA শুধু নিজের টুল দিয়ে কাজ করে, আর প্রতিটি কাজের জন্য আইল্যান্ডে আপনার অনুমতি চায়।",
+   "pt-BR": "A ARIA pensa com o Grok pela sua conta do Cursor, a mesma dos seus Grok Bots. 1) Em cursor.com/dashboard/integrations, crie uma “User API Key”. 2) Cole-a em “Chave do Cursor” e clique em Salvar. 3) Clique em “Instalar motor”. 4) Escreva para a ARIA. As ferramentas do próprio Cursor ficam desligadas: a ARIA só age com as dela, e cada ação pede sua permissão na ilha.",
+   "ru": "ARIA думает с помощью Grok через ваш аккаунт Cursor — тот же, что у ваших Grok Bots. 1) На cursor.com/dashboard/integrations создайте «User API Key». 2) Вставьте его в поле «Ключ Cursor» и нажмите «Сохранить». 3) Нажмите «Установить движок». 4) Напишите ARIA. Собственные инструменты Cursor остаются выключенными: ARIA действует только своими, и каждое действие спрашивает разрешения на острове.",
+   "id": "ARIA berpikir dengan Grok melalui akun Cursor Anda, akun yang sama dengan Grok Bots Anda. 1) Di cursor.com/dashboard/integrations, buat “User API Key”. 2) Tempel di “Kunci Cursor” lalu klik Simpan. 3) Klik “Pasang mesin”. 4) Tulis ke ARIA. Alat bawaan Cursor tetap mati: ARIA hanya bertindak dengan alatnya sendiri, dan setiap tindakan meminta izin Anda di pulau."
   },
   "Assistant": {
    "zh-Hans": "助手",
@@ -3176,16 +3176,16 @@
    "ru": "Ассистент",
    "id": "Asisten"
   },
-  "Mochi answers with the engine you pick here and can act on this PC with its tools: anything that changes something asks for your permission first, in the island.": {
-   "zh-Hans": "Mochi 使用你在这里选择的引擎回答，并可以用它的工具在这台电脑上操作：任何会改变东西的操作都会先在灵动岛中征求你的许可。",
-   "hi": "Mochi यहाँ चुने गए इंजन से जवाब देता है और अपने टूल से इस पीसी पर काम कर सकता है: जो कुछ भी बदलता है, वह पहले आइलैंड में आपकी अनुमति माँगता है।",
-   "es": "Mochi responde con el motor que elijas aquí y puede actuar en esta PC con sus herramientas: todo lo que cambia algo te pide permiso primero, en la isla.",
-   "ar": "يجيب Mochi بالمحرّك الذي تختاره هنا ويمكنه العمل على هذا الحاسوب بأدواته: أي شيء يغيّر شيئًا يطلب إذنك أولًا، في الجزيرة.",
-   "fr": "Mochi répond avec le moteur choisi ici et peut agir sur ce PC avec ses outils : tout ce qui modifie quelque chose demande d'abord votre permission, dans l'île.",
-   "bn": "Mochi এখানে বেছে নেওয়া ইঞ্জিন দিয়ে উত্তর দেয় এবং নিজের টুল দিয়ে এই পিসিতে কাজ করতে পারে: যা কিছু বদলায় তা আগে আইল্যান্ডে আপনার অনুমতি চায়।",
-   "pt-BR": "O Mochi responde com o motor que você escolher aqui e pode agir neste PC com suas ferramentas: tudo o que muda algo pede sua permissão antes, na ilha.",
-   "ru": "Mochi отвечает с помощью выбранного здесь движка и может действовать на этом ПК своими инструментами: всё, что что-то меняет, сначала спрашивает разрешения на острове.",
-   "id": "Mochi menjawab dengan mesin yang Anda pilih di sini dan bisa bertindak di PC ini dengan alatnya: apa pun yang mengubah sesuatu meminta izin Anda dulu, di pulau."
+  "ARIA answers with the engine you pick here and can act on this PC with its tools: anything that changes something asks for your permission first, in the island.": {
+   "zh-Hans": "ARIA 使用你在这里选择的引擎回答，并可以用她的工具在这台电脑上操作：任何会改变东西的操作都会先在灵动岛中征求你的许可。",
+   "hi": "ARIA यहाँ चुने गए इंजन से जवाब देती है और अपने टूल से इस पीसी पर काम कर सकती है: जो कुछ भी बदलता है, वह पहले आइलैंड में आपकी अनुमति माँगता है।",
+   "es": "ARIA responde con el motor que elijas aquí y puede actuar en esta PC con sus herramientas: todo lo que cambia algo te pide permiso primero, en la isla.",
+   "ar": "تجيب ARIA بالمحرّك الذي تختاره هنا ويمكنها العمل على هذا الحاسوب بأدواتها: أي شيء يغيّر شيئًا يطلب إذنك أولًا، في الجزيرة.",
+   "fr": "ARIA répond avec le moteur choisi ici et peut agir sur ce PC avec ses outils : tout ce qui modifie quelque chose demande d'abord votre permission, dans l'île.",
+   "bn": "ARIA এখানে বেছে নেওয়া ইঞ্জিন দিয়ে উত্তর দেয় এবং নিজের টুল দিয়ে এই পিসিতে কাজ করতে পারে: যা কিছু বদলায় তা আগে আইল্যান্ডে আপনার অনুমতি চায়।",
+   "pt-BR": "A ARIA responde com o motor que você escolher aqui e pode agir neste PC com suas ferramentas: tudo o que muda algo pede sua permissão antes, na ilha.",
+   "ru": "ARIA отвечает с помощью выбранного здесь движка и может действовать на этом ПК своими инструментами: всё, что что-то меняет, сначала спрашивает разрешения на острове.",
+   "id": "ARIA menjawab dengan mesin yang Anda pilih di sini dan bisa bertindak di PC ini dengan alatnya: apa pun yang mengubah sesuatu meminta izin Anda dulu, di pulau."
   },
   "AI engine": {
    "zh-Hans": "AI 引擎",
@@ -3319,16 +3319,16 @@
    "ru": "Открыть папку памяти",
    "id": "Buka folder memori"
   },
-  "notes.md is what Mochi remembers; history.jsonl, the log of finished chats.": {
-   "zh-Hans": "notes.md 是 Mochi 记住的内容；history.jsonl 是已结束聊天的记录。",
-   "hi": "notes.md वह है जो Mochi याद रखता है; history.jsonl, ख़त्म हुई चैट का रिकॉर्ड।",
-   "es": "notes.md es lo que Mochi recuerda; history.jsonl, el registro de los chats terminados.",
-   "ar": "notes.md هو ما يتذكّره Mochi؛ وhistory.jsonl سجلّ المحادثات المنتهية.",
-   "fr": "notes.md est ce dont Mochi se souvient ; history.jsonl, le journal des discussions terminées.",
-   "bn": "notes.md হলো Mochi যা মনে রাখে; history.jsonl, শেষ হওয়া চ্যাটের লগ।",
-   "pt-BR": "notes.md é o que o Mochi lembra; history.jsonl, o registro das conversas encerradas.",
-   "ru": "notes.md — то, что помнит Mochi; history.jsonl — журнал завершённых чатов.",
-   "id": "notes.md adalah yang diingat Mochi; history.jsonl, catatan obrolan yang sudah selesai."
+  "notes.md is what ARIA remembers; history.jsonl, the log of finished chats.": {
+   "zh-Hans": "notes.md 是 ARIA 记住的内容；history.jsonl 是已结束聊天的记录。",
+   "hi": "notes.md वह है जो ARIA याद रखती है; history.jsonl, ख़त्म हुई चैट का रिकॉर्ड।",
+   "es": "notes.md es lo que ARIA recuerda; history.jsonl, el registro de los chats terminados.",
+   "ar": "notes.md هو ما تتذكّره ARIA؛ وhistory.jsonl سجلّ المحادثات المنتهية.",
+   "fr": "notes.md est ce dont ARIA se souvient ; history.jsonl, le journal des discussions terminées.",
+   "bn": "notes.md হলো ARIA যা মনে রাখে; history.jsonl, শেষ হওয়া চ্যাটের লগ।",
+   "pt-BR": "notes.md é o que a ARIA lembra; history.jsonl, o registro das conversas encerradas.",
+   "ru": "notes.md — то, что помнит ARIA; history.jsonl — журнал завершённых чатов.",
+   "id": "notes.md adalah yang diingat ARIA; history.jsonl, catatan obrolan yang sudah selesai."
   },
   "Recent permissions": {
    "zh-Hans": "最近的权限请求",
@@ -3506,16 +3506,16 @@
    "ru": "Ключ",
    "id": "Kunci"
   },
-  "In Grok Bot, tell your Bot: “Create a routine called Coucou Tasks, triggered by webhook, that does what the body's message field says.”": {
-   "zh-Hans": "在 Grok Bot 中告诉你的 Bot：“创建一个名为 Coucou Tasks 的例程，由 webhook 触发，执行请求体 message 字段中的内容。”",
-   "hi": "Grok Bot में अपने Bot से कहें: “Coucou Tasks नाम का एक रूटीन बनाओ, जो webhook से चले और बॉडी के message फ़ील्ड में लिखा काम करे।”",
-   "es": "En Grok Bot, escríbele a tu Bot: «Crea una rutina llamada Tareas de Coucou que se active por webhook y haga lo que diga el campo message del cuerpo».",
-   "ar": "في Grok Bot، قل لـ Bot الخاص بك: «أنشئ روتينًا باسم Coucou Tasks يُشغَّل عبر webhook وينفّذ ما يقوله الحقل message في الجسم».",
-   "fr": "Dans Grok Bot, dites à votre Bot : « Crée une routine appelée Tâches Coucou, déclenchée par webhook, qui fait ce que dit le champ message du corps. »",
-   "bn": "Grok Bot-এ আপনার Bot-কে বলুন: “Coucou Tasks নামে একটি রুটিন বানাও, যা webhook দিয়ে চালু হবে আর বডির message ফিল্ডে যা লেখা তা করবে।”",
-   "pt-BR": "No Grok Bot, diga ao seu Bot: “Crie uma rotina chamada Tarefas do Coucou, acionada por webhook, que faça o que o campo message do corpo disser.”",
-   "ru": "В Grok Bot напишите своему Bot: «Создай рутину Coucou Tasks, запускаемую по webhook, которая делает то, что сказано в поле message тела запроса».",
-   "id": "Di Grok Bot, katakan ke Bot Anda: “Buat rutinitas bernama Tugas Coucou yang dipicu webhook dan melakukan apa yang tertulis di kolom message pada body.”"
+  "In Grok Bot, tell your Bot: “Create a routine called ARIA Tasks, triggered by webhook, that does what the body's message field says.”": {
+   "zh-Hans": "在 Grok Bot 中告诉你的 Bot：“创建一个名为 ARIA Tasks 的例程，由 webhook 触发，执行请求体 message 字段中的内容。”",
+   "hi": "Grok Bot में अपने Bot से कहें: “ARIA Tasks नाम का एक रूटीन बनाओ, जो webhook से चले और बॉडी के message फ़ील्ड में लिखा काम करे।”",
+   "es": "En Grok Bot, escríbele a tu Bot: «Crea una rutina llamada Tareas de ARIA que se active por webhook y haga lo que diga el campo message del cuerpo».",
+   "ar": "في Grok Bot، قل لـ Bot الخاص بك: «أنشئ روتينًا باسم ARIA Tasks يُشغَّل عبر webhook وينفّذ ما يقوله الحقل message في الجسم».",
+   "fr": "Dans Grok Bot, dites à votre Bot : « Crée une routine appelée Tâches ARIA, déclenchée par webhook, qui fait ce que dit le champ message du corps. »",
+   "bn": "Grok Bot-এ আপনার Bot-কে বলুন: “ARIA Tasks নামে একটি রুটিন বানাও, যা webhook দিয়ে চালু হবে আর বডির message ফিল্ডে যা লেখা তা করবে।”",
+   "pt-BR": "No Grok Bot, diga ao seu Bot: “Crie uma rotina chamada Tarefas da ARIA, acionada por webhook, que faça o que o campo message do corpo disser.”",
+   "ru": "В Grok Bot напишите своему Bot: «Создай рутину ARIA Tasks, запускаемую по webhook, которая делает то, что сказано в поле message тела запроса».",
+   "id": "Di Grok Bot, katakan ke Bot Anda: “Buat rutinitas bernama Tugas ARIA yang dipicu webhook dan melakukan apa yang tertulis di kolom message pada body.”"
   },
   "Open the routine (Bot name → Tasks → the routine) and copy “POST to” and “key”.": {
    "zh-Hans": "打开该例程（Bot 名称 → Tasks → 该例程），复制 “POST to” 和 “key”。",
@@ -3572,16 +3572,16 @@
    "ru": "Мои Grok Bots",
    "id": "Grok Bots Saya"
   },
-  "Your Grok Bot teammates (Cursor), with their cloud computer, memory and plugins. Coucou sends them tasks through a routine's webhook, and they alert you in the island by running a command on this PC. In the island chat, type “@Name task” to send something straight to a Bot.": {
-   "zh-Hans": "你的 Grok Bot 队友（Cursor），拥有云端电脑、记忆和插件。Coucou 通过例程的 webhook 给它们派任务，它们在这台电脑上运行命令，在灵动岛中提醒你。在灵动岛聊天中输入 “@名称 任务” 即可直接发给某个 Bot。",
-   "hi": "आपके Grok Bot साथी (Cursor), अपने क्लाउड कंप्यूटर, मेमोरी और प्लगइन के साथ। Coucou उन्हें रूटीन के webhook से काम भेजता है, और वे इस पीसी पर एक कमांड चलाकर आइलैंड में आपको बताते हैं। आइलैंड चैट में “@नाम काम” लिखकर सीधे किसी Bot को भेजें।",
-   "es": "Tus compañeros de Grok Bot (Cursor), con su computadora en la nube, memoria y plugins. Coucou les manda tareas por el webhook de una rutina, y ellos te avisan en la isla ejecutando un comando en esta PC. En el chat de la isla, escribe «@Nombre tarea» para mandarle algo directo a un Bot.",
-   "ar": "زملاؤك في Grok Bot (Cursor)، بحاسوبهم السحابي وذاكرتهم وإضافاتهم. يرسل لهم Coucou المهام عبر webhook لروتين، وينبّهونك في الجزيرة بتشغيل أمر على هذا الحاسوب. في دردشة الجزيرة، اكتب «@الاسم مهمة» لإرسال شيء مباشرة إلى Bot.",
-   "fr": "Vos coéquipiers Grok Bot (Cursor), avec leur ordinateur dans le cloud, leur mémoire et leurs plugins. Coucou leur envoie des tâches via le webhook d'une routine, et ils vous préviennent dans l'île en lançant une commande sur ce PC. Dans le chat de l'île, tapez « @Nom tâche » pour envoyer quelque chose directement à un Bot.",
-   "bn": "আপনার Grok Bot সঙ্গীরা (Cursor), তাদের ক্লাউড কম্পিউটার, মেমরি ও প্লাগইন নিয়ে। Coucou রুটিনের webhook দিয়ে তাদের কাজ পাঠায়, আর তারা এই পিসিতে একটি কমান্ড চালিয়ে আইল্যান্ডে আপনাকে জানায়। আইল্যান্ড চ্যাটে “@নাম কাজ” লিখে সরাসরি কোনো Bot-কে পাঠান।",
-   "pt-BR": "Seus colegas do Grok Bot (Cursor), com computador na nuvem, memória e plugins. O Coucou envia tarefas pelo webhook de uma rotina, e eles avisam você na ilha executando um comando neste PC. No chat da ilha, digite “@Nome tarefa” para mandar algo direto a um Bot.",
-   "ru": "Ваши напарники Grok Bot (Cursor) с облачным компьютером, памятью и плагинами. Coucou отправляет им задачи через webhook рутины, а они сообщают вам на острове, запуская команду на этом ПК. В чате острова напишите «@Имя задача», чтобы отправить что-то прямо Bot.",
-   "id": "Rekan Grok Bot Anda (Cursor), dengan komputer cloud, memori, dan plugin mereka. Coucou mengirim tugas lewat webhook sebuah rutinitas, dan mereka memberi tahu Anda di pulau dengan menjalankan perintah di PC ini. Di obrolan pulau, ketik “@Nama tugas” untuk mengirim sesuatu langsung ke Bot."
+  "Your Grok Bot teammates (Cursor), with their cloud computer, memory and plugins. ARIA sends them tasks through a routine's webhook, and they alert you in the island by running a command on this PC. In the island chat, type “@Name task” to send something straight to a Bot.": {
+   "zh-Hans": "你的 Grok Bot 队友（Cursor），拥有云端电脑、记忆和插件。ARIA 通过例程的 webhook 给它们派任务，它们在这台电脑上运行命令，在灵动岛中提醒你。在灵动岛聊天中输入 “@名称 任务” 即可直接发给某个 Bot。",
+   "hi": "आपके Grok Bot साथी (Cursor), अपने क्लाउड कंप्यूटर, मेमोरी और प्लगइन के साथ। ARIA उन्हें रूटीन के webhook से काम भेजती है, और वे इस पीसी पर एक कमांड चलाकर आइलैंड में आपको बताते हैं। आइलैंड चैट में “@नाम काम” लिखकर सीधे किसी Bot को भेजें।",
+   "es": "Tus compañeros de Grok Bot (Cursor), con su computadora en la nube, memoria y plugins. ARIA les manda tareas por el webhook de una rutina, y ellos te avisan en la isla ejecutando un comando en esta PC. En el chat de la isla, escribe «@Nombre tarea» para mandarle algo directo a un Bot.",
+   "ar": "زملاؤك في Grok Bot (Cursor)، بحاسوبهم السحابي وذاكرتهم وإضافاتهم. ترسل لهم ARIA المهام عبر webhook لروتين، وينبّهونك في الجزيرة بتشغيل أمر على هذا الحاسوب. في دردشة الجزيرة، اكتب «@الاسم مهمة» لإرسال شيء مباشرة إلى Bot.",
+   "fr": "Vos coéquipiers Grok Bot (Cursor), avec leur ordinateur dans le cloud, leur mémoire et leurs plugins. ARIA leur envoie des tâches via le webhook d'une routine, et ils vous préviennent dans l'île en lançant une commande sur ce PC. Dans le chat de l'île, tapez « @Nom tâche » pour envoyer quelque chose directement à un Bot.",
+   "bn": "আপনার Grok Bot সঙ্গীরা (Cursor), তাদের ক্লাউড কম্পিউটার, মেমরি ও প্লাগইন নিয়ে। ARIA রুটিনের webhook দিয়ে তাদের কাজ পাঠায়, আর তারা এই পিসিতে একটি কমান্ড চালিয়ে আইল্যান্ডে আপনাকে জানায়। আইল্যান্ড চ্যাটে “@নাম কাজ” লিখে সরাসরি কোনো Bot-কে পাঠান।",
+   "pt-BR": "Seus colegas do Grok Bot (Cursor), com computador na nuvem, memória e plugins. A ARIA envia tarefas pelo webhook de uma rotina, e eles avisam você na ilha executando um comando neste PC. No chat da ilha, digite “@Nome tarefa” para mandar algo direto a um Bot.",
+   "ru": "Ваши напарники Grok Bot (Cursor) с облачным компьютером, памятью и плагинами. ARIA отправляет им задачи через webhook рутины, а они сообщают вам на острове, запуская команду на этом ПК. В чате острова напишите «@Имя задача», чтобы отправить что-то прямо Bot.",
+   "id": "Rekan Grok Bot Anda (Cursor), dengan komputer cloud, memori, dan plugin mereka. ARIA mengirim tugas lewat webhook sebuah rutinitas, dan mereka memberi tahu Anda di pulau dengan menjalankan perintah di PC ini. Di obrolan pulau, ketik “@Nama tugas” untuk mengirim sesuatu langsung ke Bot."
   },
   "Playwright browser": {
    "zh-Hans": "Playwright 浏览器",
@@ -3671,16 +3671,16 @@
    "ru": "Граф знаний",
    "id": "Graf pengetahuan"
   },
-  "A structured long-term memory Mochi can look up.": {
-   "zh-Hans": "Mochi 可以查询的结构化长期记忆。",
-   "hi": "एक संरचित दीर्घकालिक मेमोरी जिसे Mochi देख सकता है।",
-   "es": "Una memoria estructurada a largo plazo que Mochi puede consultar.",
-   "ar": "ذاكرة منظّمة طويلة الأمد يمكن لـ Mochi الرجوع إليها.",
-   "fr": "Une mémoire structurée à long terme que Mochi peut consulter.",
-   "bn": "একটি কাঠামোবদ্ধ দীর্ঘমেয়াদি মেমরি যা Mochi দেখতে পারে।",
-   "pt-BR": "Uma memória estruturada de longo prazo que o Mochi pode consultar.",
-   "ru": "Структурированная долговременная память, к которой Mochi может обращаться.",
-   "id": "Memori jangka panjang terstruktur yang bisa dirujuk Mochi."
+  "A structured long-term memory ARIA can look up.": {
+   "zh-Hans": "ARIA 可以查询的结构化长期记忆。",
+   "hi": "एक संरचित दीर्घकालिक मेमोरी जिसे ARIA देख सकती है।",
+   "es": "Una memoria estructurada a largo plazo que ARIA puede consultar.",
+   "ar": "ذاكرة منظّمة طويلة الأمد يمكن لـ ARIA الرجوع إليها.",
+   "fr": "Une mémoire structurée à long terme qu'ARIA peut consulter.",
+   "bn": "একটি কাঠামোবদ্ধ দীর্ঘমেয়াদি মেমরি যা ARIA দেখতে পারে।",
+   "pt-BR": "Uma memória estruturada de longo prazo que a ARIA pode consultar.",
+   "ru": "Структурированная долговременная память, к которой ARIA может обращаться.",
+   "id": "Memori jangka panjang terstruktur yang bisa dirujuk ARIA."
   },
   "Turns any web page into clean Markdown. Needs uv (Python).": {
    "zh-Hans": "将任意网页转换为干净的 Markdown。需要 uv（Python）。",
@@ -3704,16 +3704,16 @@
    "ru": "Подключения (MCP)",
    "id": "Koneksi (MCP)"
   },
-  "Connect Mochi to anything that speaks the Model Context Protocol. Each server's tools become Mochi's; the ones that change something ask you first. Keys you type here go to the Credential Manager: the config file only keeps a placeholder.": {
-   "zh-Hans": "把 Mochi 连接到任何支持 Model Context Protocol 的东西。每个服务器的工具都成为 Mochi 的工具；会改变东西的工具会先问你。在这里输入的密钥存入凭据管理器：配置文件只保留一个占位符。",
-   "hi": "Mochi को किसी भी ऐसी चीज़ से जोड़ें जो Model Context Protocol बोलती है। हर सर्वर के टूल Mochi के हो जाते हैं; जो कुछ बदलते हैं वे पहले आपसे पूछते हैं। यहाँ लिखी कुंजियाँ क्रेडेंशियल मैनेजर में जाती हैं: कॉन्फ़िग फ़ाइल में सिर्फ़ एक प्लेसहोल्डर रहता है।",
-   "es": "Conecta a Mochi con cualquier cosa que hable el Model Context Protocol. Las herramientas de cada servidor pasan a ser de Mochi; las que cambian algo te preguntan primero. Las claves que escribas aquí van al Administrador de credenciales: el archivo de configuración solo guarda un marcador.",
-   "ar": "اربط Mochi بأي شيء يتحدّث Model Context Protocol. تصبح أدوات كل خادم أدوات Mochi؛ والتي تغيّر شيئًا تسألك أولًا. المفاتيح التي تكتبها هنا تذهب إلى مدير بيانات الاعتماد: ملف الإعداد يحتفظ بعلامة فقط.",
-   "fr": "Connectez Mochi à tout ce qui parle le Model Context Protocol. Les outils de chaque serveur deviennent ceux de Mochi ; ceux qui modifient quelque chose vous demandent d'abord. Les clés saisies ici vont au Gestionnaire d'identification : le fichier de configuration ne garde qu'un marqueur.",
-   "bn": "Model Context Protocol বোঝে এমন যেকোনো কিছুর সঙ্গে Mochi-কে যুক্ত করুন। প্রতিটি সার্ভারের টুল Mochi-র হয়ে যায়; যেগুলো কিছু বদলায় সেগুলো আগে আপনাকে জিজ্ঞেস করে। এখানে লেখা কী ক্রেডেনশিয়াল ম্যানেজারে যায়: কনফিগ ফাইলে শুধু একটি চিহ্ন থাকে।",
-   "pt-BR": "Conecte o Mochi a qualquer coisa que fale o Model Context Protocol. As ferramentas de cada servidor passam a ser do Mochi; as que mudam algo perguntam antes. As chaves digitadas aqui vão para o Gerenciador de Credenciais: o arquivo de configuração guarda só um marcador.",
-   "ru": "Подключите Mochi ко всему, что говорит на Model Context Protocol. Инструменты каждого сервера становятся инструментами Mochi; те, что что-то меняют, сначала спрашивают вас. Введённые здесь ключи уходят в диспетчер учётных данных: в файле настроек остаётся только метка.",
-   "id": "Hubungkan Mochi ke apa pun yang berbicara Model Context Protocol. Alat setiap server menjadi milik Mochi; yang mengubah sesuatu bertanya dulu. Kunci yang Anda ketik di sini masuk ke Credential Manager: file konfigurasi hanya menyimpan penanda."
+  "Connect ARIA to anything that speaks the Model Context Protocol. Each server's tools become ARIA's; the ones that change something ask you first. Keys you type here go to the Credential Manager: the config file only keeps a placeholder.": {
+   "zh-Hans": "把 ARIA 连接到任何支持 Model Context Protocol 的东西。每个服务器的工具都成为 ARIA 的工具；会改变东西的工具会先问你。在这里输入的密钥存入凭据管理器：配置文件只保留一个占位符。",
+   "hi": "ARIA को किसी भी ऐसी चीज़ से जोड़ें जो Model Context Protocol बोलती है। हर सर्वर के टूल ARIA के हो जाते हैं; जो कुछ बदलते हैं वे पहले आपसे पूछते हैं। यहाँ लिखी कुंजियाँ क्रेडेंशियल मैनेजर में जाती हैं: कॉन्फ़िग फ़ाइल में सिर्फ़ एक प्लेसहोल्डर रहता है।",
+   "es": "Conecta a ARIA con cualquier cosa que hable el Model Context Protocol. Las herramientas de cada servidor pasan a ser de ARIA; las que cambian algo te preguntan primero. Las claves que escribas aquí van al Administrador de credenciales: el archivo de configuración solo guarda un marcador.",
+   "ar": "اربط ARIA بأي شيء يتحدّث Model Context Protocol. تصبح أدوات كل خادم أدوات ARIA؛ والتي تغيّر شيئًا تسألك أولًا. المفاتيح التي تكتبها هنا تذهب إلى مدير بيانات الاعتماد: ملف الإعداد يحتفظ بعلامة فقط.",
+   "fr": "Connectez ARIA à tout ce qui parle le Model Context Protocol. Les outils de chaque serveur deviennent ceux d'ARIA ; ceux qui modifient quelque chose vous demandent d'abord. Les clés saisies ici vont au Gestionnaire d'identification : le fichier de configuration ne garde qu'un marqueur.",
+   "bn": "Model Context Protocol বোঝে এমন যেকোনো কিছুর সঙ্গে ARIA-কে যুক্ত করুন। প্রতিটি সার্ভারের টুল ARIA-র হয়ে যায়; যেগুলো কিছু বদলায় সেগুলো আগে আপনাকে জিজ্ঞেস করে। এখানে লেখা কী ক্রেডেনশিয়াল ম্যানেজারে যায়: কনফিগ ফাইলে শুধু একটি চিহ্ন থাকে।",
+   "pt-BR": "Conecte a ARIA a qualquer coisa que fale o Model Context Protocol. As ferramentas de cada servidor passam a ser da ARIA; as que mudam algo perguntam antes. As chaves digitadas aqui vão para o Gerenciador de Credenciais: o arquivo de configuração guarda só um marcador.",
+   "ru": "Подключите ARIA ко всему, что говорит на Model Context Protocol. Инструменты каждого сервера становятся инструментами ARIA; те, что что-то меняют, сначала спрашивают вас. Введённые здесь ключи уходят в диспетчер учётных данных: в файле настроек остаётся только метка.",
+   "id": "Hubungkan ARIA ke apa pun yang berbicara Model Context Protocol. Alat setiap server menjadi milik ARIA; yang mengubah sesuatu bertanya dulu. Kunci yang Anda ketik di sini masuk ke Credential Manager: file konfigurasi hanya menyimpan penanda."
   },
   "No connections yet. Add one of the recommended servers below, or import yours from Cursor.": {
    "zh-Hans": "还没有连接。添加下面推荐的服务器之一，或从 Cursor 导入你的服务器。",
@@ -3913,16 +3913,16 @@
    "ru": "Выберите серверы для копирования. В файлах Cursor и Claude Code ничего не меняется.",
    "id": "Pilih server yang akan disalin. Tidak ada yang berubah di file Cursor maupun Claude Code."
   },
-  "No skills yet. Ask Mochi to make itself one (“make yourself a tool that…”): you read its code in the island before it is installed.": {
-   "zh-Hans": "还没有技能。让 Mochi 给自己做一个（“给自己做一个能……的工具”）：安装前你会在灵动岛中阅读它的代码。",
-   "hi": "अभी कोई कौशल नहीं। Mochi से कहें कि वह खुद के लिए एक बनाए (“अपने लिए एक टूल बनाओ जो…”): इंस्टॉल होने से पहले आप आइलैंड में उसका कोड पढ़ते हैं।",
-   "es": "Sin habilidades todavía. Pídele a Mochi que se cree una («créate una herramienta que…»): lees su código en la isla antes de que se instale.",
-   "ar": "لا مهارات بعد. اطلب من Mochi أن يصنع لنفسه واحدة («اصنع لنفسك أداة تقوم بـ…»): تقرأ شيفرتها في الجزيرة قبل تثبيتها.",
-   "fr": "Aucune compétence pour l'instant. Demandez à Mochi de s'en créer une (« crée-toi un outil qui… ») : vous lisez son code dans l'île avant qu'elle soit installée.",
-   "bn": "এখনো কোনো দক্ষতা নেই। Mochi-কে বলুন নিজের জন্য একটি বানাতে (“নিজের জন্য একটা টুল বানাও যা…”): ইনস্টলের আগে আপনি আইল্যান্ডে তার কোড পড়েন।",
-   "pt-BR": "Nenhuma habilidade ainda. Peça ao Mochi para criar uma (“crie uma ferramenta que…”): você lê o código dela na ilha antes da instalação.",
-   "ru": "Навыков пока нет. Попросите Mochi создать себе навык («сделай себе инструмент, который…»): вы прочитаете его код на острове до установки.",
-   "id": "Belum ada keterampilan. Minta Mochi membuatnya sendiri (“buatkan dirimu alat yang…”): Anda membaca kodenya di pulau sebelum dipasang."
+  "No skills yet. Ask ARIA to make itself one (“make yourself a tool that…”): you read its code in the island before it is installed.": {
+   "zh-Hans": "还没有技能。让 ARIA 给自己做一个（“给自己做一个能……的工具”）：安装前你会在灵动岛中阅读它的代码。",
+   "hi": "अभी कोई कौशल नहीं। ARIA से कहें कि वह खुद के लिए एक बनाए (“अपने लिए एक टूल बनाओ जो…”): इंस्टॉल होने से पहले आप आइलैंड में उसका कोड पढ़ते हैं।",
+   "es": "Sin habilidades todavía. Pídele a ARIA que se cree una («créate una herramienta que…»): lees su código en la isla antes de que se instale.",
+   "ar": "لا مهارات بعد. اطلب من ARIA أن تصنع لنفسها واحدة («اصنع لنفسك أداة تقوم بـ…»): تقرأ شيفرتها في الجزيرة قبل تثبيتها.",
+   "fr": "Aucune compétence pour l'instant. Demandez à ARIA de s'en créer une (« crée-toi un outil qui… ») : vous lisez son code dans l'île avant qu'elle soit installée.",
+   "bn": "এখনো কোনো দক্ষতা নেই। ARIA-কে বলুন নিজের জন্য একটি বানাতে (“নিজের জন্য একটা টুল বানাও যা…”): ইনস্টলের আগে আপনি আইল্যান্ডে তার কোড পড়েন।",
+   "pt-BR": "Nenhuma habilidade ainda. Peça à ARIA para criar uma (“crie uma ferramenta que…”): você lê o código dela na ilha antes da instalação.",
+   "ru": "Навыков пока нет. Попросите ARIA создать себе навык («сделай себе инструмент, который…»): вы прочитаете его код на острове до установки.",
+   "id": "Belum ada keterampilan. Minta ARIA membuatnya sendiri (“buatkan dirimu alat yang…”): Anda membaca kodenya di pulau sebelum dipasang."
   },
   "MCP server": {
    "zh-Hans": "MCP 服务器",
@@ -3946,16 +3946,16 @@
    "ru": "Навыки",
    "id": "Keterampilan"
   },
-  "Small tools Mochi wrote for itself, each one installed after you approved its code.": {
-   "zh-Hans": "Mochi 为自己编写的小工具，每个都在你批准其代码后才安装。",
-   "hi": "छोटे टूल जो Mochi ने अपने लिए लिखे, हर एक आपके कोड मंज़ूर करने के बाद इंस्टॉल हुआ।",
-   "es": "Herramientas pequeñas que Mochi escribió para sí mismo, cada una instalada después de que aprobaste su código.",
-   "ar": "أدوات صغيرة كتبها Mochi لنفسه، كلّ منها ثُبّتت بعد أن وافقت على شيفرتها.",
-   "fr": "Petits outils que Mochi a écrits pour lui-même, chacun installé après que vous avez approuvé son code.",
-   "bn": "Mochi নিজের জন্য যে ছোট টুল লিখেছে, প্রতিটি আপনি কোড অনুমোদনের পরে ইনস্টল হয়েছে।",
-   "pt-BR": "Pequenas ferramentas que o Mochi escreveu para si, cada uma instalada depois que você aprovou o código.",
-   "ru": "Небольшие инструменты, которые Mochi написал для себя; каждый установлен после того, как вы одобрили его код.",
-   "id": "Alat kecil yang ditulis Mochi untuk dirinya sendiri, masing-masing dipasang setelah Anda menyetujui kodenya."
+  "Small tools ARIA wrote for itself, each one installed after you approved its code.": {
+   "zh-Hans": "ARIA 为自己编写的小工具，每个都在你批准其代码后才安装。",
+   "hi": "छोटे टूल जो ARIA ने अपने लिए लिखे, हर एक आपके कोड मंज़ूर करने के बाद इंस्टॉल हुआ।",
+   "es": "Herramientas pequeñas que ARIA escribió para sí misma, cada una instalada después de que aprobaste su código.",
+   "ar": "أدوات صغيرة كتبتها ARIA لنفسها، كلّ منها ثُبّتت بعد أن وافقت على شيفرتها.",
+   "fr": "Petits outils qu'ARIA a écrits pour elle-même, chacun installé après que vous avez approuvé son code.",
+   "bn": "ARIA নিজের জন্য যে ছোট টুল লিখেছে, প্রতিটি আপনি কোড অনুমোদনের পরে ইনস্টল হয়েছে।",
+   "pt-BR": "Pequenas ferramentas que a ARIA escreveu para si, cada uma instalada depois que você aprovou o código.",
+   "ru": "Небольшие инструменты, которые ARIA написала для себя; каждый установлен после того, как вы одобрили его код.",
+   "id": "Alat kecil yang ditulis ARIA untuk dirinya sendiri, masing-masing dipasang setelah Anda menyetujui kodenya."
   },
   "Open skills folder": {
    "zh-Hans": "打开技能文件夹",
@@ -3979,16 +3979,16 @@
    "ru": "Защищённое ядро",
    "id": "Inti terlindungi"
   },
-  "Mochi can improve itself (skills, and changes to its own code in a git worktree you approve as a diff), but it can never change this. Only you edit it, by hand.": {
-   "zh-Hans": "Mochi 可以改进自己（技能，以及在 git worktree 中对自身代码的修改，由你以 diff 形式批准），但它永远不能修改这些。只有你能手动编辑。",
-   "hi": "Mochi खुद को बेहतर बना सकता है (कौशल, और git worktree में अपने कोड में बदलाव जिन्हें आप diff के रूप में मंज़ूर करते हैं), लेकिन इसे कभी नहीं बदल सकता। सिर्फ़ आप इसे हाथ से बदलते हैं।",
-   "es": "Mochi puede mejorarse a sí mismo (habilidades y cambios en su propio código en un worktree de git que apruebas como diff), pero nunca puede cambiar esto. Solo tú lo editas, a mano.",
-   "ar": "يستطيع Mochi تحسين نفسه (مهارات، وتغييرات في شيفرته داخل git worktree توافق عليها كـ diff)، لكنه لا يستطيع تغيير هذا أبدًا. أنت وحدك تعدّله يدويًا.",
-   "fr": "Mochi peut s'améliorer (compétences, et modifications de son propre code dans un worktree git que vous approuvez sous forme de diff), mais il ne peut jamais changer ceci. Vous seul le modifiez, à la main.",
-   "bn": "Mochi নিজেকে উন্নত করতে পারে (দক্ষতা, আর git worktree-তে নিজের কোডে পরিবর্তন যা আপনি diff হিসেবে অনুমোদন করেন), কিন্তু এটা কখনো বদলাতে পারে না। শুধু আপনি হাতে এটি সম্পাদনা করেন।",
-   "pt-BR": "O Mochi pode se aprimorar (habilidades e mudanças no próprio código em um worktree git que você aprova como diff), mas nunca pode mudar isto. Só você edita, à mão.",
-   "ru": "Mochi может улучшать себя (навыки и изменения своего кода в git worktree, которые вы одобряете как diff), но никогда не может изменить это. Только вы правите это вручную.",
-   "id": "Mochi bisa meningkatkan dirinya (keterampilan, dan perubahan kodenya sendiri di git worktree yang Anda setujui sebagai diff), tetapi tidak pernah bisa mengubah ini. Hanya Anda yang mengeditnya, secara manual."
+  "ARIA can improve itself (skills, and changes to its own code in a git worktree you approve as a diff), but it can never change this. Only you edit it, by hand.": {
+   "zh-Hans": "ARIA 可以改进自己（技能，以及在 git worktree 中对自身代码的修改，由你以 diff 形式批准），但她永远不能修改这些。只有你能手动编辑。",
+   "hi": "ARIA खुद को बेहतर बना सकती है (कौशल, और git worktree में अपने कोड में बदलाव जिन्हें आप diff के रूप में मंज़ूर करते हैं), लेकिन इसे कभी नहीं बदल सकती। सिर्फ़ आप इसे हाथ से बदलते हैं।",
+   "es": "ARIA puede mejorarse a sí misma (habilidades y cambios en su propio código en un worktree de git que apruebas como diff), pero nunca puede cambiar esto. Solo tú lo editas, a mano.",
+   "ar": "تستطيع ARIA تحسين نفسها (مهارات، وتغييرات في شيفرتها داخل git worktree توافق عليها كـ diff)، لكنها لا تستطيع تغيير هذا أبدًا. أنت وحدك تعدّله يدويًا.",
+   "fr": "ARIA peut s'améliorer (compétences, et modifications de son propre code dans un worktree git que vous approuvez sous forme de diff), mais elle ne peut jamais changer ceci. Vous seul le modifiez, à la main.",
+   "bn": "ARIA নিজেকে উন্নত করতে পারে (দক্ষতা, আর git worktree-তে নিজের কোডে পরিবর্তন যা আপনি diff হিসেবে অনুমোদন করেন), কিন্তু এটা কখনো বদলাতে পারে না। শুধু আপনি হাতে এটি সম্পাদনা করেন।",
+   "pt-BR": "A ARIA pode se aprimorar (habilidades e mudanças no próprio código em um worktree git que você aprova como diff), mas nunca pode mudar isto. Só você edita, à mão.",
+   "ru": "ARIA может улучшать себя (навыки и изменения своего кода в git worktree, которые вы одобряете как diff), но никогда не может изменить это. Только вы правите это вручную.",
+   "id": "ARIA bisa meningkatkan dirinya (keterampilan, dan perubahan kodenya sendiri di git worktree yang Anda setujui sebagai diff), tetapi tidak pernah bisa mengubah ini. Hanya Anda yang mengeditnya, secara manual."
   },
   "Verified at startup: identical to what this version was built with.": {
    "zh-Hans": "启动时已验证：与构建此版本时使用的内容一致。",
@@ -4023,16 +4023,16 @@
    "ru": "Открыть папку журнала",
    "id": "Buka folder log"
   },
-  "coucou.log lists every tool Mochi used and whether you allowed it.": {
-   "zh-Hans": "coucou.log 列出 Mochi 使用的每个工具以及你是否允许。",
-   "hi": "coucou.log में Mochi के हर इस्तेमाल किए टूल और आपने अनुमति दी या नहीं, इसकी सूची है।",
-   "es": "coucou.log lista cada herramienta que usó Mochi y si la permitiste.",
-   "ar": "يسرد coucou.log كل أداة استخدمها Mochi وهل سمحت بها.",
-   "fr": "coucou.log liste chaque outil utilisé par Mochi et si vous l'avez autorisé.",
-   "bn": "coucou.log-এ Mochi-র ব্যবহৃত প্রতিটি টুল আর আপনি অনুমতি দিয়েছিলেন কি না তা থাকে।",
-   "pt-BR": "coucou.log lista cada ferramenta que o Mochi usou e se você permitiu.",
-   "ru": "coucou.log перечисляет каждый инструмент, который использовал Mochi, и разрешили ли вы его.",
-   "id": "coucou.log mencatat setiap alat yang dipakai Mochi dan apakah Anda mengizinkannya."
+  "coucou.log lists every tool ARIA used and whether you allowed it.": {
+   "zh-Hans": "coucou.log 列出 ARIA 使用的每个工具以及你是否允许。",
+   "hi": "coucou.log में ARIA के हर इस्तेमाल किए टूल और आपने अनुमति दी या नहीं, इसकी सूची है।",
+   "es": "coucou.log lista cada herramienta que usó ARIA y si la permitiste.",
+   "ar": "يسرد coucou.log كل أداة استخدمتها ARIA وهل سمحت بها.",
+   "fr": "coucou.log liste chaque outil utilisé par ARIA et si vous l'avez autorisé.",
+   "bn": "coucou.log-এ ARIA-র ব্যবহৃত প্রতিটি টুল আর আপনি অনুমতি দিয়েছিলেন কি না তা থাকে।",
+   "pt-BR": "coucou.log lista cada ferramenta que a ARIA usou e se você permitiu.",
+   "ru": "coucou.log перечисляет каждый инструмент, который использовала ARIA, и разрешили ли вы его.",
+   "id": "coucou.log mencatat setiap alat yang dipakai ARIA dan apakah Anda mengizinkannya."
   },
   "The file is too large": {
    "zh-Hans": "文件太大",
@@ -4408,16 +4408,16 @@
    "ru": "Открыть разговор",
    "id": "Buka percakapan"
   },
-  "Coucou sounds": {
-   "zh-Hans": "Coucou 声音",
-   "hi": "Coucou की आवाज़ें",
-   "es": "Sonidos de Coucou",
-   "ar": "أصوات Coucou",
-   "fr": "Sons de Coucou",
-   "bn": "Coucou-র শব্দ",
-   "pt-BR": "Sons do Coucou",
-   "ru": "Звуки Coucou",
-   "id": "Suara Coucou"
+  "ARIA sounds": {
+   "zh-Hans": "ARIA 声音",
+   "hi": "ARIA की आवाज़ें",
+   "es": "Sonidos de ARIA",
+   "ar": "أصوات ARIA",
+   "fr": "Sons d'ARIA",
+   "bn": "ARIA-র শব্দ",
+   "pt-BR": "Sons da ARIA",
+   "ru": "Звуки ARIA",
+   "id": "Suara ARIA"
   },
   "Sounds": {
    "zh-Hans": "声音",
@@ -5023,6 +5023,39 @@
    "pt-BR": "Ver no editor",
    "ru": "Открыть в редакторе",
    "id": "Lihat di editor"
+  },
+  "Open ARIA": {
+   "zh-Hans": "打开 ARIA",
+   "hi": "ARIA खोलें",
+   "es": "Abrir ARIA",
+   "ar": "فتح ARIA",
+   "fr": "Ouvrir ARIA",
+   "bn": "ARIA খুলুন",
+   "pt-BR": "Abrir ARIA",
+   "ru": "Открыть ARIA",
+   "id": "Buka ARIA"
+  },
+  "Settings — ARIA": {
+   "zh-Hans": "设置 — ARIA",
+   "hi": "सेटिंग्स — ARIA",
+   "es": "Ajustes — ARIA",
+   "ar": "الإعدادات — ARIA",
+   "fr": "Réglages — ARIA",
+   "bn": "সেটিংস — ARIA",
+   "pt-BR": "Configurações — ARIA",
+   "ru": "Настройки — ARIA",
+   "id": "Pengaturan — ARIA"
+  },
+  "Choose the tools you use. ARIA only shows what you declare here.": {
+   "zh-Hans": "选择你使用的工具。ARIA 只显示你在这里声明的内容。",
+   "hi": "वे टूल चुनें जो आप उपयोग करते हैं। ARIA केवल वही दिखाती है जो आप यहाँ घोषित करते हैं।",
+   "es": "Elige las herramientas que usas. ARIA solo muestra lo que declares aquí.",
+   "ar": "اختر الأدوات التي تستخدمها. تعرض ARIA فقط ما تُعلنه هنا.",
+   "fr": "Choisis les outils que tu utilises. ARIA n'affiche que ce que tu déclares ici.",
+   "bn": "আপনি যে টুলগুলো ব্যবহার করেন তা বেছে নিন। ARIA শুধুমাত্র আপনার ঘোষণা করা জিনিস দেখায়।",
+   "pt-BR": "Escolha as ferramentas que você usa. A ARIA mostra apenas o que você declarar aqui.",
+   "ru": "Выбери инструменты, которые ты используешь. ARIA показывает только то, что ты здесь объявишь.",
+   "id": "Pilih alat yang Anda gunakan. ARIA hanya menampilkan yang Anda deklarasikan di sini."
   }
  }
 }

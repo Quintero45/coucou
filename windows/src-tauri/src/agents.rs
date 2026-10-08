@@ -407,7 +407,7 @@ fn apply_in(
 // ── Shared JSON helpers ───────────────────────────────────────────────────────
 
 fn unexpected(what: &str) -> String {
-    crate::i18n::tf("{what} has an unexpected type — Coucou has not touched it.", &[("what", what)])
+    crate::i18n::tf("{what} has an unexpected type — ARIA has not touched it.", &[("what", what)])
 }
 
 /// `root[key]` as an object to edit: absent is empty, anything else is refused.
@@ -588,7 +588,7 @@ fn antigravity_is_ours(group: &Value) -> bool {
 fn antigravity_install(root: &Value, block: &Value) -> Result<Value, String> {
     let mut root = root.as_object().cloned().unwrap_or_default();
     if root.get("coucou").is_some_and(|g| !antigravity_is_ours(g)) {
-        return Err(crate::i18n::t("A hook group named \"coucou\" that Coucou did not write is already there — Coucou has not touched it."));
+        return Err(crate::i18n::t("A hook group named \"coucou\" that ARIA did not write is already there — ARIA has not touched it."));
     }
     root.insert("coucou".into(), block.clone());
     Ok(Value::Object(root))
@@ -700,7 +700,7 @@ fn cursor_mcp(root: &Value, server: Option<&Value>) -> Result<Option<Value>, Str
     let mut servers = object_at(&root, "mcpServers")?;
     if servers.get(CURSOR_MCP_NAME).is_some_and(|s| !cursor_mcp_is_ours(s)) {
         return Err(crate::i18n::tf(
-            "\"{name}\" in mcp.json is not Coucou's — Coucou has not touched it.",
+            "\"{name}\" in mcp.json is not ARIA's — ARIA has not touched it.",
             &[("name", CURSOR_MCP_NAME)],
         ));
     }
@@ -773,7 +773,7 @@ const CODEX_EVENTS: &[(&str, u64)] = &[
     ("SessionEnd", 3),
 ];
 
-const CODEX_WAITING: &str = "Waiting for your answer in the island (Coucou)";
+const CODEX_WAITING: &str = "Waiting for your answer in the island (ARIA)";
 
 fn codex_install(root: &Value, command: &str) -> Result<Value, String> {
     let events = CODEX_EVENTS.iter().map(|(event, timeout)| {
@@ -909,7 +909,7 @@ fn plugin_edit(path: PathBuf, content: String, install: bool) -> FileEdit<'stati
     let name = label.clone();
     let edit = config_file::text_edit(label, move |current| match (install, current) {
         (_, Some(text)) if !is_our_plugin(text) => {
-            Err(crate::i18n::tf("{name} wasn't written by Coucou — Coucou has not touched it.", &[("name", &name.to_string())]))
+            Err(crate::i18n::tf("{name} wasn't written by ARIA — ARIA has not touched it.", &[("name", &name.to_string())]))
         }
         (true, _) => Ok(Some(content.clone())),
         (false, _) => Ok(None),
@@ -1450,7 +1450,7 @@ mod tests {
         std::fs::write(&file, "export const Mine = async () => ({});\n").unwrap();
         for install in [true, false] {
             let err = config_file::preview(&Agent::OpenCode.edits(&home, &linux(), install)).unwrap_err();
-            assert!(err.contains("wasn't written by Coucou"), "{err}");
+            assert!(err.contains("wasn't written by ARIA"), "{err}");
         }
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "export const Mine = async () => ({});\n");
         let _ = std::fs::remove_dir_all(home);

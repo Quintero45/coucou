@@ -639,7 +639,7 @@ async fn process_chunk(ctx: &MeetingCtx, samples: Vec<f32>) {
     send_to_bot(
         &ctx.app,
         &ctx.bot,
-        format!("[Coucou · reunión en curso · fragmento {n} · {at}] Transcripción parcial, solo para tu contexto (no hace falta responder):\n{text}"),
+        format!("[ARIA · reunión en curso · fragmento {n} · {at}] Transcripción parcial, solo para tu contexto (no hace falta responder):\n{text}"),
     );
 }
 
@@ -785,7 +785,7 @@ pub async fn stop_meeting(app: AppHandle) -> Result<MeetingResult, String> {
             &app,
             &m.ctx.bot,
             format!(
-                "[Coucou · reunión terminada] Aquí está la transcripción completa. Hazme un resumen en español con: \
+                "[ARIA · reunión terminada] Aquí está la transcripción completa. Hazme un resumen en español con: \
                  puntos clave, decisiones tomadas, tareas (con responsable y fecha si se mencionan) y próximos pasos.\n\
                  (Archivo en el PC: {path_str})\n\n{body}"
             ),

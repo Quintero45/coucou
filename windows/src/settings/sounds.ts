@@ -9,7 +9,7 @@ import { t } from "../i18n/i18n";
 
 export function soundsSection(ctx: { get: () => Settings; save: () => Promise<void> }): HTMLElement {
   const s0 = ctx.get();
-  const toggle = h("button", { class: s0.soundEnabled !== false ? "switch on" : "switch", title: t("Coucou sounds") });
+  const toggle = h("button", { class: s0.soundEnabled !== false ? "switch on" : "switch", title: t("ARIA sounds") });
   const volume = h("input", {
     type: "range", min: "0", max: "0.2", step: "0.01",
     value: String(Math.max(0, Math.min(0.2, typeof s0.soundVolume === "number" ? s0.soundVolume : 0.15))),
@@ -33,7 +33,7 @@ export function soundsSection(ctx: { get: () => Settings; save: () => Promise<vo
 
   return h("section", {},
     h("h2", {}, h("span", { text: t("Sounds") })),
-    h("div", { class: "row" }, h("label", { text: t("Coucou sounds") }), toggle),
+    h("div", { class: "row" }, h("label", { text: t("ARIA sounds") }), toggle),
     h("div", { class: "row" }, h("label", { text: t("Volume") }), volume),
     h("div", { class: "hint", text: t("They play when a Bot gets your message, asks you something, finishes or fails.") }),
   );

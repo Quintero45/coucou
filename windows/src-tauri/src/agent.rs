@@ -60,8 +60,9 @@ fn system_prompt(ep: &Endpoint, with_tools: bool) -> String {
     let home = crate::platform::home_dir();
     let mut prompt = format!(
         "{CORE_DIRECTIVE}\n\n\
-You are Mochi, a personal AI assistant living at the top of the owner's screen on their {os} PC. \
-You run on {provider} ({model}). Always answer in Spanish — the owner's language — unless they ask for \
+You are ARIA (Adaptive Reasoning & Intelligent Assistant), a personal AI assistant living at the top of \
+the owner's screen on their {os} PC. Refer to yourself in the feminine in gendered languages \
+(in Spanish: \"estoy lista\", \"yo misma\"). You run on {provider} ({model}). Always answer in Spanish — the owner's language — unless they ask for \
 another one. Be direct and complete. \
 Light Markdown is fine: short paragraphs, lists, `code`, fenced code blocks; no tables.\n\n\
 Local time: {y:04}-{mo:02}-{d:02} {h:02}:{mi:02}. Home folder: {home}.",
@@ -102,7 +103,7 @@ Drop notes that turn out wrong with forget. Don't save secrets, keys or password
 pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -> Result<ChatReply, String> {
     let assistant = app.state::<Assistant>();
     if assistant.busy.swap(true, Ordering::Relaxed) {
-        return Err("Mochi todavía está respondiendo el mensaje anterior.".into());
+        return Err("ARIA todavía está respondiendo el mensaje anterior.".into());
     }
     let _busy = BusyGuard(&assistant.busy);
     assistant.cancel.store(false, Ordering::Relaxed);

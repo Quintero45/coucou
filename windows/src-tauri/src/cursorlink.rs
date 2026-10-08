@@ -345,7 +345,7 @@ mod gate {
         json!({
             "hook_event_name": "PermissionRequest",
             "coucou_agent": WHO,
-            "message": format!("Coucou quiere escribir esto en el chat de Cursor ({chars} caracteres)"),
+            "message": format!("ARIA quiere escribir esto en el chat de Cursor ({chars} caracteres)"),
             "cwd": "",
             "tool_name": TOOL,
             // `prompt` is the field the island shows on the card's target line.

@@ -353,7 +353,7 @@ export class UploadCanvas {
     ctx.fillStyle = "#F5F6F8";
     rr(ctx, ASK_BTN.x, 113, ASK_BTN.w, 26, 13);
     ctx.fill();
-    const ask = fitted(ctx, t("Ask Mochi"), ASK_BTN.w - 14, 500, 12.5);
+    const ask = fitted(ctx, t("Ask ARIA"), ASK_BTN.w - 14, 500, 12.5);
     text(ctx, ask.s, ASK_BTN.x + ASK_BTN.w / 2, 126, ask.font, "#0B0C0E", "center");
 
     ctx.fillStyle = "rgba(255,255,255,0.09)";

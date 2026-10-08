@@ -370,7 +370,7 @@ pub(crate) fn build_body(message: &str, lines: &[String], bot: &str, sent_at: &s
     };
     let mut body = json!({
         "message": message,
-        "from": "Coucou",
+        "from": "ARIA",
         "bot": bot,
         "sentAt": sent_at,
     });
@@ -549,8 +549,8 @@ pub fn instructions(app: &AppHandle, id: &str) -> Result<String, String> {
     let cmd = if exe.contains(' ') { format!("& \"{exe}\"") } else { exe };
     let n = bot.name.replace('"', "");
     Ok(format!(
-        "Estás conectado a Coucou, la isla de mi computadora (Windows). Las tareas que te mande Coucou llegan por el webhook \
-de tu rutina «Tareas de Coucou», en el campo \"message\" del cuerpo JSON.\n\n\
+        "Estás conectado a ARIA, la isla de mi computadora (Windows). Las tareas que te mande ARIA llegan por el webhook \
+de tu rutina «Tareas de ARIA», en el campo \"message\" del cuerpo JSON.\n\n\
 Para avisarme, ejecuta estos comandos en MI computadora local (no en tu computadora en la nube):\n\n\
   {cmd} --bot \"{n}\" --status working \"qué estás haciendo\"\n\
   {cmd} --bot \"{n}\" --status done \"resumen del resultado en 1 a 3 frases\"\n\
@@ -761,7 +761,7 @@ mod tests {
         let plain = build_body("  hola  ", &[], "Investigador", "2026-10-04 20:00", Vec::new());
         assert_eq!(
             plain,
-            json!({ "message": "hola", "from": "Coucou", "bot": "Investigador", "sentAt": "2026-10-04 20:00" })
+            json!({ "message": "hola", "from": "ARIA", "bot": "Investigador", "sentAt": "2026-10-04 20:00" })
         );
         let items = vec![
             item("a.txt", "text/plain", 2, Some("pa"), text("hi")),

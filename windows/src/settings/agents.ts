@@ -11,24 +11,24 @@ import { t } from "../i18n/i18n";
 const TEXT = {
   get title() { return t("Agents"); },
   get intro() {
-    return t("Show other coding agents in the island. Coucou adds its entries to each agent's own config: you see the exact change and where the backup goes before anything is written, and uninstalling removes only what Coucou added.");
+    return t("Show other coding agents in the island. ARIA adds its entries to each agent's own config: you see the exact change and where the backup goes before anything is written, and uninstalling removes only what ARIA added.");
   },
-  get none() { return t("Coucou could not list the agents."); },
+  get none() { return t("ARIA could not list the agents."); },
   get approvals() { return t("Sessions, and Allow / Deny from the island"); },
   get displayOnly() { return t("Sessions — approvals stay in the agent"); },
   get install() { return t("Install…"); },
   get reinstall() { return t("Reinstall…"); },
   get uninstall() { return t("Uninstall…"); },
-  get relayMissing() { return t("The relay isn't installed yet. Restart Coucou."); },
+  get relayMissing() { return t("The relay isn't installed yet. Restart ARIA."); },
   get outdated() {
-    return t("Installed by an older version of Coucou: reinstall so questions and mode changes reach the island.");
+    return t("Installed by an older version of ARIA: reinstall so questions and mode changes reach the island.");
   },
   get gates() { return t("Approve shell and MCP commands from the island"); },
   get gatesHint() {
     return t("Asks in the island before Cursor runs a shell or MCP command. If nobody answers, Cursor asks in its own window: never an automatic yes. Applied on the next install.");
   },
   previewInstall: (name: string) => t("This is exactly what changes for {name}. Nothing else is touched.", { name }),
-  get previewRemove() { return t("This removes Coucou's entries only. Everything else stays."); },
+  get previewRemove() { return t("This removes ARIA's entries only. Everything else stays."); },
   backup: (to: string) => (to ? t("Backup → {path}", { path: to }) : t("No existing file — nothing to back up.")),
   get confirmInstall() { return t("Back up and write"); },
   get confirmRemove() { return t("Back up and remove"); },

@@ -77,9 +77,9 @@ pub fn parse_json(bytes: Option<&[u8]>, label: &str) -> Result<Value, String> {
     }
     match serde_json::from_slice::<Value>(text) {
         Ok(v) if v.is_object() => Ok(v),
-        Ok(_) => Err(tf("{file} isn't a JSON object — Coucou won't touch it.", &[("file", label)])),
+        Ok(_) => Err(tf("{file} isn't a JSON object — ARIA won't touch it.", &[("file", label)])),
         Err(err) => Err(tf(
-            "{file} isn't valid JSON ({error}). Fix or move it, then try again — Coucou won't overwrite it.",
+            "{file} isn't valid JSON ({error}). Fix or move it, then try again — ARIA won't overwrite it.",
             &[("file", label), ("error", &err.to_string())],
         )),
     }
@@ -119,7 +119,7 @@ pub fn text_edit<'a>(
             None => None,
             Some(b) => Some(
                 std::str::from_utf8(b)
-                    .map_err(|_| tf("{file} isn't UTF-8 text — Coucou won't touch it.", &[("file", &label)]))?,
+                    .map_err(|_| tf("{file} isn't UTF-8 text — ARIA won't touch it.", &[("file", &label)]))?,
             ),
         };
         let after = change(current)?;
@@ -454,7 +454,7 @@ pub mod tests {
             path: path.to_path_buf(),
             edit: json_edit("test.json".into(), |v| {
                 if v.get("hooks").is_some_and(|h| !h.is_object()) {
-                    return Err("\"hooks\" has an unexpected type — Coucou has not touched it.".into());
+                    return Err("\"hooks\" has an unexpected type — ARIA has not touched it.".into());
                 }
                 let mut next = v.clone();
                 next["ours"] = json!(true);

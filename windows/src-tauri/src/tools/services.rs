@@ -13,7 +13,7 @@ pub fn tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "integration_status",
-            description: "What Coucou's integrations (Stripe, GitHub, Vercel, n8n, Resend, Notion, Cal.com) last reported: balances, deployments, notifications, executions, bookings…",
+            description: "What ARIA's integrations (Stripe, GitHub, Vercel, n8n, Resend, Notion, Cal.com) last reported: balances, deployments, notifications, executions, bookings…",
             risk: Risk::Read,
             schema: || schema(json!({}), &[]),
         },

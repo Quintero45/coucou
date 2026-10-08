@@ -662,7 +662,7 @@ function buildEmpty(actions: ViewActions): ViewHost {
       h("div", { class: "sub", text: tl("Drop a file or window, or ask me anything.") }),
     ),
     h("div", { class: "grow" }),
-    btn(tl("Ask Mochi"), "primary", () => actions.setView("prompt")),
+    btn(tl("Ask ARIA"), "primary", () => actions.setView("prompt")),
   );
   return { el: h("div", { class: "view" }, card(null, body)), sync() {} };
 }

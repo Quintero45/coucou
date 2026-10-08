@@ -28,7 +28,7 @@ pub fn ensure() {
     }
     let path = notes_path();
     if !path.exists() {
-        let _ = std::fs::write(&path, "# Memoria de Mochi\n");
+        let _ = std::fs::write(&path, "# Memoria de ARIA\n");
     }
 }
 

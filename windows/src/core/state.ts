@@ -89,7 +89,7 @@ export const ASSISTANT_ID = "assistant";
 
 /** How Mochi signs its own approval cards. */
 export const MOCHI_TASK: AgentTask = {
-  id: ASSISTANT_ID, name: "Mochi", color: "#A78BFA", state: "approval", stepIndex: 0, steps: [],
+  id: ASSISTANT_ID, name: "ARIA", color: "#A78BFA", state: "approval", stepIndex: 0, steps: [],
   source: "agent", isIntegration: false,
 };
 

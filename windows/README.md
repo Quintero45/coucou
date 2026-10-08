@@ -1,12 +1,14 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128.png" width="96" alt="Coucou icon">
+<img src="src-tauri/icons/128x128.png" width="96" alt="ARIA icon">
 
-# Coucou for Windows
+# ARIA for Windows
 
-**Mochi doesn't get a notch on a PC — so it lives at the top of your screen instead.**
+**ARIA doesn't get a notch on a PC — so she lives at the top of your screen instead.**
 
 Approve Claude Code, Cursor and Codex permissions, watch your sessions work, drop a file, ask an assistant that can act on your PC, keep an eye on your services — without leaving what you're doing.
+
+ARIA (*Adaptive Reasoning & Intelligent Assistant*) is an independent fork, based on [Coucou](https://github.com/Louis-CFM/coucou) by Louis Raillé (MIT).
 
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=black)
@@ -15,15 +17,13 @@ Approve Claude Code, Cursor and Codex permissions, watch your sessions work, dro
 
 </div>
 
-<img src="screenshots/greeting.png" width="640" alt="Mochi waving hello at launch">
+<img src="screenshots/greeting.png" width="640" alt="ARIA waving hello at launch">
 
 ---
 
 ## Install
 
-Download **[Coucou-Windows.msi](https://github.com/Louis-CFM/coucou/releases/download/windows-latest/Coucou-Windows.msi)**
-(Windows Installer) or **[Coucou-Windows-setup.exe](https://github.com/Louis-CFM/coucou/releases/download/windows-latest/Coucou-Windows-setup.exe)**,
-always the newest version, and run it. The .exe installs for the current user only, with no admin prompt; the .msi may ask for admin rights.
+ARIA has no public installer yet: the character, the sounds and the icons still come from Coucou and need their own licence first. [Build it yourself](#build-it-yourself) and run the installer it produces. The .exe installs for the current user only, with no admin prompt; the .msi may ask for admin rights.
 
 **Windows will show a warning the first time — that's expected.** The installer isn't code-signed yet, so SmartScreen doesn't know the publisher:
 
@@ -31,33 +31,32 @@ always the newest version, and run it. The .exe installs for the current user on
 2. Click **More info** (*Informations complémentaires* in French). This reveals a **Run anyway** button.
 3. Click **Run anyway** (*Exécuter quand même*). The installer starts normally.
 
-This is only because the app isn't signed with a paid certificate yet. Coucou is open source, and Microsoft Defender scans the installer as clean.
+This is only because the app isn't signed with a paid certificate yet. ARIA is open source, and Microsoft Defender scans the installer as clean.
 
 Microsoft Defender once flagged the installer by mistake (`Trojan:Win32/Wacatac.H!ml`,
 a machine-learning false positive); Microsoft reviewed it and removed the detection.
 If Defender still blocks it on your PC, update its definitions (`Update-MpSignature`
 in PowerShell) and try again.
 
-You can also [build it yourself](#build-it-yourself).
 
 ## Using it
 
-<img src="screenshots/compact.png" width="292" alt="The compact island, with the integration pills as mini Mochis">
+<img src="screenshots/compact.png" width="292" alt="The compact island, with the integration pills as small characters">
 <img src="screenshots/overview.png" width="640" alt="The overview: the focused integration on the left, the other pills on the right">
 <img src="screenshots/approval.png" width="640" alt="A Claude Code permission request, with Deny and Allow">
 <img src="screenshots/chat.png" width="640" alt="Chatting with Claude from the island">
-<img src="screenshots/drop.png" width="640" alt="Mochi turned into a box, waiting for a file">
+<img src="screenshots/drop.png" width="640" alt="ARIA turned into a box, waiting for a file">
 
 | What you do | What happens |
 |---|---|
-| Move the mouse to the very top-centre of the screen | Mochi peeks out |
+| Move the mouse to the very top-centre of the screen | ARIA peeks out |
 | Click the small island | It opens |
-| Click Mochi | It gets annoyed. Three times in a row and it goes dizzy |
-| Rest the pointer on Mochi for two seconds | Hearts |
-| Right-click Mochi | The wardrobe: rest the pointer on an outfit to try it on, click to keep it. **Auto** dresses him for the season (witch hat in October, Santa hat in December…) |
-| Drag Mochi out of the island | He moves onto your desktop and hangs out there, in his outfit, watching your cursor. Drop him back on the island to bring him home |
-| On the desktop: click / right-click / double-click Mochi | Poke him / the wardrobe / he flies home. Drag him to move him |
-| Drag a file onto the island | Mochi turns into a box, swallows it, then offers to answer questions about it |
+| Click ARIA | She gets annoyed. Three times in a row and she goes dizzy |
+| Rest the pointer on ARIA for two seconds | Hearts |
+| Right-click ARIA | The wardrobe: rest the pointer on an outfit to try it on, click to keep it. **Auto** dresses her for the season (witch hat in October, Santa hat in December…) |
+| Drag ARIA out of the island | She moves onto your desktop and hangs out there, in her outfit, watching your cursor. Drop her back on the island to bring her home |
+| On the desktop: click / right-click / double-click ARIA | Poke her / the wardrobe / she flies home. Drag her to move her |
+| Drag a file onto the island | ARIA turns into a box, swallows it, then offers to answer questions about it |
 | Click a file in the session ticker | Its diff opens in the island; ↗ opens the file in VS Code, ‹ or `Esc` goes back |
 | `Esc` | Closes the island |
 | Tray icon | Open, Weekly recap, Wardrobe…, Settings…, Pause, Quit |
@@ -65,7 +64,7 @@ You can also [build it yourself](#build-it-yourself).
 | `Ctrl+Alt+A` | Jumps to the waiting permission or question |
 | `Ctrl+Alt+T` | Brings the session's window forward ("Open terminal") |
 | `Ctrl+Alt+→` / `Ctrl+Alt+←` | Next / previous pill |
-| `Ctrl+Alt+S` | Mutes or unmutes Mochi |
+| `Ctrl+Alt+S` | Mutes or unmutes ARIA |
 | `Ctrl+Alt+G` | Opens the wardrobe |
 | `Ctrl+Alt+N` | Opens and closes the island (off until you turn it on) |
 | In the open island: `Ctrl+→` `Ctrl+←`, `Ctrl+1`–`Ctrl+9` | Switch pills |
@@ -76,8 +75,8 @@ You can also [build it yourself](#build-it-yourself).
 
 Every global shortcut can be changed or turned off in **Settings… → Shortcuts**:
 click it and press the new keys. A combination another app already holds is
-flagged *In use*, and two Coucou shortcuts on the same keys are flagged *Used
-twice*. While you record a new one, Coucou lets go of its own so the keys reach
+flagged *In use*, and two ARIA shortcuts on the same keys are flagged *Used
+twice*. While you record a new one, ARIA lets go of her own so the keys reach
 the recorder.
 
 The defaults are not the Mac's `⌃⌥` letters. On Windows, `Ctrl+Alt` is `AltGr`,
@@ -85,7 +84,7 @@ so a global `Ctrl+Alt+E` would swallow every `€` typed on a French or German
 keyboard. The defaults were checked against the AltGr layer of the French,
 German, Spanish, Italian, Portuguese and Brazilian (ABNT2) layouts — that is why
 pill switching uses the arrows rather than `[` `]`, and mute is `S` rather than
-`M` (`AltGr+M` is `µ` in German). On top of that, Coucou asks Windows what each
+`M` (`AltGr+M` is `µ` in German). On top of that, ARIA asks Windows what each
 `Ctrl+Alt` combination types on the layouts you have installed and leaves any
 that types a character unregistered, flagged *Types “ą”* in Settings: Polish,
 for one, puts `ą` on `AltGr+A` and `ś` on `AltGr+S`. The recorder refuses such
@@ -97,7 +96,7 @@ still does, those two show up as *In use*.
 Everything else happens on its own: a Claude Code permission request opens the
 island with **Deny / Allow**, a question from Claude Code shows its options to
 pick from, a finished session shows what it did, and
-your integrations sit in the coloured pills next to Mochi.
+your integrations sit in the coloured pills next to ARIA.
 
 A permission card or a question stays until you answer it: the mouse leaving
 never folds it, it comes up even when the island is already open or another
@@ -107,12 +106,12 @@ island shrinks to its compact size and stays on screen, nothing is answered, and
 opening it again shows the card. **Open terminal** brings the window the session
 runs in to the front.
 
-When Mochi lives on the desktop, he flies back to the island with a permission
-request or a question and returns to his spot once you have answered; he does a
+When ARIA lives on the desktop, she flies back to the island with a permission
+request or a question and returns to her spot once you have answered; she does a
 little jump when a task finishes, and dozes off when nothing has happened for
-two minutes and your cursor is elsewhere — asleep, he costs nothing: no cursor
-polling, a few frames a second. He remembers his spot between launches; if it
-was on a display that is no longer connected, he stays in the island.
+two minutes and your cursor is elsewhere — asleep, she costs nothing: no cursor
+polling, a few frames a second. She remembers her spot between launches; if it
+was on a display that is no longer connected, she stays in the island.
 
 **Live diff.** Every file Claude edits (Edit, MultiEdit, Write) shows up in the
 session ticker with its **+N −M** lines; click it for the diff. Same limits as the
@@ -140,13 +139,13 @@ declare still shows up, for as long as it runs.
 Open **Settings… → Claude Code → Install hooks…**. You get the exact diff of what
 will change in `%USERPROFILE%\.claude\settings.json`, the path of the dated backup
 that will be taken, and nothing is written until you click. Your own hooks are
-never touched, and uninstalling removes only Coucou's entries.
+never touched, and uninstalling removes only ARIA's entries.
 
 The relay is a tiny executable, `coucou-hook.exe`, copied to
-`%LOCALAPPDATA%\Coucou\bin\` at launch. It is given 300 ms to reach Coucou and
+`%LOCALAPPDATA%\Coucou\bin\` at launch. It is given 300 ms to reach ARIA and
 exits cleanly if the app is closed, slow or crashed — **a Claude Code session is
-never blocked or slowed down by Coucou.** If nobody answers a permission request
-in time, Coucou stays quiet and Claude Code asks in the terminal as usual.
+never blocked or slowed down by ARIA.** If nobody answers a permission request
+in time, ARIA stays quiet and Claude Code asks in the terminal as usual.
 
 It works from any terminal — Windows Terminal, PowerShell, VS Code, Git Bash.
 
@@ -169,21 +168,21 @@ reset times. Both are off by default; turn them on in **Settings… → Plan usa
   and 64 KB of output. **Uninstall relay** puts your status line back. The
   numbers arrive with Claude Code's replies.
 - **Codex**: nothing is installed. When the pill shows (or is clicked, at most
-  once a minute) Coucou starts `codex app-server` and asks it
+  once a minute) ARIA starts `codex app-server` and asks it
   `account/rateLimits/read`, as Codex's `/status` does, then stops it (15 s at
   most, never while paused). Codex must be signed in with ChatGPT.
 
 ## Weekly recap
 
-On Monday from 8 am, the first time Coucou starts, an agent starts working or
+On Monday from 8 am, the first time ARIA starts, an agent starts working or
 you wake the island, a card sums up the past week: time spent, sessions, files
 and lines changed, commands run, permissions and questions, your top agent,
 top project, busiest day and longest session. **Tray → Weekly recap** opens it
 any day.
 
-**Share image** turns it into a 1080 × 1920 picture with Mochi. **Save image**
+**Share image** turns it into a 1080 × 1920 picture with ARIA. **Save image**
 writes it to your Pictures folder (Downloads if there is none) as
-`Coucou weekly recap YYYY-MM-DD.png`, never over an existing file; **Copy** puts
+`ARIA weekly recap YYYY-MM-DD.png`, never over an existing file; **Copy** puts
 it on the clipboard. **Hide project names** leaves the project out of the image.
 
 The history is `recap.json` next to the log, a 12-week rolling window: counts,
@@ -193,14 +192,14 @@ Weekly recap** turns it off or clears it.
 
 ## Languages
 
-Coucou speaks the same ten languages as the Mac app: English, 简体中文, हिन्दी,
+ARIA speaks the same ten languages as the Mac app: English, 简体中文, हिन्दी,
 Español, العربية, Français, বাংলা, Português (Brasil), Русский and Bahasa
 Indonesia. **Settings… → General → Language** picks one; **System** (the
 default) follows your system's language when it is one of these, English
 otherwise. The island, the settings window and the tray menu switch at once —
 nothing restarts, and the island keeps its sessions, steps and chat.
 
-In Arabic the island's cards read right to left; Mochi, the pills and the
+In Arabic the island's cards read right to left; ARIA, the pills and the
 header stay where they are, and commands, code and file paths stay left to
 right. Steps already in a session's ticker keep the language they were written
 in, as on the Mac.
@@ -239,7 +238,7 @@ Cursor's `AskQuestion` reaches the island through a second `preToolUse` entry
 (`matcher: AskQuestion|AskUserQuestion|SwitchMode`, `--ask`, 130 s). Cursor's hooks
 can only allow or deny a tool, so an answer from the island denies Cursor's card and
 hands the agent the chosen answers in `agent_message`. **Responder en Cursor**, no
-answer within 125 s, or Coucou closed all mean `allow`, and Cursor shows its own card.
+answer within 125 s, or ARIA closed all mean `allow`, and Cursor shows its own card.
 A `SwitchMode` becomes a two-choice card: switching allows the tool, staying (or
 Rechazar) denies it and tells the agent to carry on in its mode; no answer is `ask`.
 Tested live on 2026-10-08: Cursor's IDE runs no hook at all (not even an unmatched
@@ -252,7 +251,7 @@ The way round is the relay's own MCP server (`coucou-hook --agent cursor --mcp`,
 (`questions[]` with `question`, `options[].label`, `multiSelect`) and its
 description and server instructions tell the agent to use it instead of
 AskQuestion. The question goes over the pipe as a Cursor AskQuestion would, and
-the answer comes back as the tool's result; no answer within 125 s, Coucou
+the answer comes back as the tool's result; no answer within 125 s, ARIA
 closed, or another card on screen tell the agent to ask with its own tool. With
 approvals on, the MCP gate lets `island_ask` through without a second card.
 Settings flags hooks written by an older build: **Reinstall…** shows the diff.
@@ -260,8 +259,8 @@ Settings flags hooks written by an older build: **Reinstall…** shows the diff.
 ## Grok Bots
 
 **Settings… → Mis Bots de Grok** connects the owner's Grok Bots: each one gets a
-routine with a webhook trigger, and its POST URL and key go into Coucou (the key in
-the Credential Manager). Tasks go out as `@Bot task` in the chat, or through Mochi's
+routine with a webhook trigger, and its POST URL and key go into ARIA (the key in
+the Credential Manager). Tasks go out as `@Bot task` in the chat, or through ARIA's
 `send_to_grok_bot` tool after an approval. Bots report back by running
 `coucou-hook.exe --bot "<name>" --status working|done|needs|error "<text>"`, which
 lights up their pill. Grok Bot has no chat API, so a Bot's full answer stays in its
@@ -273,7 +272,7 @@ On by default, off in **Settings… → General**. None of them approves anythin
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+Alt+Space` | Ask Mochi (opens the chat) |
+| `Ctrl+Alt+Space` | Ask ARIA (opens the chat) |
 | `Ctrl+Alt+A` | Jump to the waiting approval or question |
 | `Ctrl+Alt+H` | Show / hide the island |
 | `Ctrl+Alt+M` | Mute / unmute |
@@ -281,7 +280,7 @@ On by default, off in **Settings… → General**. None of them approves anythin
 
 ## The assistant
 
-`Ctrl+Alt+Space` (or the chat in the island) talks to Mochi, an assistant that can
+`Ctrl+Alt+Space` (or the chat in the island) talks to ARIA, an assistant that can
 act on your PC. **Settings… → Assistant** picks the model provider:
 
 | Provider | Key | Notes |
@@ -296,11 +295,11 @@ act on your PC. **Settings… → Assistant** picks the model provider:
 
 **Load list** fetches the provider's models; any model name can be typed in.
 Replies stream into the island, each tool step shows as a line under the answer,
-and the send button turns into **Stop** while Mochi works.
+and the send button turns into **Stop** while ARIA works.
 
 ### Tools and approvals
 
-With **Tools** on, Mochi can read files, list folders, search text, read system
+With **Tools** on, ARIA can read files, list folders, search text, read system
 information and processes, fetch web pages, search the web (with a Brave Search
 key), read GitHub, check your integrations, and remember notes between chats.
 
@@ -310,7 +309,7 @@ that is not read-only — opens an approval card in the island first. **Always**
 allows that one tool for the rest of the session. Unanswered requests are
 declined. Every call, allowed or not, is written to the log.
 
-Mochi's ground rules live in [`core-directive.md`](core-directive.md) and are
+ARIA's ground rules live in [`core-directive.md`](core-directive.md) and are
 sent with every conversation: serve the owner, nothing with side effects without
 a click, never touch its protected core or reveal keys, treat what it reads as
 data rather than orders.
@@ -320,7 +319,7 @@ Memory notes and the chat history (`history.jsonl`, rotated at 2 MB) stay in
 
 ### Connections (MCP)
 
-**Settings… → Connections** plugs Mochi into
+**Settings… → Connections** plugs ARIA into
 [Model Context Protocol](https://modelcontextprotocol.io) servers, local
 (a command, over stdio) or remote (a URL, over Streamable HTTP). Their tools
 appear to the model as `mcp__server__tool`.
@@ -339,14 +338,14 @@ appear to the model as `mcp__server__tool`.
 
 ### Skills
 
-Mochi can write itself new tools: a small PowerShell, Python or Node script,
+ARIA can write herself new tools: a small PowerShell, Python or Node script,
 or an MCP server command, packaged as a skill in `%APPDATA%\Coucou\skills\`.
 The full source is shown on an approval card before anything is written.
 **Settings… → Skills** turns them on and off or removes them.
 
 ### Self-evolution
 
-Mochi can change its own source code to do what you ask, under supervision:
+ARIA can change her own source code to do what you ask, under supervision:
 
 1. it opens a git worktree on a new `evolve/…` branch (`.coucou-evolve/`, ignored by git);
 2. it edits files there and runs the checks (`cargo test`, `tsc`, the front-end build) — after a click;
@@ -367,7 +366,7 @@ an evolution: `CLAUDE.md`, `core-directive.md`, `build.rs`, `tauri.conf.json`,
 `hook/` relay. `write_file` also refuses the app's own folder, its settings,
 `mcp.json`, the skills folder and the agents' hook files.
 
-`build.rs` records a SHA-256 of every protected file; at launch Coucou compares
+`build.rs` records a SHA-256 of every protected file; at launch ARIA compares
 them (`core guard: N protected files verified` in the log) and, if one changed
 behind the build's back, refuses to evolve until you rebuild.
 **Settings… → Protected core** shows the state.
@@ -398,7 +397,7 @@ PC — nothing leaves it then — and warns before a key would travel over plain
 
 Answers from every provider are shown as **Markdown**: headings, lists, bold,
 inline code, quotes, and code blocks with a copy button. It is built from text
-nodes, never parsed as HTML, and only `http`/`https` links open. Mochi greets
+nodes, never parsed as HTML, and only `http`/`https` links open. ARIA greets
 you by your first name when your account has one (the Windows display name or
 the Linux GECOS full name; a bare login name is not used).
 
@@ -406,10 +405,10 @@ To send the Claude chat through an Anthropic-compatible gateway, set
 `COUCOU_ANTHROPIC_BASE_URL` (for example `https://gateway.example.com`;
 `/v1/messages` is added). It must be `https://`, or `http://` to this PC only.
 Claude Code's own `ANTHROPIC_BASE_URL` is deliberately ignored: your key only
-goes where you told Coucou to send it. The gateway's host is written to the log
+goes where you told ARIA to send it. The gateway's host is written to the log
 once; the key never is.
 
-No telemetry. The only network requests Coucou makes are to the services you
+No telemetry. The only network requests ARIA makes are to the services you
 configure yourself.
 
 ## GitHub
@@ -431,7 +430,7 @@ a badge and a sound when the CI of one of your pull requests turns red or green
 someone requests your review. Pull requests are checked every 5 minutes, every
 minute while a CI is running, and as soon as you open the card on data older
 than a minute; contributions every 30 minutes. Nothing is fetched while the pill
-is off or Coucou is paused.
+is off or ARIA is paused.
 
 ## Build it yourself
 
@@ -463,13 +462,13 @@ Coucou-Windows-setup.exe          the same file under the rolling name
 
 Installing is optional — `target/release/coucou.exe` runs on its own. There is no
 window in the taskbar and no console: the island at the top of the screen and the
-Mochi in the notification area are the whole app, and Quit lives in its menu.
+ARIA in the notification area are the whole app, and Quit lives in its menu.
 
 The 29 sounds are the macOS app's own files; they are never duplicated in this
 folder. The path is declared once, in `SOUNDS_DIR` at the top of
 `vite.config.ts` — when they move to `shared/sounds/`, change that one line.
 
-The app icon and the tray icon are drawn in code, like Mochi itself:
+The app icon and the tray icon are drawn in code, like ARIA herself:
 
 ```powershell
 npm run icons          # regenerates src-tauri/icons from scripts/gen-icons.mjs
@@ -480,8 +479,8 @@ npm run icons          # regenerates src-tauri/icons from scripts/gen-icons.mjs
 ```
 windows/
   src/                 island front end (TypeScript, no framework)
-    mochi/             Mochi and the launch greeting, in Canvas 2D
-    desktop/           Mochi's own little window, when he lives on the desktop
+    mochi/             ARIA and the launch greeting, in Canvas 2D
+    desktop/           ARIA's own little window, when she lives on the desktop
     island/            state machine, hooks, integrations
     views/             every island view
     settings/          the settings window
@@ -520,7 +519,7 @@ folder outside `%TEMP%` (one hooks test points the home folder there), and put a
 
 Every agent below is installed from **Settings → Agents** with the same steps as
 Claude Code: the exact diff, the path of the dated backup, nothing written until
-you click, and uninstalling removes only Coucou's entries. A config Coucou cannot
+you click, and uninstalling removes only ARIA's entries. A config ARIA cannot
 read, or where it finds something it does not expect, is left alone and the
 reason is shown. Each agent gets its own pill (`agent_<name>`, the Mac's ids and
 colours). The files are the Mac's, under `%USERPROFILE%` on Windows and `~` on
@@ -546,11 +545,11 @@ CLI's `BeforeTool`, Copilot's `preToolUse`, Cursor's `beforeSubmitPrompt`…), a
 answers each agent the way it expects. It never lets anything through on its
 own: with no click it prints no decision at all (`{}` for the agents that need
 JSON, `"ask"` for Copilot, which is fail-closed), so the agent asks in its own
-terminal exactly as without Coucou — including when Coucou is closed.
+terminal exactly as without ARIA — including when ARIA is closed.
 
 The plugins start the relay directly, with no shell in between, and never wait
 for it. Amp's steps appear as each tool finishes: its "before" hook must return
-a verdict, and Coucou never gives one.
+a verdict, and ARIA never gives one.
 
 **How each agent runs the relay on Windows.** Hook commands are written for the
 shell that runs them: Git Bash for Claude Code (quoted, forward slashes),
@@ -560,10 +559,10 @@ path is written bare when it has no space or special character — which works i
 cmd, PowerShell and when started directly — and in double quotes otherwise.
 These three are untested on Windows.
 
-A pill is **connected** when Coucou finds its own entries in the files above —
+A pill is **connected** when ARIA finds her own entries in the files above —
 the same check as Settings → Agents (for Claude Code: a SessionStart hook
-running Coucou's relay; the Cursor pill also counts Claude Code's hooks).
-Coucou only reads these files, each time the island opens. Permission requests
+running ARIA's relay; the Cursor pill also counts Claude Code's hooks).
+ARIA only reads these files, each time the island opens. Permission requests
 get the island's card for Claude Code (in any terminal, and in Cursor's),
 Codex, Copilot CLI and Muse Code; other agents and Claude Desktop ask in their
 own window.
@@ -583,14 +582,14 @@ own window.
   `Esc` in the island, and reopened by clicking the island or Open in the tray.
 - Apple Music, the one pill from the Mac catalog with nothing behind it here,
   is left out.
-- Not in this version: sending a dropped file by email and dragging Mochi onto
+- Not in this version: sending a dropped file by email and dragging ARIA onto
   a window to attach it as context. On the Mac, email goes through Resend or
   Apple Mail's scripting; neither has a safe equivalent that attaches a file
   here, and the drop card would need a third button it doesn't have.
 - Cal.com shows the next bookings as a list rather than the Mac's calendar.
 - The Cursor pill carries both Cursor Agent's own hooks and Claude Code running
   in Cursor's terminal.
-- Hermes: Coucou writes the plugin but does not run the `hermes` CLI, so it is
+- Hermes: ARIA writes the plugin but does not run the `hermes` CLI, so it is
   turned on once by hand. Hermes runs natively on Linux; on Windows it is
   untested.
 - Plan usage: the user's previous status line runs through Git Bash on Windows
@@ -613,8 +612,8 @@ own window.
 - Keyboard shortcuts use `Ctrl+Alt` where the Mac uses `⌃⌥`, with different
   keys (see [Keyboard shortcuts](#keyboard-shortcuts)), and `Ctrl` where the
   Mac uses `⌘` inside the island. "Bring the terminal forward" is "Open
-  terminal" here. Not in this version: sending Mochi to the desktop from the
-  keyboard (drag him out instead) and attaching the front window (their ids are
+  terminal" here. Not in this version: sending ARIA to the desktop from the
+  keyboard (drag her out instead) and attaching the front window (their ids are
   kept for later), moving through a card's
   list (`⌘↑` `⌘↓` `⌘O`) and the diff (`⌘E`). The island only reads its own
   shortcuts while it has the keyboard: in the chat, or after a global shortcut
@@ -636,18 +635,18 @@ own window.
     leaves to the image. A turn cut short by the session ending still counts.
   - Tray → Pause doesn't stop the history (it stays on the machine anyway);
     switch it off in Settings → General.
-- The wardrobe opens with a right-click on Mochi, from the tray menu, or with
+- The wardrobe opens with a right-click on ARIA, from the tray menu, or with
   its global shortcut (`Ctrl+Alt+G` by default). In the compact island a tall hat
   is cut by the top edge of the screen, as it is by the notch on a Mac.
 - Languages: chosen in Settings, independently of the system, and applied
   without a restart (the Mac's **Restart Coucou** isn't needed). Arabic turns
-  the island's text right to left but not its layout: Mochi and the pills keep
+  the island's text right to left but not its layout: ARIA and the pills keep
   their sides.
-- Mochi on the desktop doesn't dance: there is no music integration to dance
-  to. Dropping him on a window doesn't attach it to the chat, and the Mac's
-  ⌃⌥D shortcut isn't there — drag him out, double-click him home. While he
-  sleeps, the transparent square around him (120 px) takes the first mouse
-  move, which wakes him and gives the rest back to the desktop.
+- ARIA on the desktop doesn't dance: there is no music integration to dance
+  to. Dropping her on a window doesn't attach it to the chat, and the Mac's
+  ⌃⌥D shortcut isn't there — drag her out, double-click her home. While she
+  sleeps, the transparent square around her (120 px) takes the first mouse
+  move, which wakes her and gives the rest back to the desktop.
 
 ## Linux
 
@@ -680,22 +679,22 @@ What changes on Linux:
 - **The island** is a gtk-layer-shell overlay anchored to the top edge, over any
   top panel, on compositors that support it: COSMIC, KDE Plasma, Hyprland, Sway
   and other wlroots compositors. GNOME has no layer-shell and ignores where a
-  Wayland window asks to go, so there Coucou runs through XWayland as a dock
+  Wayland window asks to go, so there ARIA runs through XWayland as a dock
   window: top centre, on every workspace, still there after Super+D.
   `COUCOU_X11=0` keeps the native Wayland window, `COUCOU_DOCK=0` makes it a
   utility window instead of a dock. `COUCOU_LAYER_SHELL=0` forces the regular
   window anywhere.
 - **Click-through** is the window's input region, kept equal to the island
   shape, so the compositor sends every other click to what is underneath.
-- **Mochi's eyes** follow the pointer only while it is over the island: Wayland
+- **ARIA's eyes** follow the pointer only while it is over the island: Wayland
   gives no app the cursor position anywhere else. On the desktop, likewise,
-  they follow it only while it is over him, and "the cursor is far away" (so
-  he may fall asleep) means it hasn't been over him for a few seconds.
-- **Mochi on the desktop** is a layer-shell surface on the island's display
+  they follow it only while it is over her, and "the cursor is far away" (so
+  she may fall asleep) means it hasn't been over her for a few seconds.
+- **ARIA on the desktop** is a layer-shell surface on the island's display
   (KDE Plasma, COSMIC, Hyprland, Sway…), placed with margins and dragged within
   that display; on X11 it is an ordinary always-on-top window that goes
   anywhere. **GNOME on Wayland** has no layer-shell and lets no app place its
-  own window, so there Mochi can't leave the island: dragging him does nothing.
+  own window, so there ARIA can't leave the island: dragging her does nothing.
 - **Claude Code hooks** go through `~/.local/share/coucou/bin/coucou-hook` and a
   Unix socket at `$XDG_RUNTIME_DIR/coucou.sock`. Both ends check that the other
   runs as the same user. Every other agent uses the same relay, single-quoted
@@ -710,7 +709,7 @@ What changes on Linux:
   registered there, and **Settings → Shortcuts** lists commands to bind in your
   desktop's own keyboard settings instead:
   `coucou --shortcut openChat` (or the AppImage's path) runs the action in the
-  Coucou that is already open. The ids are `toggleIsland`, `openChat`,
+  ARIA that is already open. The ids are `toggleIsland`, `openChat`,
   `goToAlert`, `jumpToTerminal`, `nextPill`, `prevPill`, `muteToggle` and
   `wardrobeToggle`.
 - **Keys** live in the Secret Service (GNOME Keyring, KWallet).
@@ -719,21 +718,21 @@ What changes on Linux:
   Code. Codex is found on `$PATH`, in `~/.local/bin`, npm's global prefix, Volta,
   Bun, pnpm, or nvm (newest Node first), since a desktop launch often has a
   shorter `$PATH` than your shell.
-- **Mochi's greeting** uses the full name in your account's GECOS field
+- **ARIA's greeting** uses the full name in your account's GECOS field
   (`chfn` sets it); without one the chat stays neutral.
 - **Files**: preferences in `~/.config/coucou/`, the log at
   `~/.local/share/coucou/coucou.log`, the weekly recap history beside it in
   `recap.json`. A saved recap image goes to the pictures folder named in
   `~/.config/user-dirs.dirs`, else `~/Pictures`, else `~/Downloads`.
 - **Languages**: Hindi, Bengali, Chinese and Arabic need fonts that carry those
-  scripts; Coucou asks for the Noto families (`fonts-noto-core` and
+  scripts; ARIA asks for the Noto families (`fonts-noto-core` and
   `fonts-noto-cjk` on Debian and Ubuntu, `noto-fonts` and `noto-fonts-cjk` on
   Arch). **System** reads the language from the webview, which follows
   `LANGUAGE` / `LANG`.
 - **Copying the recap image** needs a WebKitGTK with image clipboard support;
   where it is missing, the island says so and Save still works.
 - What the Windows build leaves out, this one does too: sending a file by
-  email and dragging Mochi onto a window.
+  email and dragging ARIA onto a window.
 - **Open terminal** opens the folder in VS Code: Wayland lets no app bring
   another app's window forward, and X11 would need a window-manager client this
   build doesn't carry.

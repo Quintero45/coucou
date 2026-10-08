@@ -611,7 +611,7 @@ async fn converse(
         let mut o = json!({
             "model": { "id": ep.model },
             "apiKey": key,
-            "name": "Mochi",
+            "name": "ARIA",
             "local": { "cwd": [platform::home_dir().to_string_lossy()], "customTools": custom },
             "tools": { "names": allowed },
         });

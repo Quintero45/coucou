@@ -1,3 +1,5 @@
+> **ARIA** (*Adaptive Reasoning & Intelligent Assistant*) is an independent fork of Coucou for Windows, in [`windows/`](windows/README.md): she lives at the top of your screen, shows your coding agents' sessions and is a full assistant (several AI providers, local tools, MCP connections, skills she writes herself). Based on Coucou by Louis Raillé (MIT). The rest of this page describes upstream Coucou; the Mac and iPhone apps in `NotchBuddy/` are unchanged.
+
 <div align="center">
 
 <img src="NotchBuddy/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="96" alt="Coucou icon">
@@ -306,6 +308,7 @@ Want to add or improve a translation? Open a PR with changes to `NotchBuddy/Reso
 ## Credits
 
 Built by [Louis Raillé](https://louisraille.fr) with Claude Code.
+ARIA, the Windows fork in [`windows/`](windows/README.md), is by Miller, based on Coucou by Louis Raillé.
 Inspired by the notch-companion concepts shared by design studios — this project is independent and not affiliated with any of them.
 
 ## License

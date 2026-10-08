@@ -118,7 +118,7 @@ async function cursorEngineRows(feedback: HTMLElement): Promise<HTMLElement[]> {
     h("div", { class: "row" }, h("label", { text: t("Engine") }), dot(st?.installed ? "#22c55e" : "#f4505e"), state, install),
     h("div", {
       class: "hint",
-      text: t("Mochi thinks with Grok through your Cursor account, the same one as your Grok Bots. 1) At cursor.com/dashboard/integrations, create a “User API Key”. 2) Paste it in “Cursor key” and click Save. 3) Click “Install engine”. 4) Write to Mochi. Cursor's own tools stay off: Mochi only acts with its own, and every action asks for your permission in the island."),
+      text: t("ARIA thinks with Grok through your Cursor account, the same one as your Grok Bots. 1) At cursor.com/dashboard/integrations, create a “User API Key”. 2) Paste it in “Cursor key” and click Save. 3) Click “Install engine”. 4) Write to ARIA. Cursor's own tools stay off: ARIA only acts with its own, and every action asks for your permission in the island."),
     }),
   ];
 }
@@ -150,7 +150,7 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
     body.append(
       h("div", {
         class: "hint",
-        text: t("Mochi answers with the engine you pick here and can act on this PC with its tools: anything that changes something asks for your permission first, in the island."),
+        text: t("ARIA answers with the engine you pick here and can act on this PC with its tools: anything that changes something asks for your permission first, in the island."),
       }),
       h("div", { class: "row" }, h("label", { text: t("AI engine") }), provider),
     );
@@ -238,7 +238,7 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
       h("div", { class: "row" },
         h("label", { text: t("Memory") }),
         h("button", { text: t("Open memory folder"), onclick: () => void Bridge.openDataFolder("memory") }),
-        h("span", { class: "hint", text: t("notes.md is what Mochi remembers; history.jsonl, the log of finished chats.") }),
+        h("span", { class: "hint", text: t("notes.md is what ARIA remembers; history.jsonl, the log of finished chats.") }),
       ),
       feedback,
     );
@@ -317,7 +317,7 @@ export async function grokBotsSection(): Promise<HTMLElement> {
           // Read by the Bot, not shown here: it stays in the language its instructions use.
           const msg = await Bridge.grokbotSend(
             b.id,
-            `Prueba de conexión desde Coucou. Avísame en la isla con --status done "Conectado y listo".`,
+            `Prueba de conexión desde ARIA. Avísame en la isla con --status done "Conectado y listo".`,
           );
           feedback.append(notice("ok", msg));
         } catch (err) {
@@ -406,7 +406,7 @@ export async function grokBotsSection(): Promise<HTMLElement> {
   }
 
   const steps = h("ol", { class: "hint", style: "margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px" },
-    h("li", { text: t("In Grok Bot, tell your Bot: “Create a routine called Coucou Tasks, triggered by webhook, that does what the body's message field says.”") }),
+    h("li", { text: t("In Grok Bot, tell your Bot: “Create a routine called ARIA Tasks, triggered by webhook, that does what the body's message field says.”") }),
     h("li", { text: t("Open the routine (Bot name → Tasks → the routine) and copy “POST to” and “key”.") }),
     h("li", { text: t("Paste them below with the same Bot name and click “Connect Bot”.") }),
     h("li", { text: t("Click “Copy instructions” and paste them in the Bot's Bot settings → Description: that's how it knows to alert you in the island.") }),
@@ -425,7 +425,7 @@ export async function grokBotsSection(): Promise<HTMLElement> {
     h("h2", {}, h("span", { text: t("My Grok Bots") })),
     h("div", {
       class: "hint",
-      text: t("Your Grok Bot teammates (Cursor), with their cloud computer, memory and plugins. Coucou sends them tasks through a routine's webhook, and they alert you in the island by running a command on this PC. In the island chat, type “@Name task” to send something straight to a Bot."),
+      text: t("Your Grok Bot teammates (Cursor), with their cloud computer, memory and plugins. ARIA sends them tasks through a routine's webhook, and they alert you in the island by running a command on this PC. In the island chat, type “@Name task” to send something straight to a Bot."),
     }),
     steps,
     list,
@@ -457,7 +457,7 @@ const RECOMMENDED: Recommended[] = [
   { name: "github", title: "GitHub", why: N_("Issues, pull requests, code search and more, with GitHub's official server."),
     config: { url: "https://api.githubcopilot.com/mcp/" },
     secrets: [{ field: "header:Authorization", label: "Authorization", placeholder: "Bearer ghp_…" }] },
-  { name: "memory", title: N_("Knowledge graph"), why: N_("A structured long-term memory Mochi can look up."),
+  { name: "memory", title: N_("Knowledge graph"), why: N_("A structured long-term memory ARIA can look up."),
     config: { command: "npx", args: ["-y", "@modelcontextprotocol/server-memory"] } },
   { name: "fetch", title: "Fetch", why: N_("Turns any web page into clean Markdown. Needs uv (Python)."),
     config: { command: "uvx", args: ["mcp-server-fetch"] } },
@@ -487,7 +487,7 @@ export async function connectionsSection(): Promise<HTMLElement> {
     h("h2", {}, h("span", { text: t("Connections (MCP)") })),
     h("div", {
       class: "hint",
-      text: t("Connect Mochi to anything that speaks the Model Context Protocol. Each server's tools become Mochi's; the ones that change something ask you first. Keys you type here go to the Credential Manager: the config file only keeps a placeholder."),
+      text: t("Connect ARIA to anything that speaks the Model Context Protocol. Each server's tools become ARIA's; the ones that change something ask you first. Keys you type here go to the Credential Manager: the config file only keeps a placeholder."),
     }),
     list,
     feedback,
@@ -697,7 +697,7 @@ export async function skillsSection(): Promise<HTMLElement> {
     const skills: SkillInfo[] = (await Bridge.skillsList()) ?? [];
     clear(list);
     if (skills.length === 0) {
-      list.append(h("div", { class: "hint", text: t("No skills yet. Ask Mochi to make itself one (“make yourself a tool that…”): you read its code in the island before it is installed.") }));
+      list.append(h("div", { class: "hint", text: t("No skills yet. Ask ARIA to make itself one (“make yourself a tool that…”): you read its code in the island before it is installed.") }));
     }
     for (const sk of skills) {
       const sw = h("button", { class: sk.enabled ? "switch on" : "switch" });
@@ -736,7 +736,7 @@ export async function skillsSection(): Promise<HTMLElement> {
     "section",
     {},
     h("h2", {}, h("span", { text: t("Skills") })),
-    h("div", { class: "hint", text: t("Small tools Mochi wrote for itself, each one installed after you approved its code.") }),
+    h("div", { class: "hint", text: t("Small tools ARIA wrote for itself, each one installed after you approved its code.") }),
     list,
     h("div", { class: "row" },
       h("button", { text: t("Open skills folder"), onclick: () => void Bridge.openDataFolder("skills") }),
@@ -757,7 +757,7 @@ export async function coreSection(): Promise<HTMLElement> {
     h("h2", {}, dot(ok ? "#22c55e" : "#f5a524"), h("span", { text: t("Protected core") })),
     h("div", {
       class: "hint",
-      text: t("Mochi can improve itself (skills, and changes to its own code in a git worktree you approve as a diff), but it can never change this. Only you edit it, by hand."),
+      text: t("ARIA can improve itself (skills, and changes to its own code in a git worktree you approve as a diff), but it can never change this. Only you edit it, by hand."),
     }),
     h("div", { class: "path", style: "white-space:pre-wrap", text: status.protected.join("\n") }),
     ok
@@ -765,7 +765,7 @@ export async function coreSection(): Promise<HTMLElement> {
       : notice("warn", t("Changed since this build: {files}. Self-evolution is blocked until you rebuild.", { files: status.tampered.join(", ") })),
     h("div", { class: "row" },
       h("button", { text: t("Open log folder"), onclick: () => void Bridge.openDataFolder("log") }),
-      h("span", { class: "hint", text: t("coucou.log lists every tool Mochi used and whether you allowed it.") }),
+      h("span", { class: "hint", text: t("coucou.log lists every tool ARIA used and whether you allowed it.") }),
     ),
   );
 }
