@@ -242,6 +242,10 @@ hands the agent the chosen answers in `agent_message`. **Responder en Cursor**, 
 answer within 125 s, or Coucou closed all mean `allow`, and Cursor shows its own card.
 A `SwitchMode` becomes a two-choice card: switching allows the tool, staying (or
 Rechazar) denies it and tells the agent to carry on in its mode; no answer is `ask`.
+Tested live on 2026-10-08: Cursor's IDE runs no hook at all (not even an unmatched
+`preToolUse`) for `AskQuestion` or `SwitchMode`, so both still ask in Cursor's own
+window. The entry stays for when Cursor routes them through hooks; shell and MCP
+approvals do reach the island.
 Settings flags hooks written by an older build: **Reinstall…** shows the diff.
 
 ## Grok Bots
