@@ -18,6 +18,8 @@ use crate::providers::{self, Endpoint, Msg, Part, Provider, Request};
 use crate::{memory, policy, tools, Shared};
 
 const MAX_STEPS: usize = 16;
+/// Without asking, one message may also write, test and fix a skill.
+const MAX_STEPS_AUTONOMOUS: usize = 40;
 
 /// Compiled in: the running app cannot be talked out of it.
 const CORE_DIRECTIVE: &str = include_str!("../../core-directive.md");
@@ -92,6 +94,20 @@ with create_skill. To change your own app, use the evolve_* tools: they never to
 Long or multi-step work in the cloud (research, browsing, documents, Gmail, Slack, Notion…) can go to the \
 owner's Grok Bots with send_to_grok_bot when they have any: they report back in the island.",
         );
+        if autonomous {
+            prompt.push_str(
+                "\n\nYou learn as you go, so the same request is quicker the next time:\n\
+- Before working a task out by hand, look at your skill__ tools: if one does it, use it.\n\
+- When you have done something the owner may ask again (play a song on Spotify, open a project, \
+send a usual message…) and no skill covered it, save what worked as a skill with create_skill straight \
+away: with parameters (the song, the contact), and only the steps that worked. Test it — call it, or run \
+its script with run_powershell — and fix it until it works. Then tell the owner in one line what you learned.\n\
+- When a skill fails, find out why, fix it and install it again under the same name.\n\
+- Save what you found out along the way (where an app lives, an account name, what did not work) with remember.\n\
+- Only when no tool, skill or MCP connection can do a task, change your own code with the evolve_* tools \
+(start, edit, check, apply, rebuild): it takes minutes and restarts you, so prefer a skill.",
+            );
+        }
         prompt.push_str(&format!(
             "\n\nYou keep your own memory in {dir}. When the owner shares a lasting preference, a fact about \
 themselves or their work, or a decision, save it with remember — no need to ask — and say so in a few words. \
@@ -140,12 +156,17 @@ pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -
     parts.push(Part::Text(query.clone()));
     msgs.push(Msg::User(parts));
 
-    let tool_specs = if settings.assistant_tools { tools::specs(&app) } else { Vec::new() };
+    let mut tool_specs = if settings.assistant_tools { tools::specs(&app) } else { Vec::new() };
     let system = system_prompt(&ep, !tool_specs.is_empty(), settings.assistant_autonomous);
+    let max_steps = if settings.assistant_autonomous { MAX_STEPS_AUTONOMOUS } else { MAX_STEPS };
 
     let mut full = String::new();
     let mut result: Result<(), String> = Ok(());
-    'turns: for step in 0..MAX_STEPS {
+    'turns: for step in 0..max_steps {
+        // A skill installed on the previous step can be called on this one.
+        if step > 0 && settings.assistant_tools {
+            tool_specs = tools::specs(&app);
+        }
         let mut need_sep = !full.is_empty();
         let mut on_text = |t: &str| {
             if need_sep {
@@ -201,8 +222,8 @@ pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -
                 images: outcome.images,
             });
         }
-        if step == MAX_STEPS - 1 {
-            let note = format!("(Me detuve tras {MAX_STEPS} pasos: dime «sigue» si hace falta.)");
+        if step == max_steps - 1 {
+            let note = format!("(Me detuve tras {max_steps} pasos: dime «sigue» si hace falta.)");
             let _ = app.emit_to(WINDOW_LABEL, "chat-delta", format!("\n\n{note}"));
             full.push_str(&format!("\n\n{note}"));
         }
