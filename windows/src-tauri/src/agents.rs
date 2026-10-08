@@ -148,7 +148,8 @@ impl Agent {
         match self {
             Agent::Gemini => vec![home.join(".gemini").join("settings.json")],
             Agent::Antigravity => vec![home.join(".gemini").join("config").join("hooks.json")],
-            Agent::Cursor => vec![home.join(".cursor").join("hooks.json")],
+            // hooks.json first: `installed` and the gates read it.
+            Agent::Cursor => vec![home.join(".cursor").join("hooks.json"), home.join(".cursor").join("mcp.json")],
             Agent::Codex => vec![home.join(".codex").join("hooks.json")],
             Agent::Copilot => vec![home.join(".copilot").join("hooks").join("coucou.json")],
             Agent::Muse => vec![home.join(".config").join("muse").join("settings.json")],
@@ -176,7 +177,14 @@ impl Agent {
         let path = files[0].clone();
         let label = path.display().to_string();
         let change = self.json_change(relay, install, opts);
-        vec![FileEdit { path, edit: config_file::json_edit(label, change) }]
+        let mut edits = vec![FileEdit { path, edit: config_file::json_edit(label, change) }];
+        if self == Agent::Cursor {
+            let path = files[1].clone();
+            let label = path.display().to_string();
+            let server = install.then(|| cursor_mcp_server(relay));
+            edits.push(FileEdit { path, edit: config_file::json_edit(label, move |v| cursor_mcp(v, server.as_ref())) });
+        }
+        edits
     }
 
     /// For an agent that loads a plugin rather than running hook commands, the
@@ -359,7 +367,9 @@ pub fn list() -> Vec<AgentStatus> {
             hook_ready,
             approvals: a.approvals(),
             gates: (a == Agent::Cursor).then(|| cursor_gates_installed(&home)),
-            outdated: a == Agent::Cursor && cursor_hooks(&home).is_some_and(|root| cursor_outdated(&root)),
+            outdated: a == Agent::Cursor
+                && a.installed(&home)
+                && (cursor_hooks(&home).is_some_and(|root| cursor_outdated(&root)) || !cursor_mcp_installed(&home)),
             note: a.note(),
         })
         .collect()
@@ -660,10 +670,57 @@ fn cursor_install(root: &Value, command: &str, extra: &[(String, Value)]) -> Res
 }
 
 fn cursor_hooks(home: &Path) -> Option<Value> {
-    config_file::read(&Agent::Cursor.files(home)[0])
-        .ok()
-        .flatten()
-        .and_then(|b| config_file::parse_json(Some(&b), "").ok())
+    read_json(&Agent::Cursor.files(home)[0])
+}
+
+fn read_json(path: &Path) -> Option<Value> {
+    config_file::read(path).ok().flatten().and_then(|b| config_file::parse_json(Some(&b), "").ok())
+}
+
+// ~/.cursor/mcp.json: the relay's own MCP server (hook/src/mcp.rs), through
+// which Cursor's agent asks its questions in the island — Cursor runs no hook
+// for its built-in AskQuestion. Only `mcpServers.coucou` is ever touched.
+
+const CURSOR_MCP_NAME: &str = "coucou";
+
+fn cursor_mcp_server(relay: &Relay) -> Value {
+    json!({ "command": relay.exe, "args": ["--agent", "cursor", "--mcp"] })
+}
+
+fn cursor_mcp_is_ours(server: &Value) -> bool {
+    server.get("command").and_then(Value::as_str).is_some_and(|c| c.contains(MARKER))
+}
+
+/// `root` with our server set to `server`, or taken out when `None`. Someone
+/// else's server under the same name is never replaced. Removing from a file
+/// that never had it changes nothing (and creates nothing).
+fn cursor_mcp(root: &Value, server: Option<&Value>) -> Result<Option<Value>, String> {
+    let mut root = root.as_object().cloned().unwrap_or_default();
+    let had = root.contains_key("mcpServers");
+    let mut servers = object_at(&root, "mcpServers")?;
+    if servers.get(CURSOR_MCP_NAME).is_some_and(|s| !cursor_mcp_is_ours(s)) {
+        return Err(crate::i18n::tf(
+            "\"{name}\" in mcp.json is not Coucou's — Coucou has not touched it.",
+            &[("name", CURSOR_MCP_NAME)],
+        ));
+    }
+    match server {
+        Some(s) => {
+            servers.insert(CURSOR_MCP_NAME.into(), s.clone());
+        }
+        None if servers.remove(CURSOR_MCP_NAME).is_none() && root.is_empty() => return Ok(None),
+        None => {}
+    }
+    if had || !servers.is_empty() {
+        root.insert("mcpServers".into(), Value::Object(servers));
+    }
+    Ok(Some(Value::Object(root)))
+}
+
+fn cursor_mcp_installed(home: &Path) -> bool {
+    read_json(&Agent::Cursor.files(home)[1])
+        .and_then(|root| root.get("mcpServers")?.get(CURSOR_MCP_NAME).cloned())
+        .is_some_and(|s| cursor_mcp_is_ours(&s))
 }
 
 fn cursor_gates_installed(home: &Path) -> bool {
@@ -1257,6 +1314,24 @@ mod tests {
         // Not ours at all: nothing to reinstall.
         assert!(!cursor_outdated(&json!({ "hooks": { "stop": [{ "command": "mine.sh" }] } })));
         assert!(!cursor_outdated(&json!({})));
+    }
+
+    #[test]
+    fn cursor_gets_the_question_server_and_keeps_its_own() {
+        let server = cursor_mcp_server(&linux());
+        assert_eq!(server["args"], json!(["--agent", "cursor", "--mcp"]));
+        let theirs = json!({ "mcpServers": { "windows": { "command": "uvx" } }, "other": 1 });
+        let installed = cursor_mcp(&theirs, Some(&server)).unwrap().unwrap();
+        assert_eq!(installed["mcpServers"]["coucou"], server);
+        assert_eq!(installed["mcpServers"]["windows"], theirs["mcpServers"]["windows"]);
+        assert_eq!(cursor_mcp(&installed, Some(&server)).unwrap().unwrap(), installed, "reinstalling changes nothing");
+        assert_eq!(cursor_mcp(&installed, None).unwrap().unwrap(), theirs);
+        // No file and nothing to remove: no file written.
+        assert_eq!(cursor_mcp(&json!({}), None).unwrap(), None);
+        // A "coucou" server that isn't ours is never replaced.
+        let squatter = json!({ "mcpServers": { "coucou": { "command": "node other.js" } } });
+        assert!(cursor_mcp(&squatter, Some(&server)).is_err());
+        assert!(cursor_mcp(&json!({ "mcpServers": [] }), Some(&server)).is_err());
     }
 
     #[test]

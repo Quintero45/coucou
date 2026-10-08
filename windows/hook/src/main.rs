@@ -24,7 +24,7 @@
 //! see statusline.rs): it passes the plan limits on and runs the status line the
 //! user had before, so that keeps working. bot.rs covers `--bot`, which Grok
 //! Bots use, and tool.rs `coucou-hook tool …`, through which they call Mochi's
-//! tools.
+//! tools. `--mcp` serves Cursor's question tool instead (mcp.rs).
 
 use std::io::{Read, Write};
 use std::sync::mpsc;
@@ -35,6 +35,7 @@ use serde_json::{Map, Value};
 mod bot;
 mod choices;
 mod cursor;
+mod mcp;
 mod normalize;
 mod reply;
 mod tool;
@@ -121,6 +122,9 @@ fn main() {
     if std::env::args().skip(1).any(|a| a == "--statusline") {
         statusline::run();
     }
+    if let Some(code) = mcp::run() {
+        std::process::exit(code);
+    }
     // A Grok Bot calling one of Mochi's tools. Checked before --bot, which a
     // tool call also carries.
     if let Some(code) = tool::run() {
@@ -152,7 +156,7 @@ fn main() {
     // Only an agent whose decisions the island can give waits for one; any other
     // would be held for nothing, its decision being thrown away (reply.rs).
     let (waits_for_answer, budget) = match &event.cursor {
-        Some((cursor::Wait::Nothing, _)) => (false, FIRE_AND_FORGET_BUDGET),
+        Some((cursor::Wait::Nothing | cursor::Wait::Pass, _)) => (false, FIRE_AND_FORGET_BUDGET),
         Some((cursor::Wait::Decision, _)) => (true, DECISION_BUDGET),
         Some((cursor::Wait::Ask, _)) => (true, ASK_BUDGET),
         Some((cursor::Wait::Followup, _)) => (true, FOLLOWUP_BUDGET),

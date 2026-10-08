@@ -29,6 +29,20 @@ pub enum Wait {
     Ask,
     /// `stop`: the island may hand back queued orders.
     Followup,
+    /// The gate, for Coucou's own question tool (mcp.rs): allowed at once, the
+    /// question itself being the card.
+    Pass,
+}
+
+/// Coucou's MCP question tool, as Cursor's beforeMCPExecution names it.
+pub const ASK_TOOL: &str = "island_ask";
+
+/// Our own question tool, served by this relay (`--mcp`): asking has no side
+/// effect, so its gate needs no second card. Cursor names the server's command.
+fn is_our_ask(map: &Map<String, Value>) -> bool {
+    let tool = map.get("tool_name").and_then(Value::as_str).unwrap_or_default();
+    let command = map.get("command").and_then(Value::as_str).unwrap_or_default();
+    tool.rsplit([':', '-', '/']).next() == Some(ASK_TOOL) && command.contains("coucou-hook") && command.contains("--mcp")
 }
 
 /// Events that can carry an approval. They only become a `PermissionRequest`
@@ -76,6 +90,7 @@ pub fn normalize(map: &mut Map<String, Value>, raw: &str, approve: bool, ask: bo
         return ("PermissionRequest".into(), Wait::Ask);
     }
 
+    let ours = raw == "beforeMCPExecution" && is_our_ask(map);
     let mut name = event(raw).to_string();
     if name != raw {
         map.insert("source_event".into(), json!(raw));
@@ -129,6 +144,9 @@ pub fn normalize(map: &mut Map<String, Value>, raw: &str, approve: bool, ask: bo
     }
 
     name = normalize::refine(&name, map);
+    if approve && ours {
+        return (name, Wait::Pass);
+    }
     if approve && GATED.contains(&raw) {
         return ("PermissionRequest".into(), Wait::Decision);
     }
@@ -308,6 +326,7 @@ pub fn stdout(wait: Wait, decision: Option<&str>, ctx: &Context) -> Option<Strin
             }
         }
         Wait::Ask => answer(reply, ctx),
+        Wait::Pass => json!({ "permission": "allow" }),
         Wait::Decision => match reply.map(|r| r.decision.as_str()) {
             Some("allow" | "always") => json!({ "permission": "allow" }),
             Some("deny") => json!({
@@ -319,6 +338,25 @@ pub fn stdout(wait: Wait, decision: Option<&str>, ctx: &Context) -> Option<Strin
         },
     };
     Some(ascii_json(&out.to_string()))
+}
+
+/// `(question, answer)` pairs from the island's reply to a question card: the
+/// pick on a card with choices, or every answer of the step-by-step card.
+/// Empty for anything else (Rechazar, no reply).
+pub fn answers(reply: Option<&Reply>, ctx: &Context) -> Vec<(String, String)> {
+    if let Some(a) = reply.and_then(Reply::answer) {
+        let question = ctx.questions.get(0).and_then(|q| q.get("question")).and_then(Value::as_str).unwrap_or("Pregunta");
+        return vec![(question.to_string(), a.to_string())];
+    }
+    reply
+        .filter(|r| r.decision == "answer")
+        .and_then(|r| r.answers.as_object())
+        .map(|a| {
+            a.iter()
+                .map(|(q, v)| (q.clone(), v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Cursor's preToolUse can't fill in a question's answers, only allow or deny
@@ -341,21 +379,7 @@ Do not switch modes; carry on in this one.",
             None => json!({ "permission": "ask" }),
         };
     }
-    let picked = reply.and_then(Reply::answer).map(|a| {
-        let question = ctx.questions.get(0).and_then(|q| q.get("question")).and_then(Value::as_str).unwrap_or("Pregunta");
-        vec![(question.to_string(), a.to_string())]
-    });
-    let answers: Vec<(String, String)> = picked.unwrap_or_else(|| {
-        reply
-            .filter(|r| r.decision == "answer")
-            .and_then(|r| r.answers.as_object())
-            .map(|a| {
-                a.iter()
-                    .map(|(q, v)| (q.clone(), v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())))
-                    .collect()
-            })
-            .unwrap_or_default()
-    });
+    let answers = answers(reply, ctx);
     if answers.is_empty() {
         return json!({ "permission": "allow" });
     }
@@ -474,6 +498,21 @@ mod tests {
 
         let mut gated = obj(base);
         assert_eq!(normalize(&mut gated, "beforeShellExecution", true, false), ("PermissionRequest".into(), Wait::Decision));
+    }
+
+    #[test]
+    fn our_own_question_tool_passes_the_gate() {
+        let ours = json!({ "tool_name": "island_ask", "tool_input": "{}",
+            "command": r"C:\Users\me\AppData\Local\Coucou\bin\coucou-hook.exe --agent cursor --mcp" });
+        let mut m = obj(ours.clone());
+        assert_eq!(normalize(&mut m, "beforeMCPExecution", true, false), ("PreToolUse".into(), Wait::Pass));
+        assert_eq!(stdout(Wait::Pass, None, &Context::default()).unwrap(), r#"{"permission":"allow"}"#);
+        // Same name from another server, or another tool of ours: the gate asks.
+        let mut theirs = obj(json!({ "tool_name": "island_ask", "tool_input": "{}", "command": "npx other-server" }));
+        assert_eq!(normalize(&mut theirs, "beforeMCPExecution", true, false).1, Wait::Decision);
+        let mut other = ours;
+        other["tool_name"] = json!("delete_everything");
+        assert_eq!(normalize(&mut obj(other), "beforeMCPExecution", true, false).1, Wait::Decision);
     }
 
     #[test]

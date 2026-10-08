@@ -244,8 +244,17 @@ A `SwitchMode` becomes a two-choice card: switching allows the tool, staying (or
 Rechazar) denies it and tells the agent to carry on in its mode; no answer is `ask`.
 Tested live on 2026-10-08: Cursor's IDE runs no hook at all (not even an unmatched
 `preToolUse`) for `AskQuestion` or `SwitchMode`, so both still ask in Cursor's own
-window. The entry stays for when Cursor routes them through hooks; shell and MCP
-approvals do reach the island.
+window. The entry stays for when Cursor routes them through hooks.
+
+The way round is the relay's own MCP server (`coucou-hook --agent cursor --mcp`,
+`hook/src/mcp.rs`), which the Cursor install also writes to `~/.cursor/mcp.json` as
+`mcpServers.coucou`. Its one tool, `island_ask`, takes AskQuestion's shape
+(`questions[]` with `question`, `options[].label`, `multiSelect`) and its
+description and server instructions tell the agent to use it instead of
+AskQuestion. The question goes over the pipe as a Cursor AskQuestion would, and
+the answer comes back as the tool's result; no answer within 125 s, Coucou
+closed, or another card on screen tell the agent to ask with its own tool. With
+approvals on, the MCP gate lets `island_ask` through without a second card.
 Settings flags hooks written by an older build: **Reinstall…** shows the diff.
 
 ## Grok Bots

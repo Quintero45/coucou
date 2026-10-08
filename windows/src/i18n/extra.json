@@ -2681,6 +2681,17 @@
    "ru": "Занято мест: {used}/{max} — основной инструмент место не занимает.",
    "id": "{used}/{max} slot terpakai — alat utama tidak memakai slot."
   },
+  "\"{name}\" in mcp.json is not Coucou's — Coucou has not touched it.": {
+   "zh-Hans": "mcp.json 中的“{name}”不属于 Coucou — Coucou 没有修改它。",
+   "hi": "mcp.json में \"{name}\" Coucou का नहीं है — Coucou ने इसे नहीं छुआ।",
+   "es": "«{name}» en mcp.json no es de Coucou — Coucou no lo ha tocado.",
+   "ar": "\"{name}\" في mcp.json ليس تابعًا لـ Coucou — لم يمسّه Coucou.",
+   "fr": "« {name} » dans mcp.json n'appartient pas à Coucou — Coucou n'y a pas touché.",
+   "bn": "mcp.json-এর \"{name}\" Coucou-এর নয় — Coucou এতে হাত দেয়নি।",
+   "pt-BR": "\"{name}\" no mcp.json não é do Coucou — o Coucou não mexeu nele.",
+   "ru": "«{name}» в mcp.json не принадлежит Coucou — Coucou его не трогал.",
+   "id": "\"{name}\" di mcp.json bukan milik Coucou — Coucou tidak menyentuhnya."
+  },
   "{what} has an unexpected type — Coucou has not touched it.": {
    "zh-Hans": "{what} 的类型不符合预期 — Coucou 没有修改它。",
    "hi": "{what} का प्रकार अपेक्षित नहीं है — Coucou ने इसे नहीं छुआ।",
