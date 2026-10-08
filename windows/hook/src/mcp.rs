@@ -239,8 +239,16 @@ mod tests {
         assert_eq!(v["hook_event_name"], "PermissionRequest");
         assert_eq!(v["tool_name"], "AskUserQuestion");
         assert_eq!(v["tool_input"]["questions"][0]["multiSelect"], true);
-        let r = result_for(Some(r#"{"decision":"answer","answers":{"¿Cuáles?":"a, b"}}"#), &ctx);
+        let r = result_for(Some(r#"{"decision":"answer","answers":{"¿Cuáles?":["a","b"]}}"#), &ctx);
         assert!(r["content"][0]["text"].as_str().unwrap().contains("¿Cuáles? → a, b"));
+
+        // Answers come back in the order they were asked.
+        let (_, ctx) = line_of(json!({ "questions": [
+            { "question": "¿Zeta?", "options": [{ "label": "z" }] },
+            { "question": "¿Alfa?", "options": [{ "label": "a" }] },
+        ] }));
+        let r = result_for(Some(r#"{"decision":"answer","answers":{"¿Alfa?":"a","¿Zeta?":"z"}}"#), &ctx);
+        assert!(r["content"][0]["text"].as_str().unwrap().ends_with("- ¿Zeta? → z\n- ¿Alfa? → a"));
     }
 
     #[test]

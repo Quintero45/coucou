@@ -348,15 +348,24 @@ pub fn answers(reply: Option<&Reply>, ctx: &Context) -> Vec<(String, String)> {
         let question = ctx.questions.get(0).and_then(|q| q.get("question")).and_then(Value::as_str).unwrap_or("Pregunta");
         return vec![(question.to_string(), a.to_string())];
     }
-    reply
-        .filter(|r| r.decision == "answer")
-        .and_then(|r| r.answers.as_object())
-        .map(|a| {
-            a.iter()
-                .map(|(q, v)| (q.clone(), v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())))
-                .collect()
-        })
-        .unwrap_or_default()
+    let Some(given) = reply.filter(|r| r.decision == "answer").and_then(|r| r.answers.as_object()) else {
+        return Vec::new();
+    };
+    let text = |v: &Value| match v {
+        Value::String(s) => s.clone(),
+        Value::Array(items) => items.iter().map(|i| i.as_str().map(str::to_string).unwrap_or_else(|| i.to_string())).collect::<Vec<_>>().join(", "),
+        other => other.to_string(),
+    };
+    // In the order they were asked; anything else after.
+    let asked: Vec<&str> = ctx
+        .questions
+        .as_array()
+        .map(|qs| qs.iter().filter_map(|q| q.get("question").and_then(Value::as_str)).collect())
+        .unwrap_or_default();
+    let mut out: Vec<(String, String)> =
+        asked.iter().filter_map(|q| given.get(*q).map(|v| (q.to_string(), text(v)))).collect();
+    out.extend(given.iter().filter(|(q, _)| !asked.contains(&q.as_str())).map(|(q, v)| (q.clone(), text(v))));
+    out
 }
 
 /// Cursor's preToolUse can't fill in a question's answers, only allow or deny
