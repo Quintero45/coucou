@@ -1,4 +1,4 @@
-//! `coucou-hook --bot <name> [--status <s>] <message…>` — how the owner's Grok
+//! `aria-hook --bot <name> [--status <s>] <message…>` — how the owner's Grok
 //! Bots report to the island. Grok Bot runs it on this computer through its
 //! local execution; nothing is read from stdin.
 //!
@@ -7,7 +7,7 @@
 //! `allow`, `deny` or `sin-respuesta` (exit codes 0, 1, 2) so the Bot knows
 //! what the owner decided. Every other status is fire-and-forget.
 //!
-//! Questions with buttons: `coucou-hook --bot <name> [--status ask]
+//! Questions with buttons: `aria-hook --bot <name> [--status ask]
 //! --options "A|B::description|C" [--allow-custom] "<question>"`. `|` separates
 //! options, `::` a label from its description, `\|` is a literal pipe; at most
 //! 12 options, labels cut to 60 characters, repeats dropped, an empty label is
@@ -18,11 +18,11 @@
 //! Bot's conversation and nothing is waited for.
 //!
 //! Cards on the pill:
-//! - `coucou-hook --step "<text>" --bot <name>`: a progress step (fire and
+//! - `aria-hook --step "<text>" --bot <name>`: a progress step (fire and
 //!   forget, exit 0). The app redacts it and keeps ~200 characters.
-//! - `coucou-hook --attach <path> --bot <name> [--caption "<text>"]`: a file
+//! - `aria-hook --attach <path> --bot <name> [--caption "<text>"]`: a file
 //!   card. The app checks the file exists; prints `ok` (exit 0), or the reason
-//!   on stderr (exit 1); exit 2 when Coucou is not running.
+//!   on stderr (exit 1); exit 2 when ARIA is not running.
 
 use std::sync::mpsc;
 
@@ -159,8 +159,8 @@ fn parse(args: &[String]) -> Option<Result<BotArgs, String>> {
 /// The line sent to the app for a status call.
 fn status_payload(bot: &BotArgs) -> serde_json::Value {
     let mut payload = json!({
-        "coucou_agent": format!("bot-{}", slug(&bot.name)),
-        "coucou_bot": bot.name,
+        "aria_agent": format!("bot-{}", slug(&bot.name)),
+        "aria_bot": bot.name,
         "message": bot.message,
         "cwd": "",
     });
@@ -251,9 +251,9 @@ fn parse_card(args: &[String]) -> Option<Result<Card, String>> {
 fn card_payload(card: &Card) -> serde_json::Value {
     match card {
         Card::Step { name, text } => json!({
-            "coucou_kind": "bot_step",
-            "coucou_agent": format!("bot-{}", slug(name)),
-            "coucou_bot": name,
+            "aria_kind": "bot_step",
+            "aria_agent": format!("bot-{}", slug(name)),
+            "aria_bot": name,
             "text": text,
         }),
         Card::Attach { name, path, caption } => {
@@ -261,9 +261,9 @@ fn card_payload(card: &Card) -> serde_json::Value {
             // the working directory is the Bot's.
             let abs = std::path::absolute(path).map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| path.clone());
             let mut v = json!({
-                "coucou_kind": "bot_attach",
-                "coucou_agent": format!("bot-{}", slug(name)),
-                "coucou_bot": name,
+                "aria_kind": "bot_attach",
+                "aria_agent": format!("bot-{}", slug(name)),
+                "aria_bot": name,
                 "path": abs,
             });
             if let Some(c) = caption {
@@ -287,7 +287,7 @@ fn run_card(card: Card) -> i32 {
         return 0;
     }
     let Some(answer) = answer else {
-        eprintln!("coucou-hook: ARIA no respondió (¿está abierta?)");
+        eprintln!("aria-hook: ARIA no respondió (¿está abierta?)");
         return 2;
     };
     let v: serde_json::Value = serde_json::from_str(answer.trim()).unwrap_or_default();
@@ -295,7 +295,7 @@ fn run_card(card: Card) -> i32 {
         println!("ok");
         0
     } else {
-        eprintln!("coucou-hook: {}", v["error"].as_str().unwrap_or("ARIA rechazó el archivo"));
+        eprintln!("aria-hook: {}", v["error"].as_str().unwrap_or("ARIA rechazó el archivo"));
         1
     }
 }
@@ -306,7 +306,7 @@ pub fn run() -> Option<i32> {
     match parse_card(&args) {
         Some(Ok(card)) => return Some(run_card(card)),
         Some(Err(e)) => {
-            eprintln!("coucou-hook: {e}");
+            eprintln!("aria-hook: {e}");
             return Some(64);
         }
         None => {}
@@ -314,7 +314,7 @@ pub fn run() -> Option<i32> {
     let bot = match parse(&args)? {
         Ok(b) => b,
         Err(e) => {
-            eprintln!("coucou-hook: {e}");
+            eprintln!("aria-hook: {e}");
             return Some(64);
         }
     };
@@ -370,8 +370,8 @@ mod tests {
         let c = parse_card(&args(&["--bot", "Ventas", "--step", "Leyendo", "correos"])).unwrap().unwrap();
         assert_eq!(c, Card::Step { name: "Ventas".into(), text: "Leyendo correos".into() });
         let v = card_payload(&c);
-        assert_eq!(v["coucou_kind"], "bot_step");
-        assert_eq!(v["coucou_agent"], "bot-ventas");
+        assert_eq!(v["aria_kind"], "bot_step");
+        assert_eq!(v["aria_agent"], "bot-ventas");
         assert_eq!(v["text"], "Leyendo correos");
         assert!(parse_card(&args(&["--bot", "Ventas", "hola"])).is_none(), "a plain status call");
     }
@@ -386,7 +386,7 @@ mod tests {
             Card::Attach { name: "Ventas".into(), path: "C:\\x\\informe.pdf".into(), caption: Some("El informe".into()) }
         );
         let v = card_payload(&c);
-        assert_eq!(v["coucou_kind"], "bot_attach");
+        assert_eq!(v["aria_kind"], "bot_attach");
         assert_eq!(v["caption"], "El informe");
         let c = parse_card(&args(&["--bot", "V", "--attach", "informe.pdf"])).unwrap().unwrap();
         let v = card_payload(&c);
@@ -456,7 +456,7 @@ mod tests {
         assert_eq!(verdict(r#"{"decision":"allow","answer":"texto libre: mañana"}"#), ("texto libre: mañana".to_string(), 0));
         assert_eq!(verdict("deny"), ("deny".to_string(), 1));
         assert_eq!(verdict(r#"{"decision":"deny","answer":"B"}"#), ("deny".to_string(), 1));
-        // Timeout, island closed, Coucou not running: nothing came back.
+        // Timeout, island closed, ARIA not running: nothing came back.
         assert_eq!(verdict(""), ("sin-respuesta".to_string(), 2));
         assert_eq!(verdict("maybe"), ("sin-respuesta".to_string(), 2));
         assert_eq!(verdict("{not json"), ("sin-respuesta".to_string(), 2));

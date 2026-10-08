@@ -79,7 +79,7 @@ test("Write and MultiEdit are diffed too; other tools and PreToolUse are not", (
 
 test("an edit with no change, or one the relay had to cut, adds no diff", () => {
   hook({ hook_event_name: "PostToolUse", tool_name: "Edit", tool_input: { file_path: "/p/a.ts", old_string: "same", new_string: "same" } });
-  edit({ coucou_diff_truncated: true });
+  edit({ aria_diff_truncated: true });
   assert.deepEqual(task().steps, []);
   assert.equal(diffs().length, 0);
 });
@@ -110,21 +110,21 @@ test("diffs are forgotten an hour after the last one, and at the end of the sess
 });
 
 test("an agent pill's diffs go with the pill", () => {
-  hook({ hook_event_name: "PreToolUse", coucou_agent: "gemini", tool_name: "Edit", tool_input: { file_path: "/p/a.ts" } });
-  edit({ coucou_agent: "gemini" });
+  hook({ hook_event_name: "PreToolUse", aria_agent: "gemini", tool_name: "Edit", tool_input: { file_path: "/p/a.ts" } });
+  edit({ aria_agent: "gemini" });
   assert.equal(diffs("agent_gemini").length, 1);
-  hook({ hook_event_name: "SessionEnd", coucou_agent: "gemini" });
+  hook({ hook_event_name: "SessionEnd", aria_agent: "gemini" });
   assert.equal(task("agent_gemini"), undefined);
   assert.equal(State.sessionDiffs.has("agent_gemini"), false);
   // An event for a pill that does not exist stores nothing.
-  edit({ coucou_agent: "ghost" });
+  edit({ aria_agent: "ghost" });
   assert.equal(State.sessionDiffs.has("agent_ghost"), false);
 });
 
 test("a Cursor file edit shows up as code in its conversation, capped", () => {
   const edits = (n) => [{ old_string: "x\n", new_string: Array.from({ length: n }, (_, i) => `line ${i}`).join("\n") }];
   hook({
-    hook_event_name: "PostToolUse", coucou_agent: "cursor", tool_name: "Edit",
+    hook_event_name: "PostToolUse", aria_agent: "cursor", tool_name: "Edit",
     tool_input: { file_path: "C:\\p\\src\\app.ts", edits: edits(3) },
   });
   const entry = BotChat.list(CURSOR_CHAT).at(-1);
@@ -133,7 +133,7 @@ test("a Cursor file edit shows up as code in its conversation, capped", () => {
   assert.deepEqual([entry.added, entry.removed, entry.more], [3, 1, 0]);
   assert.deepEqual(entry.lines.map((l) => l.k), ["-", "+", "+", "+"]);
   hook({
-    hook_event_name: "PostToolUse", coucou_agent: "cursor", tool_name: "Edit",
+    hook_event_name: "PostToolUse", aria_agent: "cursor", tool_name: "Edit",
     tool_input: { file_path: "C:\\p\\src\\big.ts", edits: edits(EDIT_LINES + 10) },
   });
   const big = BotChat.list(CURSOR_CHAT).at(-1);

@@ -123,7 +123,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     send.classList.toggle("stop", stop);
   }
 
-  /** "@Name task" goes straight to that Grok Bot, without Mochi in between. */
+  /** "@Name task" goes straight to that Grok Bot, without ARIA in between. */
   function botTarget(query: string): { bot: string; task: string } | null {
     if (!query.startsWith("@")) return null;
     // "@todos mensaje": the same message to every Grok Bot.

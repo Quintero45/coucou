@@ -88,7 +88,7 @@ export function parseChoices(payload: Record<string, unknown> | null | undefined
   return { options, allowCustom: custom === true };
 }
 
-/** Shown for any other failure; the original goes to coucou.log. */
+/** Shown for any other failure; the original goes to aria.log. */
 export const cmdFailed = () => t("Couldn't finish. The details are in the log.");
 
 /** grokbot/files error codes in the owner's words (same as attachments.ts botErrorText). */
@@ -161,7 +161,7 @@ export const CURSOR_WRITE = {
   field: "prompt",
 } as const;
 
-// ── «Sonidos de Coucou» (play_sound in Rust; Aerys confirms the name) ─────────
+// ── «Sonidos de ARIA» (play_sound in Rust; Aerys confirms the name) ─────────
 
 export const SOUND_CMD = {
   /** The Rust command: play_sound({ name }); Rust plays it at settings.soundVolume. */
@@ -169,13 +169,13 @@ export const SOUND_CMD = {
   names: ["recibido", "pregunta", "listo", "error"],
 } as const;
 
-export type CoucouSound = (typeof SOUND_CMD.names)[number];
+export type AriaSound = (typeof SOUND_CMD.names)[number];
 
 /** Set once Rust answered that play_sound doesn't exist: no more tries. */
 let soundCmdMissing = false;
 
-/** Plays a Coucou sound if settings.soundEnabled is on. Never throws, never shows anything. */
-export function playSound(name: CoucouSound, prefs: { soundEnabled?: boolean }) {
+/** Plays an ARIA sound if settings.soundEnabled is on. Never throws, never shows anything. */
+export function playSound(name: AriaSound, prefs: { soundEnabled?: boolean }) {
   if (prefs.soundEnabled === false || soundCmdMissing || !IS_TAURI) return;
   invoke(SOUND_CMD.cmd, { name }).catch((err) => {
     const raw = String(err instanceof Error ? err.message : err);

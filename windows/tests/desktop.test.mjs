@@ -1,4 +1,4 @@
-// Mochi on the desktop: the pure logic and the life cycle (src/mochi/desktop-logic.ts).
+// ARIA on the desktop: the pure logic and the life cycle (src/aria/desktop-logic.ts).
 // The first half mirrors tests/DesktopMochiTests.swift; the geometry of the
 // window itself (clamping, saved spots, the island's home zone) is tested in
 // src-tauri/src/desktop.rs, where it lives.
@@ -6,10 +6,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  BODY_RADIUS_FRACTION, DesktopMochiController, PANEL_SIZE, RETRACT_DELAY_MS, RETURN_DELAY_MS,
+  BODY_RADIUS_FRACTION, DesktopAriaController, PANEL_SIZE, RETRACT_DELAY_MS, RETURN_DELAY_MS,
   agentActive, alertActive, gaze, isOverBody, layerDragTopLeft, lookOrigin, pointerDistance,
   shouldRetractOnLanding, shouldSleep, windowDragTopLeft,
-} from "../src/mochi/desktop-logic.ts";
+} from "../src/aria/desktop-logic.ts";
 
 // ── shouldSleep ───────────────────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ test("shouldSleep: idle long enough and the pointer far away", () => {
   assert.equal(shouldSleep(200, 150), true, "at distance threshold must sleep");
 });
 
-test("agent work keeps him awake, idle and sleeping don't", () => {
+test("agent work keeps her awake, idle and sleeping don't", () => {
   for (const s of ["working", "thinking", "searching", "approval", "question", "finished", "error"]) {
     assert.equal(agentActive(s), true, s);
   }
@@ -34,7 +34,7 @@ test("pointer distance: measured with a cursor poll, remembered without one", ()
   assert.equal(pointerDistance(true, { x: 60, y: 60 }, 0), 0);
   assert.equal(pointerDistance(true, { x: 60 + 150, y: 60 }, 0), 150);
   assert.equal(pointerDistance(true, null, 0), Infinity, "no cursor yet: far");
-  // Linux: near while the pointer was over him a moment ago.
+  // Linux: near while the pointer was over her a moment ago.
   assert.equal(pointerDistance(false, null, 100), 0);
   assert.equal(pointerDistance(false, { x: 60, y: 60 }, 60_000), Infinity);
 });
@@ -76,17 +76,17 @@ test("gaze signs across a real arrangement of screens", () => {
     const g = gaze(topDown(bot, top), topDown(mouse, top));
     return [sign(g.lookX), sign(g.lookY)];
   };
-  // Mochi in the island at the top of the external screen above.
+  // ARIA in the island at the top of the external screen above.
   const islandOnTop = { x: 780, y: 2422 - 16 };
   assert.deepEqual(look(islandOnTop, { x: 1400, y: 100 }), [1, -1], "cursor on the MacBook below-right");
   assert.deepEqual(look(islandOnTop, { x: -1000, y: 0 }), [-1, -1], "cursor on the portrait screen");
-  assert.deepEqual(look(islandOnTop, { x: 780, y: 2500 }), [0, 1], "cursor above Mochi");
-  // Mochi on the desktop of the portrait screen, cursor on the external screen above.
+  assert.deepEqual(look(islandOnTop, { x: 780, y: 2500 }), [0, 1], "cursor above ARIA");
+  // ARIA on the desktop of the portrait screen, cursor on the external screen above.
   const panelMin = topDown({ x: -700, y: -200 + 120 }, top); // AppKit minY is the bottom edge
   const desktopOnLeft = lookOrigin(panelMin.x, panelMin.y, 120);
   const mouseAbove = topDown({ x: 1000, y: 2000 }, top);
   assert.ok(mouseAbove.x > desktopOnLeft.x && mouseAbove.y < desktopOnLeft.y,
-    "desktop Mochi looks right and up at a cursor on another screen");
+    "desktop ARIA looks right and up at a cursor on another screen");
   const g = gaze(desktopOnLeft, mouseAbove);
   assert.ok(g.lookX > 0 && g.lookY > 0);
 });
@@ -98,11 +98,11 @@ test("shouldRetractOnLanding", () => {
   assert.equal(shouldRetractOnLanding(false), false, "must not retract when no alert on landing");
 });
 
-test("a permission or a question sends him back to the island", () => {
+test("a permission or a question sends her back to the island", () => {
   assert.equal(alertActive({ pendingApproval: null, tasks: [{ state: "working" }] }), false);
   assert.equal(alertActive({ pendingApproval: { requestId: "r" }, tasks: [] }), true);
   assert.equal(alertActive({ pendingApproval: null, tasks: [{ state: "idle" }, { state: "question" }] }), true);
-  // The question card (#216) is the same card with `questions`: it flies him home too.
+  // The question card (#216) is the same card with `questions`: it flies her home too.
   const question = {
     requestId: "q", sessionId: "s", pillId: "integration_claude", tool: "AskUserQuestion", command: "",
     questions: [{ question: "Which?", options: [{ label: "A", description: "" }], multiSelect: false }],
@@ -174,11 +174,11 @@ function world({ alert = false, flyOutOk = true } = {}) {
       later: (fn, ms) => timers.push({ fn, ms }),
     },
   };
-  w.c = new DesktopMochiController(w.port);
+  w.c = new DesktopAriaController(w.port);
   return w;
 }
 
-test("launch: flies out to his spot only if he lives on the desktop", async () => {
+test("launch: flies out to her spot only if she lives on the desktop", async () => {
   const w = world();
   await w.c.launchFlyIfNeeded();
   assert.equal(w.c.phase, "home", "not enabled: stays home");
@@ -187,12 +187,12 @@ test("launch: flies out to his spot only if he lives on the desktop", async () =
   w.c.enabled = true;
   void w.c.launchFlyIfNeeded();
   assert.equal(w.c.phase, "flyingOut");
-  assert.equal(w.away, true, "the island's Mochi hides as he leaves");
+  assert.equal(w.away, true, "the island's ARIA hides as she leaves");
   await w.land();
   assert.equal(w.c.phase, "onDesktop");
 });
 
-test("launch: a spot on a display that is gone keeps him home", async () => {
+test("launch: a spot on a display that is gone keeps her home", async () => {
   const w = world({ flyOutOk: false });
   w.c.enabled = true;
   void w.c.launchFlyIfNeeded();
@@ -231,10 +231,10 @@ test("alert on the desktop: surprised, flies to the island, comes back once answ
   assert.ok(w.log.includes("emote:surprised"));
   await w.tick(RETRACT_DELAY_MS);
   assert.deepEqual(w.flying, ["home"]);
-  assert.ok(w.log.includes("home-keep"), "he keeps his spot");
+  assert.ok(w.log.includes("home-keep"), "she keeps her spot");
   await w.land();
   assert.equal(w.c.phase, "atNotchForAlert");
-  assert.equal(w.away, false, "the island's Mochi shows the alert");
+  assert.equal(w.away, false, "the island's ARIA shows the alert");
   assert.ok(w.log.includes("reveal"));
   assert.equal(w.c.enabled, true);
 
@@ -245,7 +245,7 @@ test("alert on the desktop: surprised, flies to the island, comes back once answ
   assert.equal(w.c.phase, "onDesktop");
 });
 
-test("alert answered before he takes off: he never leaves his spot", async () => {
+test("alert answered before she takes off: she never leaves her spot", async () => {
   const w = world();
   w.c.enabled = true;
   void w.c.launchFlyIfNeeded();
@@ -275,12 +275,12 @@ test("alert answered during the flight to the island: straight back out", async 
   w.c.updateAlert(false);
   assert.equal(w.c.phase, "alertResolvedDuringRetract");
   await w.land();
-  assert.deepEqual(w.flying, ["out"], "relaunched as soon as he reached the island");
+  assert.deepEqual(w.flying, ["out"], "relaunched as soon as she reached the island");
   await w.land();
   assert.equal(w.c.phase, "onDesktop");
 });
 
-test("an alert that went up during the flight out sends him right back", async () => {
+test("an alert that went up during the flight out sends her right back", async () => {
   const w = world();
   w.c.enabled = true;
   void w.c.launchFlyIfNeeded();
@@ -320,13 +320,13 @@ test("double click or dropped on the island: home for good", async () => {
   assert.equal(w.away, false);
   assert.ok(w.log.includes("sound:peek"));
 
-  // An alert now leaves him in the island.
+  // An alert now leaves her in the island.
   w.alert = true;
   w.c.updateAlert(true);
   assert.equal(w.c.phase, "home");
 });
 
-test("sent home in the instant before an alert takes him: home wins", async () => {
+test("sent home in the instant before an alert takes her: home wins", async () => {
   const w = world();
   w.c.installed();
   w.alert = true;
@@ -340,14 +340,14 @@ test("sent home in the instant before an alert takes him: home wins", async () =
   w.alert = false;
   w.c.updateAlert(false);
   await w.tick(RETURN_DELAY_MS);
-  assert.deepEqual(w.flying, [], "and he doesn't come back out");
+  assert.deepEqual(w.flying, [], "and she doesn't come back out");
 });
 
 test("a finished task gets a happy jump, only on the desktop", () => {
   const w = world();
   w.c.updateState("working");
   w.c.updateState("finished");
-  assert.ok(!w.log.includes("emote:happy"), "home: the island's Mochi celebrates");
+  assert.ok(!w.log.includes("emote:happy"), "home: the island's ARIA celebrates");
   w.c.installed();
   w.log.length = 0;
   w.c.updateState("working");

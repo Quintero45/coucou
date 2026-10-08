@@ -1,13 +1,13 @@
-//! coucou-hook — the relay Claude Code (and every other agent) runs on each hook
+//! aria-hook — the relay Claude Code (and every other agent) runs on each hook
 //! event.
 //!
 //! Reads the hook JSON on stdin, maps the agent's event and field names onto
 //! Claude Code's (normalize.rs), adds a little terminal context, and hands it to
-//! Coucou over the named pipe `\\.\pipe\coucou-<sid>` (Windows) or the Unix
-//! socket `$XDG_RUNTIME_DIR/coucou.sock` (Linux).
+//! ARIA over the named pipe `\\.\pipe\aria-<sid>` (Windows) or the Unix
+//! socket `$XDG_RUNTIME_DIR/aria.sock` (Linux).
 //!
 //! Hard rule (docs/CLAUDE.md): **never block the agent.**
-//! * If the pipe does not exist — Coucou is closed — we exit 0 immediately, with
+//! * If the pipe does not exist — ARIA is closed — we exit 0 immediately, with
 //!   only the "no opinion" reply the agent expects (reply.rs), and the session
 //!   carries on untouched.
 //! * Every step runs under a deadline enforced by the main thread, so a pipe that
@@ -15,15 +15,15 @@
 //!   either: we abandon the worker and exit.
 //! * Only `PermissionRequest` waits for an answer, because approving from the
 //!   island is the whole point. No answer means no decision, and the agent asks
-//!   in its terminal exactly as if Coucou were not installed.
+//!   in its terminal exactly as if ARIA were not installed.
 //!
-//! Usage: `coucou-hook [--agent <name>] [--approve] [--ask] [<EventName>]` (the
+//! Usage: `aria-hook [--agent <name>] [--approve] [--ask] [<EventName>]` (the
 //! event name is also read from the JSON; `--agent` is absent for Claude Code;
 //! `--approve` and `--ask` are Cursor's gates and question hook, cursor.rs), or
-//! `coucou-hook --statusline` as Claude Code's status line command (plan usage,
+//! `aria-hook --statusline` as Claude Code's status line command (plan usage,
 //! see statusline.rs): it passes the plan limits on and runs the status line the
 //! user had before, so that keeps working. bot.rs covers `--bot`, which Grok
-//! Bots use, and tool.rs `coucou-hook tool …`, through which they call Mochi's
+//! Bots use, and tool.rs `aria-hook tool …`, through which they call ARIA's
 //! tools. `--mcp` serves Cursor's question tool instead (mcp.rs).
 
 use std::io::{Read, Write};
@@ -48,7 +48,7 @@ const FIRE_AND_FORGET_BUDGET: Duration = Duration::from_secs(2);
 const DECISION_BUDGET: Duration = Duration::from_secs(110);
 /// Cursor's question hook is installed with a 130 s timeout; answer a little before.
 const ASK_BUDGET: Duration = Duration::from_secs(125);
-/// Cursor's stop: Coucou answers at once with queued orders, or not at all.
+/// Cursor's stop: ARIA answers at once with queued orders, or not at all.
 const FOLLOWUP_BUDGET: Duration = Duration::from_secs(2);
 
 /// Fields that are pointless to forward and can be enormous (a whole file read,
@@ -125,7 +125,7 @@ fn main() {
     if let Some(code) = mcp::run() {
         std::process::exit(code);
     }
-    // A Grok Bot calling one of Mochi's tools. Checked before --bot, which a
+    // A Grok Bot calling one of ARIA's tools. Checked before --bot, which a
     // tool call also carries.
     if let Some(code) = tool::run() {
         std::process::exit(code);
@@ -203,7 +203,12 @@ fn prepare(raw: &[u8], args: &Args, env: &dyn Fn(&str) -> Option<String>, cwd: &
     // unchanged; invalid names are discarded by the app, not here. A Claude Code
     // session started from the Claude desktop app is tagged `claude-desktop`.
     if let Some(tag) = agent_tag(&args.agent, env) {
-        map.insert("coucou_agent".into(), Value::String(tag));
+        map.insert("aria_agent".into(), Value::String(tag));
+    }
+    // An agent that tags its own payload may still use the name from before
+    // the rename (docs/AGENTS.md).
+    if let Some(tag) = map.remove("coucou_agent") {
+        map.entry("aria_agent").or_insert(tag);
     }
     // Claude Code in Cursor's terminal goes on the Cursor pill (Mac #120).
     if !map.contains_key("term_editor") {
@@ -257,7 +262,7 @@ fn prepare(raw: &[u8], args: &Args, env: &dyn Fn(&str) -> Option<String>, cwd: &
     Some(Event { line, name, question, cursor })
 }
 
-/// Which terminal the session runs in. Unlike macOS, Coucou here accepts events
+/// Which terminal the session runs in. Unlike macOS, ARIA here accepts events
 /// from every terminal, so this is context only — never a filter.
 fn add_terminal_context(map: &mut Map<String, Value>, env: &dyn Fn(&str) -> Option<String>) {
     for (key, var) in [
@@ -273,7 +278,7 @@ fn add_terminal_context(map: &mut Map<String, Value>, env: &dyn Fn(&str) -> Opti
     }
 }
 
-/// The `coucou_agent` tag: `--agent` when given, otherwise `claude-desktop` for
+/// The `aria_agent` tag: `--agent` when given, otherwise `claude-desktop` for
 /// a Claude Code session started from the Claude desktop app, which says so in
 /// CLAUDE_CODE_ENTRYPOINT — the same rule as the Mac's relay (#191). Nothing
 /// for a plain Claude Code session.
@@ -299,7 +304,7 @@ fn term_editor(env: &dyn Fn(&str) -> Option<String>) -> Option<&'static str> {
 
 /// Caps the strings of a payload: every field to MAX_FIELD_LEN, except the edit
 /// strings of a finished Edit / MultiEdit / Write, which the live diff needs
-/// whole. If even those had to be cut, `coucou_diff_truncated` tells the island
+/// whole. If even those had to be cut, `aria_diff_truncated` tells the island
 /// not to show counts it cannot trust.
 fn truncate_payload(payload: &mut serde_json::Value, event: &str) {
     let keeps_diff = event == "PostToolUse"
@@ -322,7 +327,7 @@ fn truncate_payload(payload: &mut serde_json::Value, event: &str) {
         if let Some(map) = payload.as_object_mut() {
             map.insert("tool_input".into(), input);
             if cut_any {
-                map.insert("coucou_diff_truncated".into(), serde_json::Value::Bool(true));
+                map.insert("aria_diff_truncated".into(), serde_json::Value::Bool(true));
             }
         }
     }
@@ -474,9 +479,18 @@ mod tests {
     fn claude_code_payloads_are_forwarded_as_they_are() {
         let (v, ev) = run(r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/p"}"#, "", "PreToolUse");
         assert_eq!(ev.name, "PreToolUse");
-        assert!(v.get("coucou_agent").is_none());
+        assert!(v.get("aria_agent").is_none());
         assert_eq!(v["cwd"], "/p");
         assert_eq!(v["tool_name"], "Bash");
+    }
+
+    #[test]
+    fn a_payload_tagged_with_the_old_name_keeps_its_pill() {
+        let (v, _) = run(r#"{"hook_event_name":"Stop","coucou_agent":"mytool"}"#, "", "Stop");
+        assert_eq!(v["aria_agent"], "mytool");
+        assert!(v.get("coucou_agent").is_none());
+        let (v, _) = run(r#"{"hook_event_name":"Stop","coucou_agent":"mytool"}"#, "gemini", "Stop");
+        assert_eq!(v["aria_agent"], "gemini");
     }
 
     #[test]
@@ -485,7 +499,7 @@ mod tests {
         let (v, ev) = run(r#"{"hook_event_name":"BeforeTool","toolCall":{"name":"shell","args":{"CommandLine":"ls"}}}"#, "gemini", "PreToolUse");
         assert_eq!(ev.name, "PreToolUse");
         assert_eq!(v["hook_event_name"], "PreToolUse");
-        assert_eq!(v["coucou_agent"], "gemini");
+        assert_eq!(v["aria_agent"], "gemini");
         assert_eq!(v["tool_input"]["command"], "ls");
         assert_eq!(v["cwd"], "/home/me/here");
 
@@ -553,7 +567,7 @@ mod tests {
         assert_eq!(v["tool_input"]["new_string"].as_str().unwrap().len(), big.len());
         // Everything else keeps the ordinary cap, and nothing says "cut".
         assert!(v["cwd"].as_str().unwrap().len() <= MAX_FIELD_LEN + 4);
-        assert!(v.get("coucou_diff_truncated").is_none());
+        assert!(v.get("aria_diff_truncated").is_none());
 
         let mut multi = serde_json::json!({
             "tool_name": "MultiEdit",
@@ -582,7 +596,7 @@ mod tests {
         });
         truncate_payload(&mut v, "PostToolUse");
         assert!(v["tool_input"]["content"].as_str().unwrap().len() <= MAX_DIFF_FIELD_LEN + 4);
-        assert_eq!(v["coucou_diff_truncated"], serde_json::Value::Bool(true));
+        assert_eq!(v["aria_diff_truncated"], serde_json::Value::Bool(true));
 
         // Together, the edit strings never pass the shared budget.
         let half = "y".repeat(MAX_DIFF_FIELD_LEN - 1);
@@ -592,6 +606,6 @@ mod tests {
         let mut multi = serde_json::json!({ "tool_name": "MultiEdit", "tool_input": { "edits": edits } });
         truncate_payload(&mut multi, "PostToolUse");
         assert!(multi.to_string().len() < MAX_DIFF_TOTAL + 64 * 1024);
-        assert_eq!(multi["coucou_diff_truncated"], serde_json::Value::Bool(true));
+        assert_eq!(multi["aria_diff_truncated"], serde_json::Value::Bool(true));
     }
 }

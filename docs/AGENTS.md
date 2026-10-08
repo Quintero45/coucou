@@ -2,6 +2,8 @@
 
 Any tool that can write to a Unix domain socket (macOS, Linux) or a named pipe (Windows) can send events to Coucou and have its own pill next to Claude Code.
 
+> **ARIA (the Windows and Linux fork in `windows/`):** the relay is `aria-hook` (`aria-hook.exe` on Windows, `~/.local/share/aria/bin/aria-hook` on Linux), the field is `aria_agent`, and the endpoints are `\\.\pipe\aria-<user-SID>` and `$XDG_RUNTIME_DIR/aria.sock`. `coucou_agent` is still accepted, and hooks installed by Coucou are recognised so ARIA can update them. The rest of this page applies as written.
+
 ## The `coucou_agent` field
 
 Add the optional field `coucou_agent` to any hook JSON payload. Coucou will create a pill labelled with the agent name and route all events to it.

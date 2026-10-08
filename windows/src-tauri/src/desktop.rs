@@ -1,16 +1,16 @@
-// Mochi on the desktop: his own small window, wherever the user dropped him.
+// ARIA on the desktop: her own small window, wherever the user dropped her.
 // Window side of DesktopMochi.swift, plus the geometry half of
 // DesktopMochiLogic.swift (`logic` below, with its tests).
 //
-// The island page runs his life cycle (src/island/desktop.ts): fly out, back to
+// The island page runs her life cycle (src/island/desktop.ts): fly out, back to
 // the island for an alert, home. This file owns the window — where it is, which
 // part of it takes the mouse, the flights, the drag, and the saved spot.
 //
 // How the window is placed depends on the system (platform::DesktopMode):
 //   * Windows: anywhere, in physical desktop pixels. A cursor poll — running
-//     only while he is awake on the desktop — makes the window click-through
-//     except over his body, feeds his eyes, and carries him during a drag.
-//   * Linux X11: the same coordinates; the input region is his body, and the
+//     only while she is awake on the desktop — makes the window click-through
+//     except over her body, feeds her eyes, and carries her during a drag.
+//   * Linux X11: the same coordinates; the input region is her body, and the
 //     page drives the drag.
 //   * Linux layer-shell: a layer surface on the island's display, placed with
 //     margins in logical pixels.
@@ -27,21 +27,21 @@ use crate::island::{self, PollGate};
 use crate::platform::{self, DesktopMode, MouseShape};
 use crate::settings::{self, DesktopSpot};
 
-pub const LABEL: &str = "mochi";
+pub const LABEL: &str = "aria";
 
 /// Side of the square window, logical pixels (DesktopMochiLogic.panelSize).
 pub const SIZE: f64 = 120.0;
-/// Kept between him and the edges of the work area (DesktopMochiLogic.clampMargin).
+/// Kept between her and the edges of the work area (DesktopMochiLogic.clampMargin).
 const MARGIN: f64 = 24.0;
 /// To and from the island (DesktopMochi.swift: 0.45 s, ease in-out).
 const FLIGHT_MS: u64 = 450;
-/// Settling into his spot after a drop (0.25 s, with a little overshoot).
+/// Settling into her spot after a drop (0.25 s, with a little overshoot).
 const SNAP_MS: u64 = 250;
 const TICK_MS: u64 = 16;
 
-/// Windows never hides his window: it parks it off-screen. tao shows a hidden
+/// Windows never hides her window: it parks it off-screen. tao shows a hidden
 /// window again with SW_SHOW, which may take the keyboard focus from whatever
-/// the user is typing in each time he flies out; a window created visible
+/// the user is typing in each time she flies out; a window created visible
 /// (shown without activation) and only ever moved never is. Same as the
 /// island, which is never re-shown either.
 const PARK: bool = cfg!(windows);
@@ -81,7 +81,7 @@ pub mod logic {
     /// Radius of the clickable body, as a fraction of the window side.
     pub const BODY_RADIUS_FRACTION: f64 = 0.24;
 
-    /// Island panel, logical pixels: dropping Mochi on it brings him home.
+    /// Island panel, logical pixels: dropping ARIA on it brings her home.
     pub const HOME_ZONE_W: f64 = crate::island::PANEL_W;
     pub const HOME_ZONE_H: f64 = crate::island::PANEL_H;
 
@@ -129,7 +129,7 @@ pub mod logic {
 
     /// A spot saved at an earlier launch, checked against the displays
     /// connected now: `None` when none of them holds its centre any more (the
-    /// monitor was unplugged) — he then stays in the island. A spot that is
+    /// monitor was unplugged) — she then stays in the island. A spot that is
     /// still on a display is pulled back inside its work area.
     pub fn restore_spot(
         spot: (f64, f64),
@@ -163,7 +163,7 @@ pub mod logic {
         }
     }
 
-    /// Top-left corner of the window when Mochi sits in the island: centred
+    /// Top-left corner of the window when ARIA sits in the island: centred
     /// under the top edge, where the flights start and end.
     pub fn island_spot(island_center_x: f64, island_top: f64, size: f64, scale: f64) -> (f64, f64) {
         (island_center_x - size * scale / 2.0, island_top)
@@ -198,7 +198,7 @@ use logic::{Display, Rect};
 pub enum Source {
     /// Dragged out of the island.
     Island,
-    /// Picked up where he sat on the desktop.
+    /// Picked up where she sat on the desktop.
     Desktop,
 }
 
@@ -221,7 +221,7 @@ struct Inner {
     overlay: bool,
     /// Top-left corner, in the mode's space.
     pos: (f64, f64),
-    /// Layer mode: logical size of the display he lives on.
+    /// Layer mode: logical size of the display she lives on.
     display: Option<(f64, f64)>,
     /// Poll mode: the click-through state last applied.
     ignoring: Option<bool>,
@@ -231,7 +231,7 @@ pub struct Desktop {
     pub mode: DesktopMode,
     gate: PollGate,
     inner: Mutex<Inner>,
-    /// Bumped by every flight: an older one still running stops moving him.
+    /// Bumped by every flight: an older one still running stops moving her.
     flight: AtomicU64,
 }
 
@@ -259,7 +259,7 @@ struct Cursor {
 pub struct DesktopInfo {
     /// "poll" | "window" | "layer" | "off".
     mode: &'static str,
-    /// He was on the desktop when the app last quit.
+    /// She was on the desktop when the app last quit.
     on_desktop: bool,
 }
 
@@ -288,10 +288,10 @@ pub fn setup(app: &AppHandle) {
             None => mode = DesktopMode::Off,
         }
     }
-    crate::log::line(format!("desktop Mochi: {}", mode.as_str()));
+    crate::log::line(format!("desktop ARIA: {}", mode.as_str()));
     let desktop = Arc::new(Desktop::new(mode));
     app.manage(desktop.clone());
-    // Nothing takes the mouse until he is out.
+    // Nothing takes the mouse until she is out.
     refresh(app, &desktop);
     if mode == DesktopMode::Poll {
         spawn_poll(app.clone(), desktop);
@@ -301,11 +301,11 @@ pub fn setup(app: &AppHandle) {
 fn page_url(app: &AppHandle) -> WebviewUrl {
     #[cfg(dev)]
     if let Some(mut base) = app.config().build.dev_url.clone() {
-        base.set_path("/mochi.html");
+        base.set_path("/aria-desktop.html");
         return WebviewUrl::External(base);
     }
     let _ = app;
-    WebviewUrl::App("mochi.html".into())
+    WebviewUrl::App("aria-desktop.html".into())
 }
 
 fn create_window(app: &AppHandle, _mode: DesktopMode) -> Option<WebviewWindow> {
@@ -336,7 +336,7 @@ fn create_window(app: &AppHandle, _mode: DesktopMode) -> Option<WebviewWindow> {
     match built {
         Ok(win) => Some(win),
         Err(err) => {
-            crate::log::line(format!("desktop Mochi window failed: {err}"));
+            crate::log::line(format!("desktop ARIA window failed: {err}"));
             None
         }
     }
@@ -398,10 +398,10 @@ fn refresh_layer_display(app: &AppHandle, d: &Desktop) {
     if d.mode != DesktopMode::Layer {
         return;
     }
-    let (Some(island), Some(mochi)) = (island::window(app), window(app)) else { return };
+    let (Some(island), Some(aria)) = (island::window(app), window(app)) else { return };
     let (tx, rx) = std::sync::mpsc::channel();
     let _ = app.run_on_main_thread(move || {
-        let _ = tx.send(platform::layer_display(&island, &mochi));
+        let _ = tx.send(platform::layer_display(&island, &aria));
     });
     if let Ok(Some(size)) = rx.recv_timeout(Duration::from_secs(1)) {
         d.inner.lock().unwrap().display = Some(size);
@@ -454,7 +454,7 @@ fn show(app: &AppHandle, d: &Desktop, at: (f64, f64)) {
         let _ = win.set_always_on_top(true);
     }
     refresh(app, d);
-    // The page draws only while he is on screen.
+    // The page draws only while she is on screen.
     let _ = app.emit_to(LABEL, "desktop-visible", true);
 }
 
@@ -487,8 +487,8 @@ fn refresh(app: &AppHandle, d: &Desktop) {
             Some(c.from == Source::Island)
         } else if i.asleep {
             // Asleep, nothing polls: the whole little window takes the mouse
-            // and acts as his own wake area — the first move over it wakes
-            // him, and the poll gives the rest back right away.
+            // and acts as her own wake area — the first move over it wakes
+            // her, and the poll gives the rest back right away.
             Some(false)
         } else {
             None
@@ -523,7 +523,7 @@ fn refresh(app: &AppHandle, d: &Desktop) {
     }
 }
 
-/// Moves him from where he is to `to`, then lands him. False when another
+/// Moves her from where she is to `to`, then lands her. False when another
 /// flight took over before the end.
 async fn fly(app: &AppHandle, d: &Desktop, to: (f64, f64), ms: u64, ease: fn(f64) -> f64) -> bool {
     let token = d.flight.fetch_add(1, Ordering::SeqCst) + 1;
@@ -547,12 +547,12 @@ async fn fly(app: &AppHandle, d: &Desktop, to: (f64, f64), ms: u64, ease: fn(f64
     rx.await.unwrap_or(false)
 }
 
-/// Saves what changed about him in the preferences.
-fn remember(app: &AppHandle, change: impl FnOnce(&mut settings::DesktopMochiPref)) {
+/// Saves what changed about her in the preferences.
+fn remember(app: &AppHandle, change: impl FnOnce(&mut settings::DesktopAriaPref)) {
     let Some(shared) = app.try_state::<crate::Shared>() else { return };
     let snapshot = {
         let mut s = shared.settings.lock().unwrap();
-        change(&mut s.desktop_mochi);
+        change(&mut s.desktop_aria);
         s.clone()
     };
     if let Err(err) = settings::save(&snapshot) {
@@ -568,11 +568,11 @@ fn remember_spot(app: &AppHandle, d: &Desktop, pos: (f64, f64), on_desktop: bool
     });
 }
 
-/// Where he lands when he flies out, or `None` when his spot is on a display
+/// Where she lands when she flies out, or `None` when her spot is on a display
 /// that is no longer connected.
 fn target_spot(app: &AppHandle, d: &Desktop) -> Option<(f64, f64)> {
     let all = displays(app, d);
-    let saved = app.try_state::<crate::Shared>().and_then(|s| s.settings.lock().unwrap().desktop_mochi.spot.clone());
+    let saved = app.try_state::<crate::Shared>().and_then(|s| s.settings.lock().unwrap().desktop_aria.spot.clone());
     match saved {
         Some(spot) if spot.space == d.mode.space() => {
             logic::restore_spot((spot.x, spot.y), &all, SIZE, MARGIN)
@@ -588,7 +588,7 @@ fn target_spot(app: &AppHandle, d: &Desktop) -> Option<(f64, f64)> {
 }
 
 /// The drop, wherever it came from: home if it is over the island's panel,
-/// otherwise his new spot.
+/// otherwise her new spot.
 async fn finish_drop(app: &AppHandle, d: &Desktop, pos: (f64, f64), from: Source) {
     let s = side(app, d);
     let center = (pos.0 + s / 2.0, pos.1 + s / 2.0);
@@ -602,10 +602,10 @@ async fn finish_drop(app: &AppHandle, d: &Desktop, pos: (f64, f64), from: Source
     }
     if home {
         if from == Source::Island {
-            // Back where he came from: he simply reappears in the island.
+            // Back where she came from: she simply reappears in the island.
             hide(app, d);
         } else {
-            // The island page flies him home (and forgets the spot).
+            // The island page flies her home (and forgets the spot).
             refresh(app, d);
         }
     } else {
@@ -616,13 +616,13 @@ async fn finish_drop(app: &AppHandle, d: &Desktop, pos: (f64, f64), from: Source
         }
         remember_spot(app, d, spot, true);
     }
-    let _ = app.emit_to(island::WINDOW_LABEL, "desktop-mochi-dropped", Dropped { from, home });
+    let _ = app.emit_to(island::WINDOW_LABEL, "desktop-aria-dropped", Dropped { from, home });
 }
 
 // ── Poll (Windows) ────────────────────────────────────────────────────────────
 
-/// Runs only while he is awake on the desktop or being carried: click-through
-/// from the body hit test, the cursor for his eyes, and the drag.
+/// Runs only while she is awake on the desktop or being carried: click-through
+/// from the body hit test, the cursor for her eyes, and the drag.
 fn spawn_poll(app: AppHandle, d: Arc<Desktop>) {
     std::thread::spawn(move || loop {
         d.gate.wait_until_active(None);
@@ -676,19 +676,19 @@ fn spawn_poll(app: AppHandle, d: Arc<Desktop>) {
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn desktop_mochi_info(app: AppHandle, desktop: State<Arc<Desktop>>) -> DesktopInfo {
+pub fn desktop_aria_info(app: AppHandle, desktop: State<Arc<Desktop>>) -> DesktopInfo {
     let on_desktop = app
         .try_state::<crate::Shared>()
-        .map(|s| s.settings.lock().unwrap().desktop_mochi.on_desktop)
+        .map(|s| s.settings.lock().unwrap().desktop_aria.on_desktop)
         .unwrap_or(false);
     DesktopInfo { mode: desktop.mode.as_str(), on_desktop: on_desktop && desktop.mode != DesktopMode::Off }
 }
 
-/// Dragging Mochi out of the island: the window appears under the pointer
+/// Dragging ARIA out of the island: the window appears under the pointer
 /// (`x`, `y`: island-window client coordinates) and follows it — the cursor
-/// poll carries it on Windows, `desktop_mochi_carry` elsewhere.
+/// poll carries it on Windows, `desktop_aria_carry` elsewhere.
 #[tauri::command]
-pub async fn desktop_mochi_pick_up(app: AppHandle, x: f64, y: f64) -> bool {
+pub async fn desktop_aria_pick_up(app: AppHandle, x: f64, y: f64) -> bool {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if d.mode == DesktopMode::Off || window(&app).is_none() || d.inner.lock().unwrap().shown {
         return false;
@@ -706,9 +706,9 @@ pub async fn desktop_mochi_pick_up(app: AppHandle, x: f64, y: f64) -> bool {
     true
 }
 
-/// Linux: the pointer moved while Mochi is being dragged out of the island.
+/// Linux: the pointer moved while ARIA is being dragged out of the island.
 #[tauri::command]
-pub async fn desktop_mochi_carry(app: AppHandle, x: f64, y: f64) {
+pub async fn desktop_aria_carry(app: AppHandle, x: f64, y: f64) {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if d.mode == DesktopMode::Poll || d.inner.lock().unwrap().carry.is_none() {
         return;
@@ -719,9 +719,9 @@ pub async fn desktop_mochi_carry(app: AppHandle, x: f64, y: f64) {
     }
 }
 
-/// Linux: the button went up while Mochi was being dragged out of the island.
+/// Linux: the button went up while ARIA was being dragged out of the island.
 #[tauri::command]
-pub async fn desktop_mochi_carry_end(app: AppHandle, x: f64, y: f64) {
+pub async fn desktop_aria_carry_end(app: AppHandle, x: f64, y: f64) {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if d.mode == DesktopMode::Poll || d.inner.lock().unwrap().carry.is_none() {
         return;
@@ -733,10 +733,10 @@ pub async fn desktop_mochi_carry_end(app: AppHandle, x: f64, y: f64) {
     finish_drop(&app, &d, pos, Source::Island).await;
 }
 
-/// The page saw a drag start on Mochi. Returns his top-left corner in the
-/// mode's space, which the page needs to draw him in the overlay (layer mode).
+/// The page saw a drag start on ARIA. Returns her top-left corner in the
+/// mode's space, which the page needs to draw her in the overlay (layer mode).
 #[tauri::command]
-pub async fn desktop_mochi_drag_begin(app: AppHandle) -> Option<(f64, f64)> {
+pub async fn desktop_aria_drag_begin(app: AppHandle) -> Option<(f64, f64)> {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     let pos = {
         let i = d.inner.lock().unwrap();
@@ -745,7 +745,7 @@ pub async fn desktop_mochi_drag_begin(app: AppHandle) -> Option<(f64, f64)> {
         }
         i.pos
     };
-    // A drag takes over from a snap still settling him.
+    // A drag takes over from a snap still settling her.
     d.flight.fetch_add(1, Ordering::SeqCst);
     match d.mode {
         DesktopMode::Poll => {
@@ -771,7 +771,7 @@ pub async fn desktop_mochi_drag_begin(app: AppHandle) -> Option<(f64, f64)> {
 
 /// X11: the page moves the window during its drag (top-left, physical pixels).
 #[tauri::command]
-pub async fn desktop_mochi_drag_move(app: AppHandle, x: f64, y: f64) {
+pub async fn desktop_aria_drag_move(app: AppHandle, x: f64, y: f64) {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if d.mode == DesktopMode::Window && d.inner.lock().unwrap().landed {
         place(&app, &d, (x, y));
@@ -781,7 +781,7 @@ pub async fn desktop_mochi_drag_move(app: AppHandle, x: f64, y: f64) {
 /// Linux: the page's drag ended with the top-left corner at (`x`, `y`), in the
 /// mode's space. On Windows the poll sees the release itself.
 #[tauri::command]
-pub async fn desktop_mochi_drag_end(app: AppHandle, x: f64, y: f64) {
+pub async fn desktop_aria_drag_end(app: AppHandle, x: f64, y: f64) {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if d.mode == DesktopMode::Poll || !d.inner.lock().unwrap().landed {
         return;
@@ -802,18 +802,18 @@ pub async fn desktop_mochi_drag_end(app: AppHandle, x: f64, y: f64) {
     finish_drop(&app, &d, (x, y), Source::Desktop).await;
 }
 
-/// Launch or the end of an alert: from the island to his spot. False when the
-/// spot is on a display that is gone — he then stays home, and is forgotten
+/// Launch or the end of an alert: from the island to her spot. False when the
+/// spot is on a display that is gone — she then stays home, and is forgotten
 /// there so the next launch doesn't try again.
 #[tauri::command]
-pub async fn desktop_mochi_fly_out(app: AppHandle) -> bool {
+pub async fn desktop_aria_fly_out(app: AppHandle) -> bool {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if d.mode == DesktopMode::Off || window(&app).is_none() {
         return false;
     }
     refresh_layer_display(&app, &d);
     let Some(target) = target_spot(&app, &d) else {
-        crate::log::line("desktop Mochi: his spot is on a display that is gone — he stays home");
+        crate::log::line("desktop ARIA: his spot is on a display that is gone — he stays home");
         remember(&app, |p| p.on_desktop = false);
         return false;
     };
@@ -836,11 +836,11 @@ pub async fn desktop_mochi_fly_out(app: AppHandle) -> bool {
     true
 }
 
-/// To the island, then hidden. `forget` is the user bringing him home (double
-/// click, drop on the island); without it he is only away for an alert and
+/// To the island, then hidden. `forget` is the user bringing her home (double
+/// click, drop on the island); without it she is only away for an alert and
 /// flies back out once it is answered.
 #[tauri::command]
-pub async fn desktop_mochi_fly_home(app: AppHandle, forget: bool) -> bool {
+pub async fn desktop_aria_fly_home(app: AppHandle, forget: bool) -> bool {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if !d.inner.lock().unwrap().shown {
         if forget {
@@ -874,7 +874,7 @@ pub async fn desktop_mochi_fly_home(app: AppHandle, forget: bool) -> bool {
 
 /// The page dozed off (or woke up). Asleep, nothing polls.
 #[tauri::command]
-pub fn desktop_mochi_set_asleep(app: AppHandle, desktop: State<Arc<Desktop>>, asleep: bool) {
+pub fn desktop_aria_set_asleep(app: AppHandle, desktop: State<Arc<Desktop>>, asleep: bool) {
     let changed = {
         let mut i = desktop.inner.lock().unwrap();
         let changed = i.asleep != asleep;
@@ -964,7 +964,7 @@ mod tests {
         let d = two_displays();
         // Dropped against the right edge of the laptop: stays on the laptop.
         assert_eq!(settle((1800.0, 500.0), &d, 120.0, 24.0), (1920.0 - 120.0 - 24.0, 500.0));
-        // His centre already over the next display: he moves onto it.
+        // Her centre already over the next display: she moves onto it.
         assert_eq!(settle((1870.0, 500.0), &d, 120.0, 24.0), (1920.0 + 48.0, 500.0));
         // Dropped in the gap above the laptop, next to the taller monitor:
         // nearest display.

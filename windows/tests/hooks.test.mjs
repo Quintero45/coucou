@@ -207,7 +207,7 @@ test("a new turn within 5.2 s of a stop is not put back to idle", () => {
 // ── Other agents ──────────────────────────────────────────────────────────────
 
 test("a tagged agent gets its own pill next to Claude Code's", () => {
-  hook({ hook_event_name: "PreToolUse", cwd: "/p/proj", coucou_agent: "gemini", tool_name: "Bash", tool_input: { command: "ls" } });
+  hook({ hook_event_name: "PreToolUse", cwd: "/p/proj", aria_agent: "gemini", tool_name: "Bash", tool_input: { command: "ls" } });
   assert.equal(State.tasks[0].id, CLAUDE);
   assert.equal(State.tasks[1].id, "agent_gemini");
   const agent = task("agent_gemini");
@@ -223,19 +223,19 @@ test("a tagged agent gets its own pill next to Claude Code's", () => {
 
 test("an invalid or reserved agent tag falls back to the Claude Code pill", () => {
   for (const tag of ["claude", "Gemini", "has space", "a".repeat(25), ""]) {
-    hook({ hook_event_name: "SessionStart", cwd: "/p/proj", coucou_agent: tag });
+    hook({ hook_event_name: "SessionStart", cwd: "/p/proj", aria_agent: tag });
   }
   assert.equal(State.tasks.some((t) => t.id.startsWith("agent_")), false);
   assert.equal(task().name, "proj");
 });
 
 test("an agent's pill goes away when its session ends, or 5.2 s after it stops", () => {
-  hook({ hook_event_name: "SessionStart", coucou_agent: "gemini" });
-  hook({ hook_event_name: "SessionEnd", coucou_agent: "gemini" });
+  hook({ hook_event_name: "SessionStart", aria_agent: "gemini" });
+  hook({ hook_event_name: "SessionEnd", aria_agent: "gemini" });
   assert.equal(task("agent_gemini"), undefined);
 
-  hook({ hook_event_name: "SessionStart", coucou_agent: "codex" });
-  hook({ hook_event_name: "Stop", coucou_agent: "codex" });
+  hook({ hook_event_name: "SessionStart", aria_agent: "codex" });
+  hook({ hook_event_name: "Stop", aria_agent: "codex" });
   assert.equal(task("agent_codex").state, "finished");
   seconds(5.2);
   assert.equal(task("agent_codex"), undefined);
@@ -245,7 +245,7 @@ test("an agent's permission request is declined, never shown as Claude Code's", 
   // Cursor is not here: hook/src/cursor.rs brings its gates and questions to the island.
   for (const agent of ["gemini", "antigravity", "opencode", "amp", "hermes", "my-tool"]) {
     calls.length = 0;
-    hook({ hook_event_name: "PermissionRequest", request_id: "r1", coucou_agent: agent, tool_name: "Bash" });
+    hook({ hook_event_name: "PermissionRequest", request_id: "r1", aria_agent: agent, tool_name: "Bash" });
     assert.deepEqual(sent("approval_decline"), [{ requestId: "r1" }], agent);
     assert.deepEqual(sent("approval_ack"), [], agent);
     assert.equal(State.pendingApproval, null, agent);
@@ -260,7 +260,7 @@ test("Codex, Copilot CLI and Muse Code get the card on their own pill", () => {
     asked = [];
     hook({
       hook_event_name: "PermissionRequest", request_id: `r-${agent}`, session_id: "s1",
-      coucou_agent: agent, tool_name: "Bash", tool_input: { command: "npm publish" },
+      aria_agent: agent, tool_name: "Bash", tool_input: { command: "npm publish" },
     });
     const id = `agent_${agent}`;
     assert.deepEqual(State.pendingApproval, {
@@ -283,10 +283,10 @@ test("Codex, Copilot CLI and Muse Code get the card on their own pill", () => {
 
 test("an agent's turn ending takes its card down and gives the front back", () => {
   State.setFocus("integration_n8n");
-  hook({ hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", coucou_agent: "codex", tool_name: "Bash" });
+  hook({ hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", aria_agent: "codex", tool_name: "Bash" });
   assert.equal(State.focusId, "agent_codex");
   asked = [];
-  hook({ hook_event_name: "Stop", session_id: "s1", coucou_agent: "codex" });
+  hook({ hook_event_name: "Stop", session_id: "s1", aria_agent: "codex" });
   assert.equal(State.pendingApproval, null);
   assert.equal(State.focusId, "integration_n8n");
   // The stop no longer has the front: its pill is badged, the view is not taken.
@@ -295,16 +295,16 @@ test("an agent's turn ending takes its card down and gives the front back", () =
 });
 
 test("an agent's card comes up at once when its pill has the focus", () => {
-  hook({ hook_event_name: "SessionStart", session_id: "s1", coucou_agent: "codex" });
+  hook({ hook_event_name: "SessionStart", session_id: "s1", aria_agent: "codex" });
   State.setFocus("agent_codex");
   asked = [];
-  hook({ hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", coucou_agent: "codex", tool_name: "Bash" });
+  hook({ hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", aria_agent: "codex", tool_name: "Bash" });
   assert.deepEqual(asked, ["alert:approval"]);
 });
 
 test("only Claude Code's questions become a question card", () => {
   hook({
-    hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", coucou_agent: "codex",
+    hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", aria_agent: "codex",
     tool_name: "AskUserQuestion",
     tool_input: { questions: [{ question: "Which?", options: [{ label: "A" }, { label: "B" }] }] },
   });
@@ -316,11 +316,11 @@ test("the end of the turn takes a waiting card down and releases the relay", () 
   for (const end of ["Stop", "StopFailure", "UserPromptSubmit", "SessionEnd", "Interrupt"]) {
     State.pendingApproval = null;
     calls.length = 0;
-    hook({ hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", coucou_agent: "codex", tool_name: "Bash" });
+    hook({ hook_event_name: "PermissionRequest", request_id: "r1", session_id: "s1", aria_agent: "codex", tool_name: "Bash" });
     // Another session's turn ending changes nothing.
-    hook({ hook_event_name: end, session_id: "other", coucou_agent: "codex" });
+    hook({ hook_event_name: end, session_id: "other", aria_agent: "codex" });
     assert.equal(State.pendingApproval?.requestId, "r1", end);
-    hook({ hook_event_name: end, session_id: "s1", coucou_agent: "codex" });
+    hook({ hook_event_name: end, session_id: "s1", aria_agent: "codex" });
     assert.equal(State.pendingApproval, null, end);
     assert.deepEqual(sent("approval_decline"), [{ requestId: "r1" }], end);
     mock.timers.runAll();
@@ -328,34 +328,34 @@ test("the end of the turn takes a waiting card down and releases the relay", () 
 });
 
 test("Codex's Interrupt puts its pill back to idle", () => {
-  hook({ hook_event_name: "UserPromptSubmit", session_id: "s1", coucou_agent: "codex", prompt: "go" });
+  hook({ hook_event_name: "UserPromptSubmit", session_id: "s1", aria_agent: "codex", prompt: "go" });
   assert.equal(task("agent_codex").state, "thinking");
-  hook({ hook_event_name: "Interrupt", session_id: "s1", coucou_agent: "codex" });
+  hook({ hook_event_name: "Interrupt", session_id: "s1", aria_agent: "codex" });
   assert.equal(task("agent_codex").state, "idle");
 });
 
 test("Hermes says where a gateway session comes from", () => {
-  hook({ hook_event_name: "SessionStart", coucou_agent: "hermes", platform: "telegram" });
+  hook({ hook_event_name: "SessionStart", aria_agent: "hermes", platform: "telegram" });
   assert.deepEqual(task("agent_hermes").steps, ["Telegram"]);
-  hook({ hook_event_name: "SessionEnd", coucou_agent: "hermes" });
-  hook({ hook_event_name: "SessionStart", coucou_agent: "hermes", platform: "cli" });
+  hook({ hook_event_name: "SessionEnd", aria_agent: "hermes" });
+  hook({ hook_event_name: "SessionStart", aria_agent: "hermes", platform: "cli" });
   assert.deepEqual(task("agent_hermes").steps, []);
 });
 
 test("an agent's last words show when it stops", () => {
-  hook({ hook_event_name: "SessionStart", coucou_agent: "hermes" });
-  hook({ hook_event_name: "Stop", coucou_agent: "hermes", last_assistant_message: "All done, tests pass." });
+  hook({ hook_event_name: "SessionStart", aria_agent: "hermes" });
+  hook({ hook_event_name: "Stop", aria_agent: "hermes", last_assistant_message: "All done, tests pass." });
   assert.deepEqual(task("agent_hermes").steps, ["All done, tests pass."]);
 });
 
 test("a Claude Desktop session gets the Claude Desktop pill, in its colour (Mac #191)", () => {
-  hook({ hook_event_name: "SessionStart", cwd: "C:\\p\\proj", session_id: "d1", coucou_agent: "claude-desktop" });
+  hook({ hook_event_name: "SessionStart", cwd: "C:\\p\\proj", session_id: "d1", aria_agent: "claude-desktop" });
   const desktop = task("agent_claude-desktop");
   assert.equal(desktop.color, "#D97757");
   assert.equal(desktop.sessionId, "d1");
   assert.equal(task().state, "idle");
   // Its permission requests are answered in the app, as on macOS.
-  hook({ hook_event_name: "PermissionRequest", request_id: "r1", coucou_agent: "claude-desktop", tool_name: "Bash" });
+  hook({ hook_event_name: "PermissionRequest", request_id: "r1", aria_agent: "claude-desktop", tool_name: "Bash" });
   assert.deepEqual(sent("approval_decline"), [{ requestId: "r1" }]);
 });
 
@@ -385,8 +385,8 @@ test("with another main tool, Claude Code's pill comes for the session and goes 
 test("the main tool's agent sessions put it back as it was, never take it away", () => {
   State.settings.mainPill = "agent_codex";
   State.loadIntegrationTasks();
-  hook({ hook_event_name: "SessionStart", coucou_agent: "codex" });
-  hook({ hook_event_name: "Stop", coucou_agent: "codex" });
+  hook({ hook_event_name: "SessionStart", aria_agent: "codex" });
+  hook({ hook_event_name: "Stop", aria_agent: "codex" });
   seconds(5.2);
   assert.equal(task("agent_codex").state, "idle");
   assert.equal(task("agent_codex").name, "Codex");
@@ -483,12 +483,12 @@ test("a question is what the island reopens on while it waits", () => {
 test("a finished or failed session behind a waiting card only badges its pill", () => {
   State.settings.activeIntegrations = ["agent_gemini"];
   State.loadIntegrationTasks();
-  hook({ hook_event_name: "SessionStart", coucou_agent: "gemini" });
+  hook({ hook_event_name: "SessionStart", aria_agent: "gemini" });
   ask("r1");
   asked = [];
   State.focusId = "agent_gemini";
-  hook({ hook_event_name: "Stop", coucou_agent: "gemini" });
-  hook({ hook_event_name: "StopFailure", coucou_agent: "gemini" });
+  hook({ hook_event_name: "Stop", aria_agent: "gemini" });
+  hook({ hook_event_name: "StopFailure", aria_agent: "gemini" });
   assert.deepEqual(asked, []);
   assert.equal(task("agent_gemini").pillBadge, "error");
 });
@@ -616,15 +616,15 @@ test("a new turn behind another pill drops the finished badge straight away", ()
 test("an agent that goes back to work within 5.2 s of its stop keeps its pill", () => {
   afterStop(
     { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" } },
-    { coucou_agent: "gemini" },
+    { aria_agent: "gemini" },
   );
   assert.equal(task("agent_gemini").state, "working");
 });
 
 test("an agent's session ending takes its stop timer with it", () => {
-  hook({ hook_event_name: "Stop", coucou_agent: "gemini" });
-  hook({ hook_event_name: "SessionEnd", coucou_agent: "gemini" });
-  hook({ hook_event_name: "SessionStart", coucou_agent: "gemini" });
+  hook({ hook_event_name: "Stop", aria_agent: "gemini" });
+  hook({ hook_event_name: "SessionEnd", aria_agent: "gemini" });
+  hook({ hook_event_name: "SessionStart", aria_agent: "gemini" });
   seconds(5.2);
   assert.notEqual(task("agent_gemini"), undefined);
 });
@@ -659,7 +659,7 @@ test("the end of a Claude Code session leaves no stop timer behind", () => {
 });
 
 test("one pill going back to work leaves another pill's stop timer running", () => {
-  hook({ hook_event_name: "Stop", coucou_agent: "gemini" });
+  hook({ hook_event_name: "Stop", aria_agent: "gemini" });
   afterStop({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" } });
   assert.equal(task().state, "working");
   assert.equal(task("agent_gemini"), undefined);
@@ -687,7 +687,7 @@ test("a declined permission request leaves the stop timer running", () => {
   // An agent's request is declined without a card.
   afterStop(
     { hook_event_name: "PermissionRequest", request_id: "r1", tool_name: "Bash" },
-    { coucou_agent: "gemini" },
+    { aria_agent: "gemini" },
   );
   assert.equal(task("agent_gemini"), undefined);
   // So is a second request while a card is already up.

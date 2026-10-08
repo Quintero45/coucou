@@ -4,7 +4,7 @@
 //! The one rule that matters: **nothing that allows anything is ever printed
 //! without a decision a human clicked.** With no decision the reply is silence,
 //! an empty `{}`, or Copilot's explicit "ask", and every agent then asks in its
-//! own terminal exactly as if Coucou were not installed.
+//! own terminal exactly as if ARIA were not installed.
 
 use serde_json::{json, Map, Value};
 
@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(stdout("copilot", "PermissionRequest", None, None).unwrap(), r#"{"permissionDecision":"ask"}"#);
         assert_eq!(stdout("muse", "PermissionRequest", None, None), None);
         // Gemini CLI and Antigravity read "{}" as "no opinion" — Antigravity's
-        // PreToolUse included: the tool is never allowed on Coucou's say-so.
+        // PreToolUse included: the tool is never allowed on ARIA's say-so.
         for agent in ["gemini", "antigravity"] {
             for event in ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"] {
                 assert_eq!(stdout(agent, event, None, None).unwrap(), "{}");

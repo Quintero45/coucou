@@ -1,4 +1,4 @@
-// The protected core. Mochi may never write these files — not with write_file,
+// The protected core. ARIA may never write these files — not with write_file,
 // not through an evolve diff — and at startup their contents are compared with
 // the hashes build.rs baked into this binary, so a change made behind its back
 // is noticed and self-evolution refuses to run until a human looks.

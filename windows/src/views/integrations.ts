@@ -27,7 +27,7 @@ const TOOL_ICONS = {
   file: "M6 2h8l6 6v14H6V2zm7 1.5V9h5.5L13 3.5z",
   image: "M4 5h16v14H4V5zm2 2v8l3.5-3.5 2.5 2.5 3-3L18 14V7H6zm3 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z",
 } as const;
-import { createMiniBot, pruneMiniBots } from "../mochi/minibots";
+import { createMiniBot, pruneMiniBots } from "../aria/minibots";
 import { Bridge } from "../core/bridge";
 import { isComingSoon, pillDefinition } from "../core/pills";
 import { refreshHookPills } from "../island/integrations";

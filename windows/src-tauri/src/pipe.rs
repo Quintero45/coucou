@@ -1,14 +1,14 @@
-// Relay server for coucou-hook.
+// Relay server for aria-hook.
 //
-// Windows: the named pipe `\\.\pipe\coucou-<sid>`, one instance per connection.
-// Linux: the Unix socket `$XDG_RUNTIME_DIR/coucou.sock`. Every hook event is
+// Windows: the named pipe `\\.\pipe\aria-<sid>`, one instance per connection.
+// Linux: the Unix socket `$XDG_RUNTIME_DIR/aria.sock`. Every hook event is
 // forwarded to the island as a `hook` event. `PermissionRequest` (questions
 // included) is the only one that keeps its connection open: it waits for the
 // island's decision and writes it back on the same connection, which is how
 // answering from the island works.
 //
 // Claude Code is never blocked by us. Three things guarantee it:
-//   * coucou-hook gives the connection 300 ms and exits cleanly if we are closed;
+//   * aria-hook gives the connection 300 ms and exits cleanly if we are closed;
 //   * we only wait for a human once the island has *confirmed* the card is on
 //     screen, so a paused island or a webview that is not listening costs a few
 //     hundred milliseconds, not two minutes;
@@ -20,13 +20,13 @@
 // `{"decision":"answer","answers":{…}}` with what was picked on the island; or —
 // only for a question card with choices (`options`, see `Choices`) —
 // `{"decision":"allow","answer":"…"}`.
-// Turning that into each agent's documented output is coucou-hook's job, so the
+// Turning that into each agent's documented output is aria-hook's job, so the
 // wire formats live in one place.
 //
-// `coucou-hook tool` (Grok Bots calling Mochi's tools) is the one request that
-// is not a hook event: `coucou_kind: "tool"` / `"tool_list"`, answered with one
+// `aria-hook tool` (Grok Bots calling ARIA's tools) is the one request that
+// is not a hook event: `aria_kind: "tool"` / `"tool_list"`, answered with one
 // JSON line `{"ok":…}`. See `tool_request` below.
-// `--step` / `--attach` cards are not hook events either: `coucou_kind:
+// `--step` / `--attach` cards are not hook events either: `aria_kind:
 // "bot_step"` (fire and forget) and `"bot_attach"` (one `{"ok":…}` line back),
 // both handled in botcards.rs.
 
@@ -49,7 +49,7 @@ use crate::policy::{self, Risk};
 use crate::tools;
 use crate::session_window;
 
-/// Slightly under coucou-hook's own 110 s wait, so we always answer first.
+/// Slightly under aria-hook's own 110 s wait, so we always answer first.
 const DECISION_TIMEOUT: Duration = Duration::from_secs(108);
 /// How long the island gets to say "the card is up". This is the whole of B4:
 /// without it, an island that is paused, hidden behind a crashed webview or
@@ -58,7 +58,7 @@ const DECISION_TIMEOUT: Duration = Duration::from_secs(108);
 const ACK_TIMEOUT: Duration = Duration::from_millis(800);
 const MAX_PAYLOAD: usize = 1 << 20;
 /// How long the owner has to answer a Grok Bot's tool card, unless the call
-/// says otherwise (`coucou-hook tool --timeout`, which this must match).
+/// says otherwise (`aria-hook tool --timeout`, which this must match).
 const TOOL_DEFAULT_TIMEOUT: Duration = Duration::from_secs(180);
 const TOOL_MIN_TIMEOUT: Duration = Duration::from_secs(5);
 const TOOL_MAX_TIMEOUT: Duration = Duration::from_secs(1800);
@@ -78,7 +78,7 @@ pub enum Reply {
 pub struct Pending(pub Mutex<HashMap<String, mpsc::Sender<Reply>>>);
 
 /// Something is waiting for the owner's answer (hook permission, question, a
-/// Bot's tool card, one of Mochi's approvals): the island must stay open.
+/// Bot's tool card, one of ARIA's approvals): the island must stay open.
 pub fn approval_pending(app: &AppHandle) -> bool {
     app.try_state::<Pending>().map(|p| !p.0.lock().unwrap().is_empty()).unwrap_or(false)
 }
@@ -99,16 +99,16 @@ struct Choices {
 
 /// Question cards with choices now on screen, by request id. Only these turn
 /// an answer into `{"decision":"allow","answer":…}`; every other approval
-/// (a tool, Mochi's own, a Bot's tool call) still gets the bare word.
+/// (a tool, ARIA's own, a Bot's tool call) still gets the bare word.
 static CHOICES: LazyLock<Mutex<HashMap<String, Choices>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 const CHOICE_KEYS: [&str; 3] = ["options", "allowCustom", "allow_custom"];
 
-/// A question, not a tool: `coucou-hook --bot … --status ask` and Cursor's
+/// A question, not a tool: `aria-hook --bot … --status ask` and Cursor's
 /// single-choice questions (normalize.rs) both arrive as the tool `Pregunta`.
 /// Allowing it runs nothing; the answer is the whole point.
 fn is_question_card(payload: &Value) -> bool {
-    let agent = payload.get("coucou_agent").and_then(Value::as_str).unwrap_or_default();
+    let agent = payload.get("aria_agent").and_then(Value::as_str).unwrap_or_default();
     payload.get("hook_event_name").and_then(Value::as_str) == Some("PermissionRequest")
         && payload.get("tool_name").and_then(Value::as_str) == Some("Pregunta")
         && (agent.starts_with("bot-") || agent == "cursor")
@@ -155,12 +155,12 @@ fn clean_answer(raw: Option<&str>) -> Option<String> {
     (!a.is_empty()).then(|| a.to_string())
 }
 
-/// `\\.\pipe\coucou-<sid>` — must match coucou-hook's `pipe_path()` exactly.
+/// `\\.\pipe\aria-<sid>` — must match aria-hook's `pipe_path()` exactly.
 #[cfg(windows)]
 pub fn pipe_name() -> String {
     let key = crate::platform::current_user_sid()
         .unwrap_or_else(|| std::env::var("USERNAME").unwrap_or_else(|_| "user".into()));
-    format!(r"\\.\pipe\coucou-{key}")
+    format!(r"\\.\pipe\aria-{key}")
 }
 
 #[cfg(windows)]
@@ -207,11 +207,11 @@ pub fn start(app: AppHandle) {
             return;
         };
         // A socket file left behind by a crash answers nothing and can go. One
-        // that answers belongs to a Coucou that is still running: like
+        // that answers belongs to an ARIA that is still running: like
         // first_pipe_instance on Windows, we refuse to serve on top of it.
         if path.exists() {
             if std::os::unix::net::UnixStream::connect(&path).is_ok() {
-                log::line("another Coucou already serves the relay socket");
+                log::line("another ARIA already serves the relay socket");
                 return;
             }
             let _ = std::fs::remove_file(&path);
@@ -294,8 +294,8 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
         return;
     }
 
-    // A Grok Bot calling one of Mochi's tools: always answered, never relayed.
-    match payload.get("coucou_kind").and_then(Value::as_str) {
+    // A Grok Bot calling one of ARIA's tools: always answered, never relayed.
+    match payload.get("aria_kind").and_then(Value::as_str) {
         Some("tool") => {
             let answer = tool_request(&app, payload).await;
             return write_line(pipe, &answer).await;
@@ -382,8 +382,8 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
     app.state::<Pending>().0.lock().unwrap().remove(&id);
     CHOICES.lock().unwrap().remove(&id);
 
-    // No decision: say nothing at all. coucou-hook then writes nothing to stdout
-    // and Claude Code asks in the terminal, exactly as if Coucou were closed.
+    // No decision: say nothing at all. aria-hook then writes nothing to stdout
+    // and Claude Code asks in the terminal, exactly as if ARIA were closed.
     if let Some(d) = decision {
         let _ = pipe.write_all(format!("{d}\n").as_bytes()).await;
         let _ = pipe.flush().await;
@@ -490,7 +490,7 @@ pub fn decline(app: &AppHandle, request_id: &str) {
 /// Called by the island's Allow / Always / Deny buttons. A bare word, except an
 /// "allow" with the picked option on a question card with choices:
 /// `{"decision":"allow","answer":"…"}`. Turning that into each agent's JSON is
-/// coucou-hook's job.
+/// aria-hook's job.
 pub fn answer(app: &AppHandle, request_id: &str, decision: &str, answer: Option<&str>) {
     let word = match decision {
         "allow" => "allow",
@@ -513,27 +513,27 @@ pub fn answer(app: &AppHandle, request_id: &str, decision: &str, answer: Option<
     send(app, request_id, Reply::Decision(line), false);
 }
 
-// ── Grok Bots calling Mochi's tools (`coucou-hook tool`) ─────────────────────
+// ── Grok Bots calling ARIA's tools (`aria-hook tool`) ─────────────────────
 //
-// Same registry as Mochi (tools::for_bots, built-ins only), same rule as
+// Same registry as ARIA (tools::for_bots, built-ins only), same rule as
 // tools::run: a read is audited and runs, a side effect waits for the owner's
-// click. The card is the one `coucou-hook --bot … --status ask` already raises
-// — a PermissionRequest hook with coucou_agent `bot-<slug>`, coucou_bot,
+// click. The card is the one `aria-hook --bot … --status ask` already raises
+// — a PermissionRequest hook with aria_agent `bot-<slug>`, aria_bot,
 // tool_name and tool_input — so it lands on that Bot's pill, goes through the
 // Pending / acknowledge / answer path above, and nothing new is needed in the
-// island. coucou.log gets Mochi's audit line (policy::audit) for reads and
+// island. aria.log gets ARIA's audit line (policy::audit) for reads and
 // refusals, the request line below for a card, and the decision line the
 // island's answer already writes (`decision id=… allow|deny`) — nothing more,
 // so a click is never logged twice. "Always" is never remembered for a Bot:
 // each side effect is its own click.
 
-/// What `coucou-hook tool` sends (hook/src/tool.rs `request_line`).
+/// What `aria-hook tool` sends (hook/src/tool.rs `request_line`).
 #[derive(Debug, Deserialize)]
 struct ToolRequestWire {
     #[serde(default)]
-    coucou_agent: String,
+    aria_agent: String,
     #[serde(default)]
-    coucou_bot: String,
+    aria_bot: String,
     #[serde(default)]
     tool_name: String,
     #[serde(default)]
@@ -563,7 +563,7 @@ fn tool_error(error: &str, message: impl Into<String>) -> Value {
 fn parse_tool_request(payload: Value) -> Result<ToolRequest, Value> {
     let wire: ToolRequestWire =
         serde_json::from_value(payload).map_err(|e| tool_error("invalid_request", format!("bad tool request: {e}")))?;
-    let bot = wire.coucou_bot.trim().to_string();
+    let bot = wire.aria_bot.trim().to_string();
     let slug = crate::grokbot::slug(&bot);
     if slug.is_empty() {
         return Err(tool_error("invalid_request", "a tool call needs the Bot's name (--bot)"));
@@ -571,8 +571,8 @@ fn parse_tool_request(payload: Value) -> Result<ToolRequest, Value> {
     // The pill must be this Bot's: a tool call cannot speak for Claude Code or
     // for another Bot.
     let agent = format!("bot-{slug}");
-    if wire.coucou_agent != agent {
-        return Err(tool_error("invalid_request", format!("coucou_agent must be {agent}")));
+    if wire.aria_agent != agent {
+        return Err(tool_error("invalid_request", format!("aria_agent must be {agent}")));
     }
     let tool = wire.tool_name.trim().to_string();
     if tool.is_empty() {
@@ -595,8 +595,8 @@ fn parse_tool_request(payload: Value) -> Result<ToolRequest, Value> {
 fn bot_tool_card(req: &ToolRequest, summary: &str, request_id: &str) -> Value {
     json!({
         "hook_event_name": "PermissionRequest",
-        "coucou_agent": req.agent,
-        "coucou_bot": req.bot,
+        "aria_agent": req.agent,
+        "aria_bot": req.bot,
         "message": summary,
         "cwd": "",
         "tool_name": req.tool,
@@ -607,7 +607,7 @@ fn bot_tool_card(req: &ToolRequest, summary: &str, request_id: &str) -> Value {
     })
 }
 
-/// One tool call from a Grok Bot, answered as the JSON line coucou-hook prints.
+/// One tool call from a Grok Bot, answered as the JSON line aria-hook prints.
 async fn tool_request(app: &AppHandle, payload: Value) -> Value {
     let req = match parse_tool_request(payload) {
         Ok(r) => r,
@@ -617,13 +617,13 @@ async fn tool_request(app: &AppHandle, payload: Value) -> Value {
         }
     };
     let summary = tools::describe(&req.tool, &req.input);
-    // The audit line names the Bot, so the log tells Mochi's calls from theirs.
+    // The audit line names the Bot, so the log tells ARIA's calls from theirs.
     let target = format!("[bot {}] {summary}", req.bot);
     let Some(tool) = tools::for_bot(&req.tool) else {
         policy::audit(&req.tool, "refused (not a Grok Bot tool)", &target);
         return tool_error(
             "unknown_tool",
-            format!("{} is not a tool Grok Bots can call here; see `coucou-hook tool --list`", req.tool),
+            format!("{} is not a tool Grok Bots can call here; see `aria-hook tool --list`", req.tool),
         );
     };
     match tool.risk {
@@ -666,7 +666,7 @@ async fn approve_bot_tool(app: &AppHandle, req: &ToolRequest, summary: &str) -> 
     let decision = wait_for_decision_within(&id, &mut rx, req.timeout).await;
     app.state::<Pending>().0.lock().unwrap().remove(&id);
 
-    // The decision itself is already in coucou.log (answer() and
+    // The decision itself is already in aria.log (answer() and
     // wait_for_decision_within write it); only the verdict is ours.
     match decision.as_deref() {
         Some("allow") => Ok(()),
@@ -687,7 +687,7 @@ async fn approve_bot_tool(app: &AppHandle, req: &ToolRequest, summary: &str) -> 
     }
 }
 
-/// `coucou-hook tool --list`: what a Bot may call, and whether it needs a click.
+/// `aria-hook tool --list`: what a Bot may call, and whether it needs a click.
 fn tool_list() -> Value {
     let list: Vec<Value> = tools::for_bots()
         .into_iter()
@@ -714,7 +714,7 @@ mod tests {
     use super::*;
 
     fn wire(bot: &str, agent: &str, tool: &str, input: Value, timeout_ms: u64) -> Value {
-        json!({ "coucou_kind": "tool", "coucou_agent": agent, "coucou_bot": bot,
+        json!({ "aria_kind": "tool", "aria_agent": agent, "aria_bot": bot,
                 "tool_name": tool, "tool_input": input, "timeout_ms": timeout_ms })
     }
 
@@ -749,19 +749,19 @@ mod tests {
         assert_eq!(code(wire("Aerys", "bot-aegon", "x", json!({}), 0)), "invalid_request", "another Bot's pill");
         assert_eq!(code(wire("Aerys", "bot-aerys", " ", json!({}), 0)), "invalid_request");
         assert_eq!(code(wire("Aerys", "bot-aerys", "x", json!([1]), 0)), "invalid_request");
-        assert_eq!(code(json!({ "coucou_kind": "tool", "timeout_ms": "soon" })), "invalid_request");
-        assert!(parse_tool_request(json!({ "coucou_agent": "bot-a", "coucou_bot": "A", "tool_name": "x" })).is_ok());
+        assert_eq!(code(json!({ "aria_kind": "tool", "timeout_ms": "soon" })), "invalid_request");
+        assert!(parse_tool_request(json!({ "aria_agent": "bot-a", "aria_bot": "A", "tool_name": "x" })).is_ok());
     }
 
     #[test]
     fn only_question_cards_keep_their_choices() {
-        let q = json!({ "hook_event_name": "PermissionRequest", "coucou_agent": "bot-a", "tool_name": "Pregunta",
+        let q = json!({ "hook_event_name": "PermissionRequest", "aria_agent": "bot-a", "tool_name": "Pregunta",
                         "options": [{ "label": " Sí " }, "No", { "label": " " }], "allowCustom": true });
         assert!(is_question_card(&q));
         let c = choices_of(&q).unwrap();
         assert_eq!(c.labels, ["Sí", "No"]);
         assert!(c.custom);
-        let cursor = json!({ "hook_event_name": "PermissionRequest", "coucou_agent": "cursor", "tool_name": "Pregunta",
+        let cursor = json!({ "hook_event_name": "PermissionRequest", "aria_agent": "cursor", "tool_name": "Pregunta",
                              "tool_input": { "options": ["A"] } });
         assert!(is_question_card(&cursor));
         assert!(!choices_of(&cursor).unwrap().custom);
@@ -775,7 +775,7 @@ mod tests {
         assert!(tool["tool_input"].get("options").is_none());
         assert_eq!(tool["tool_input"]["options_arg"], json!(["rm"]));
         assert_eq!(tool["tool_input"]["path"], "a");
-        let claude = json!({ "hook_event_name": "PermissionRequest", "coucou_agent": "claude", "tool_name": "Pregunta" });
+        let claude = json!({ "hook_event_name": "PermissionRequest", "aria_agent": "claude", "tool_name": "Pregunta" });
         assert!(!is_question_card(&claude), "only a Bot or Cursor asks with Pregunta");
     }
 
@@ -799,14 +799,14 @@ mod tests {
         keys.sort_unstable();
         assert_eq!(
             keys,
-            ["allow_always", "coucou_agent", "coucou_bot", "cwd", "hook_event_name", "message", "request_id", "tool_input", "tool_name"]
+            ["allow_always", "aria_agent", "aria_bot", "cwd", "hook_event_name", "message", "request_id", "tool_input", "tool_name"]
         );
         assert_eq!(card["allow_always"], false, "never for a shell");
         let open = parse_tool_request(wire("A", "bot-a", "open_url", json!({"url":"https://x"}), 0)).unwrap();
         assert_eq!(bot_tool_card(&open, "https://x", "7-2")["allow_always"], true);
         assert_eq!(card["hook_event_name"], "PermissionRequest");
-        assert_eq!(card["coucou_agent"], "bot-diseno-bot");
-        assert_eq!(card["coucou_bot"], "Diseño Bot");
+        assert_eq!(card["aria_agent"], "bot-diseno-bot");
+        assert_eq!(card["aria_bot"], "Diseño Bot");
         assert_eq!(card["tool_name"], "run_powershell");
         assert_eq!(card["tool_input"], json!({"command":"dir"}));
     }

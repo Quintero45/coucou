@@ -34,16 +34,16 @@
    "ru": "+ субагент",
    "id": "+ subagen"
   },
-  "A hook group named \"coucou\" that ARIA did not write is already there — ARIA has not touched it.": {
-   "zh-Hans": "已存在一个并非 ARIA 写入的名为“coucou”的 hook 组 — ARIA 没有修改它。",
-   "hi": "“coucou” नाम का एक hook समूह पहले से है जिसे ARIA ने नहीं लिखा — ARIA ने इसे नहीं छुआ।",
-   "es": "Ya existe un grupo de hooks llamado «coucou» que no escribió ARIA — ARIA no lo ha tocado.",
-   "ar": "توجد بالفعل مجموعة hooks باسم «coucou» لم تكتبها ARIA — لم تمسّها ARIA.",
-   "fr": "Un groupe de hooks nommé « coucou » qu'ARIA n'a pas écrit existe déjà — ARIA n'y a pas touché.",
-   "bn": "“coucou” নামে একটি hook গ্রুপ আগে থেকেই আছে যা ARIA লেখেনি — ARIA এতে হাত দেয়নি।",
-   "pt-BR": "Já existe um grupo de hooks chamado “coucou” que não foi escrito pela ARIA — a ARIA não mexeu nele.",
-   "ru": "Уже есть группа хуков «coucou», которую написала не ARIA, — ARIA её не трогала.",
-   "id": "Sudah ada grup hook bernama “coucou” yang tidak ditulis ARIA — ARIA tidak menyentuhnya."
+  "A hook group named \"aria\" that ARIA did not write is already there — ARIA has not touched it.": {
+   "zh-Hans": "已存在一个并非 ARIA 写入的名为“aria”的 hook 组 — ARIA 没有修改它。",
+   "hi": "“aria” नाम का एक hook समूह पहले से है जिसे ARIA ने नहीं लिखा — ARIA ने इसे नहीं छुआ।",
+   "es": "Ya existe un grupo de hooks llamado «aria» que no escribió ARIA — ARIA no lo ha tocado.",
+   "ar": "توجد بالفعل مجموعة hooks باسم «aria» لم تكتبها ARIA — لم تمسّها ARIA.",
+   "fr": "Un groupe de hooks nommé « aria » qu'ARIA n'a pas écrit existe déjà — ARIA n'y a pas touché.",
+   "bn": "“aria” নামে একটি hook গ্রুপ আগে থেকেই আছে যা ARIA লেখেনি — ARIA এতে হাত দেয়নি।",
+   "pt-BR": "Já existe um grupo de hooks chamado “aria” que não foi escrito pela ARIA — a ARIA não mexeu nele.",
+   "ru": "Уже есть группа хуков «aria», которую написала не ARIA, — ARIA её не трогала.",
+   "id": "Sudah ada grup hook bernama “aria” yang tidak ditulis ARIA — ARIA tidak menyentuhnya."
   },
   "AI for the chat": {
    "zh-Hans": "聊天用的 AI",
@@ -2058,16 +2058,16 @@
    "ru": "Вторник",
    "id": "Selasa"
   },
-  "Turn it on once with `hermes plugins enable coucou`, then start a new Hermes session.": {
-   "zh-Hans": "先用 `hermes plugins enable coucou` 启用一次，然后开启新的 Hermes 会话。",
-   "hi": "इसे एक बार `hermes plugins enable coucou` से चालू करें, फिर Hermes का नया सत्र शुरू करें।",
-   "es": "Actívalo una vez con `hermes plugins enable coucou` y luego abre una nueva sesión de Hermes.",
-   "ar": "فعّله مرة واحدة بالأمر `hermes plugins enable coucou`، ثم ابدأ جلسة Hermes جديدة.",
-   "fr": "Active-le une fois avec `hermes plugins enable coucou`, puis lance une nouvelle session Hermes.",
-   "bn": "একবার `hermes plugins enable coucou` দিয়ে চালু করুন, তারপর Hermes-এর নতুন সেশন শুরু করুন।",
-   "pt-BR": "Ative uma vez com `hermes plugins enable coucou` e depois inicie uma nova sessão do Hermes.",
-   "ru": "Включите его один раз командой `hermes plugins enable coucou`, затем начните новую сессию Hermes.",
-   "id": "Aktifkan sekali dengan `hermes plugins enable coucou`, lalu mulai sesi Hermes baru."
+  "Turn it on once with `hermes plugins enable aria`, then start a new Hermes session.": {
+   "zh-Hans": "先用 `hermes plugins enable aria` 启用一次，然后开启新的 Hermes 会话。",
+   "hi": "इसे एक बार `hermes plugins enable aria` से चालू करें, फिर Hermes का नया सत्र शुरू करें।",
+   "es": "Actívalo una vez con `hermes plugins enable aria` y luego abre una nueva sesión de Hermes.",
+   "ar": "فعّله مرة واحدة بالأمر `hermes plugins enable aria`، ثم ابدأ جلسة Hermes جديدة.",
+   "fr": "Active-le une fois avec `hermes plugins enable aria`, puis lance une nouvelle session Hermes.",
+   "bn": "একবার `hermes plugins enable aria` দিয়ে চালু করুন, তারপর Hermes-এর নতুন সেশন শুরু করুন।",
+   "pt-BR": "Ative uma vez com `hermes plugins enable aria` e depois inicie uma nova sessão do Hermes.",
+   "ru": "Включите его один раз командой `hermes plugins enable aria`, затем начните новую сессию Hermes.",
+   "id": "Aktifkan sekali dengan `hermes plugins enable aria`, lalu mulai sesi Hermes baru."
   },
   "Types “{char}”": {
    "zh-Hans": "输入“{char}”",
@@ -2256,16 +2256,16 @@
    "ru": "всё зелёное",
    "id": "semua hijau"
   },
-  "coucou-hook.exe is not in place yet. Restart ARIA; if it still fails, build it with `cargo build -p coucou-hook`.": {
-   "zh-Hans": "coucou-hook.exe 尚未就位。请重启 ARIA；如果仍然失败，请用 `cargo build -p coucou-hook` 构建它。",
-   "hi": "coucou-hook.exe अभी अपनी जगह पर नहीं है। ARIA फिर से शुरू करें; अगर फिर भी न हो, तो इसे `cargo build -p coucou-hook` से बनाएँ।",
-   "es": "coucou-hook.exe aún no está en su sitio. Reinicia ARIA; si sigue fallando, compílalo con `cargo build -p coucou-hook`.",
-   "ar": "coucou-hook.exe ليس في مكانه بعد. أعد تشغيل ARIA؛ وإن استمر الفشل فابنِه بالأمر `cargo build -p coucou-hook`.",
-   "fr": "coucou-hook.exe n'est pas encore en place. Redémarre ARIA ; si ça échoue encore, compile-le avec `cargo build -p coucou-hook`.",
-   "bn": "coucou-hook.exe এখনো জায়গামতো নেই। ARIA আবার চালু করুন; তবুও না হলে `cargo build -p coucou-hook` দিয়ে এটি বানান।",
-   "pt-BR": "O coucou-hook.exe ainda não está no lugar. Reinicie a ARIA; se continuar falhando, compile-o com `cargo build -p coucou-hook`.",
-   "ru": "coucou-hook.exe ещё не на месте. Перезапустите ARIA; если не поможет, соберите его командой `cargo build -p coucou-hook`.",
-   "id": "coucou-hook.exe belum ada di tempatnya. Mulai ulang ARIA; jika masih gagal, build dengan `cargo build -p coucou-hook`."
+  "aria-hook.exe is not in place yet. Restart ARIA; if it still fails, build it with `cargo build -p aria-hook`.": {
+   "zh-Hans": "aria-hook.exe 尚未就位。请重启 ARIA；如果仍然失败，请用 `cargo build -p aria-hook` 构建它。",
+   "hi": "aria-hook.exe अभी अपनी जगह पर नहीं है। ARIA फिर से शुरू करें; अगर फिर भी न हो, तो इसे `cargo build -p aria-hook` से बनाएँ।",
+   "es": "aria-hook.exe aún no está en su sitio. Reinicia ARIA; si sigue fallando, compílalo con `cargo build -p aria-hook`.",
+   "ar": "aria-hook.exe ليس في مكانه بعد. أعد تشغيل ARIA؛ وإن استمر الفشل فابنِه بالأمر `cargo build -p aria-hook`.",
+   "fr": "aria-hook.exe n'est pas encore en place. Redémarre ARIA ; si ça échoue encore, compile-le avec `cargo build -p aria-hook`.",
+   "bn": "aria-hook.exe এখনো জায়গামতো নেই। ARIA আবার চালু করুন; তবুও না হলে `cargo build -p aria-hook` দিয়ে এটি বানান।",
+   "pt-BR": "O aria-hook.exe ainda não está no lugar. Reinicie a ARIA; se continuar falhando, compile-o com `cargo build -p aria-hook`.",
+   "ru": "aria-hook.exe ещё не на месте. Перезапустите ARIA; если не поможет, соберите его командой `cargo build -p aria-hook`.",
+   "id": "aria-hook.exe belum ada di tempatnya. Mulai ulang ARIA; jika masih gagal, build dengan `cargo build -p aria-hook`."
   },
   "failing": {
    "zh-Hans": "失败",
@@ -4023,16 +4023,16 @@
    "ru": "Открыть папку журнала",
    "id": "Buka folder log"
   },
-  "coucou.log lists every tool ARIA used and whether you allowed it.": {
-   "zh-Hans": "coucou.log 列出 ARIA 使用的每个工具以及你是否允许。",
-   "hi": "coucou.log में ARIA के हर इस्तेमाल किए टूल और आपने अनुमति दी या नहीं, इसकी सूची है।",
-   "es": "coucou.log lista cada herramienta que usó ARIA y si la permitiste.",
-   "ar": "يسرد coucou.log كل أداة استخدمتها ARIA وهل سمحت بها.",
-   "fr": "coucou.log liste chaque outil utilisé par ARIA et si vous l'avez autorisé.",
-   "bn": "coucou.log-এ ARIA-র ব্যবহৃত প্রতিটি টুল আর আপনি অনুমতি দিয়েছিলেন কি না তা থাকে।",
-   "pt-BR": "coucou.log lista cada ferramenta que a ARIA usou e se você permitiu.",
-   "ru": "coucou.log перечисляет каждый инструмент, который использовала ARIA, и разрешили ли вы его.",
-   "id": "coucou.log mencatat setiap alat yang dipakai ARIA dan apakah Anda mengizinkannya."
+  "aria.log lists every tool ARIA used and whether you allowed it.": {
+   "zh-Hans": "aria.log 列出 ARIA 使用的每个工具以及你是否允许。",
+   "hi": "aria.log में ARIA के हर इस्तेमाल किए टूल और आपने अनुमति दी या नहीं, इसकी सूची है।",
+   "es": "aria.log lista cada herramienta que usó ARIA y si la permitiste.",
+   "ar": "يسرد aria.log كل أداة استخدمتها ARIA وهل سمحت بها.",
+   "fr": "aria.log liste chaque outil utilisé par ARIA et si vous l'avez autorisé.",
+   "bn": "aria.log-এ ARIA-র ব্যবহৃত প্রতিটি টুল আর আপনি অনুমতি দিয়েছিলেন কি না তা থাকে।",
+   "pt-BR": "aria.log lista cada ferramenta que a ARIA usou e se você permitiu.",
+   "ru": "aria.log перечисляет каждый инструмент, который использовала ARIA, и разрешили ли вы его.",
+   "id": "aria.log mencatat setiap alat yang dipakai ARIA dan apakah Anda mengizinkannya."
   },
   "The file is too large": {
    "zh-Hans": "文件太大",
@@ -5056,6 +5056,149 @@
    "pt-BR": "Escolha as ferramentas que você usa. A ARIA mostra apenas o que você declarar aqui.",
    "ru": "Выбери инструменты, которые ты используешь. ARIA показывает только то, что ты здесь объявишь.",
    "id": "Pilih alat yang Anda gunakan. ARIA hanya menampilkan yang Anda deklarasikan di sini."
+  },
+  "Installed by Coucou, ARIA's former name: reinstall so this agent reaches ARIA.": {
+   "zh-Hans": "由 Coucou（ARIA 的旧名）安装：请重新安装，让该代理连接到 ARIA。",
+   "hi": "Coucou (ARIA का पुराना नाम) से इंस्टॉल किया गया: दोबारा इंस्टॉल करें ताकि यह एजेंट ARIA तक पहुँचे।",
+   "es": "Instalado por Coucou, el nombre anterior de ARIA: reinstálalo para que este agente llegue a ARIA.",
+   "ar": "مثبَّت بواسطة Coucou، الاسم السابق لـ ARIA: أعد التثبيت ليصل هذا الوكيل إلى ARIA.",
+   "fr": "Installé par Coucou, l'ancien nom d'ARIA : réinstallez pour que cet agent atteigne ARIA.",
+   "bn": "Coucou (ARIA-এর আগের নাম) দিয়ে ইনস্টল করা: আবার ইনস্টল করুন যাতে এই এজেন্ট ARIA-তে পৌঁছায়।",
+   "pt-BR": "Instalado pelo Coucou, o nome anterior da ARIA: reinstale para que este agente chegue à ARIA.",
+   "ru": "Установлено Coucou — прежним названием ARIA: переустановите, чтобы этот агент работал с ARIA.",
+   "id": "Dipasang oleh Coucou, nama lama ARIA: pasang ulang agar agen ini terhubung ke ARIA."
+  },
+  "Coucou is still open. Close it so ARIA can bring over your settings, memory, chats and keys, then press Retry. Cancel closes ARIA; it will ask again next time.": {
+   "zh-Hans": "Coucou 仍在运行。请关闭它，让 ARIA 带过来你的设置、记忆、聊天和密钥，然后按“重试”。按“取消”会关闭 ARIA，下次启动时会再问。",
+   "hi": "Coucou अभी भी खुला है। इसे बंद करें ताकि ARIA आपकी सेटिंग्स, मेमोरी, चैट और कुंजियाँ ला सके, फिर पुनः प्रयास दबाएँ। रद्द करने से ARIA बंद हो जाएगी; वह अगली बार फिर पूछेगी।",
+   "es": "Coucou sigue abierto. Ciérralo para que ARIA traiga tus ajustes, memoria, chats y claves, y pulsa Reintentar. Cancelar cierra ARIA; volverá a preguntar la próxima vez.",
+   "ar": "لا يزال Coucou مفتوحًا. أغلقه حتى تنقل ARIA إعداداتك وذاكرتك ومحادثاتك ومفاتيحك، ثم اضغط إعادة المحاولة. الإلغاء يغلق ARIA، وستسأل مرة أخرى في المرة القادمة.",
+   "fr": "Coucou est encore ouvert. Fermez-le pour qu'ARIA récupère vos réglages, sa mémoire, les discussions et les clés, puis appuyez sur Réessayer. Annuler ferme ARIA ; elle redemandera la prochaine fois.",
+   "bn": "Coucou এখনও খোলা আছে। এটি বন্ধ করুন যাতে ARIA আপনার সেটিংস, মেমরি, চ্যাট ও কী নিয়ে আসতে পারে, তারপর আবার চেষ্টা করুন চাপুন। বাতিল করলে ARIA বন্ধ হবে; পরের বার আবার জিজ্ঞেস করবে।",
+   "pt-BR": "O Coucou ainda está aberto. Feche-o para que a ARIA traga suas configurações, memória, conversas e chaves, e clique em Repetir. Cancelar fecha a ARIA; ela perguntará de novo na próxima vez.",
+   "ru": "Coucou всё ещё открыт. Закройте его, чтобы ARIA перенесла ваши настройки, память, чаты и ключи, затем нажмите «Повторить». «Отмена» закроет ARIA; в следующий раз она спросит снова.",
+   "id": "Coucou masih terbuka. Tutup agar ARIA bisa membawa pengaturan, memori, obrolan, dan kunci Anda, lalu tekan Coba Lagi. Batal menutup ARIA; ia akan bertanya lagi lain kali."
+  },
+  "Coucou is not installed any more.": {
+   "zh-Hans": "Coucou 已不再安装。",
+   "hi": "Coucou अब इंस्टॉल नहीं है।",
+   "es": "Coucou ya no está instalado.",
+   "ar": "لم يعد Coucou مثبتًا.",
+   "fr": "Coucou n'est plus installé.",
+   "bn": "Coucou আর ইনস্টল করা নেই।",
+   "pt-BR": "O Coucou não está mais instalado.",
+   "ru": "Coucou больше не установлен.",
+   "id": "Coucou sudah tidak terpasang."
+  },
+  "Coming from Coucou": {
+   "zh-Hans": "从 Coucou 迁移",
+   "hi": "Coucou से आए",
+   "es": "Desde Coucou",
+   "ar": "قادم من Coucou",
+   "fr": "En provenance de Coucou",
+   "bn": "Coucou থেকে আসা",
+   "pt-BR": "Vindo do Coucou",
+   "ru": "Переход с Coucou",
+   "id": "Dari Coucou"
+  },
+  "On {date} ARIA brought over {files} files and {keys} keys from Coucou. Coucou's own folders were left as they were.": {
+   "zh-Hans": "ARIA 于 {date} 从 Coucou 带过来 {files} 个文件和 {keys} 个密钥。Coucou 自己的文件夹保持原样。",
+   "hi": "{date} को ARIA Coucou से {files} फ़ाइलें और {keys} कुंजियाँ लाई। Coucou के अपने फ़ोल्डर जैसे थे वैसे ही छोड़े गए।",
+   "es": "El {date} ARIA trajo {files} archivos y {keys} claves de Coucou. Las carpetas de Coucou quedaron como estaban.",
+   "ar": "في {date} نقلت ARIA من Coucou {files} ملفًا و{keys} مفتاحًا. بقيت مجلدات Coucou كما كانت.",
+   "fr": "Le {date}, ARIA a récupéré {files} fichiers et {keys} clés de Coucou. Les dossiers de Coucou sont restés tels quels.",
+   "bn": "{date} তারিখে ARIA Coucou থেকে {files}টি ফাইল ও {keys}টি কী নিয়ে এসেছে। Coucou-র নিজের ফোল্ডারগুলো যেমন ছিল তেমনই আছে।",
+   "pt-BR": "Em {date} a ARIA trouxe {files} arquivos e {keys} chaves do Coucou. As pastas do Coucou ficaram como estavam.",
+   "ru": "{date} ARIA перенесла из Coucou {files} файлов и {keys} ключей. Папки Coucou остались как были.",
+   "id": "Pada {date} ARIA membawa {files} file dan {keys} kunci dari Coucou. Folder milik Coucou dibiarkan seperti semula."
+  },
+  "{count} could not be copied: aria.log lists them.": {
+   "zh-Hans": "有 {count} 项无法复制：aria.log 中列出了它们。",
+   "hi": "{count} कॉपी नहीं हो सके: aria.log में उनकी सूची है।",
+   "es": "{count} no se pudieron copiar: aria.log los enumera.",
+   "ar": "تعذّر نسخ {count}: يسردها aria.log.",
+   "fr": "{count} n'ont pas pu être copiés : aria.log les liste.",
+   "bn": "{count}টি কপি করা যায়নি: aria.log-এ তালিকা আছে।",
+   "pt-BR": "{count} não puderam ser copiados: o aria.log lista quais.",
+   "ru": "Не удалось скопировать: {count}. Список — в aria.log.",
+   "id": "{count} tidak bisa disalin: aria.log mencantumkannya."
+  },
+  "Still on Coucou's relay: {names}. Reinstall them in this window so they reach ARIA.": {
+   "zh-Hans": "仍在使用 Coucou 的中继：{names}。请在此窗口中重新安装，让它们连接到 ARIA。",
+   "hi": "अभी भी Coucou के रिले पर: {names}। इन्हें इसी विंडो में फिर से इंस्टॉल करें ताकि ये ARIA तक पहुँचें।",
+   "es": "Siguen con el relay de Coucou: {names}. Reinstálalos en esta ventana para que lleguen a ARIA.",
+   "ar": "لا تزال على مُرحِّل Coucou: {names}. أعد تثبيتها في هذه النافذة لتصل إلى ARIA.",
+   "fr": "Encore sur le relais de Coucou : {names}. Réinstallez-les dans cette fenêtre pour qu'ils atteignent ARIA.",
+   "bn": "এখনও Coucou-র রিলেতে: {names}। এই উইন্ডোতে আবার ইনস্টল করুন যাতে এগুলো ARIA-তে পৌঁছায়।",
+   "pt-BR": "Ainda no relay do Coucou: {names}. Reinstale-os nesta janela para que cheguem à ARIA.",
+   "ru": "Всё ещё через ретранслятор Coucou: {names}. Переустановите их в этом окне, чтобы они доходили до ARIA.",
+   "id": "Masih memakai relay Coucou: {names}. Pasang ulang di jendela ini agar sampai ke ARIA."
+  },
+  "Coucou still holds {count} keys in the Credential Manager. ARIA has its own copy.": {
+   "zh-Hans": "Coucou 在凭据管理器中仍保存着 {count} 个密钥。ARIA 已有自己的副本。",
+   "hi": "Coucou के पास क्रेडेंशियल मैनेजर में अभी भी {count} कुंजियाँ हैं। ARIA के पास अपनी प्रति है।",
+   "es": "Coucou aún guarda {count} claves en el Administrador de credenciales. ARIA tiene su propia copia.",
+   "ar": "لا يزال Coucou يحتفظ بـ {count} مفاتيح في مدير بيانات الاعتماد. لدى ARIA نسختها الخاصة.",
+   "fr": "Coucou garde encore {count} clés dans le Gestionnaire d'informations d'identification. ARIA a sa propre copie.",
+   "bn": "Coucou এখনও ক্রেডেনশিয়াল ম্যানেজারে {count}টি কী রাখছে। ARIA-র নিজের কপি আছে।",
+   "pt-BR": "O Coucou ainda guarda {count} chaves no Gerenciador de Credenciais. A ARIA tem sua própria cópia.",
+   "ru": "Coucou всё ещё хранит {count} ключей в диспетчере учётных данных. У ARIA есть своя копия.",
+   "id": "Coucou masih menyimpan {count} kunci di Credential Manager. ARIA punya salinannya sendiri."
+  },
+  "Delete Coucou's keys": {
+   "zh-Hans": "删除 Coucou 的密钥",
+   "hi": "Coucou की कुंजियाँ हटाएँ",
+   "es": "Borrar las claves de Coucou",
+   "ar": "حذف مفاتيح Coucou",
+   "fr": "Supprimer les clés de Coucou",
+   "bn": "Coucou-র কী মুছুন",
+   "pt-BR": "Apagar as chaves do Coucou",
+   "ru": "Удалить ключи Coucou",
+   "id": "Hapus kunci Coucou"
+  },
+  "Click again to delete them": {
+   "zh-Hans": "再点一次即删除",
+   "hi": "हटाने के लिए फिर से क्लिक करें",
+   "es": "Pulsa otra vez para borrarlas",
+   "ar": "انقر مرة أخرى لحذفها",
+   "fr": "Cliquez encore pour les supprimer",
+   "bn": "মুছতে আবার ক্লিক করুন",
+   "pt-BR": "Clique de novo para apagá-las",
+   "ru": "Нажмите ещё раз, чтобы удалить",
+   "id": "Klik lagi untuk menghapusnya"
+  },
+  "Coucou's keys deleted.": {
+   "zh-Hans": "Coucou 的密钥已删除。",
+   "hi": "Coucou की कुंजियाँ हटा दी गईं।",
+   "es": "Claves de Coucou borradas.",
+   "ar": "تم حذف مفاتيح Coucou.",
+   "fr": "Clés de Coucou supprimées.",
+   "bn": "Coucou-র কী মুছে ফেলা হয়েছে।",
+   "pt-BR": "Chaves do Coucou apagadas.",
+   "ru": "Ключи Coucou удалены.",
+   "id": "Kunci Coucou dihapus."
+  },
+  "Uninstall Coucou…": {
+   "zh-Hans": "卸载 Coucou…",
+   "hi": "Coucou अनइंस्टॉल करें…",
+   "es": "Desinstalar Coucou…",
+   "ar": "إلغاء تثبيت Coucou…",
+   "fr": "Désinstaller Coucou…",
+   "bn": "Coucou আনইনস্টল করুন…",
+   "pt-BR": "Desinstalar o Coucou…",
+   "ru": "Удалить Coucou…",
+   "id": "Copot Coucou…"
+  },
+  "Opens Coucou's own uninstaller. ARIA keeps everything it copied.": {
+   "zh-Hans": "打开 Coucou 自带的卸载程序。ARIA 会保留它复制过来的所有内容。",
+   "hi": "Coucou का अपना अनइंस्टॉलर खोलता है। ARIA ने जो कुछ कॉपी किया, वह सब रखती है।",
+   "es": "Abre el desinstalador de Coucou. ARIA conserva todo lo que copió.",
+   "ar": "يفتح أداة إلغاء التثبيت الخاصة بـ Coucou. تحتفظ ARIA بكل ما نسخته.",
+   "fr": "Ouvre le désinstalleur de Coucou. ARIA garde tout ce qu'elle a copié.",
+   "bn": "Coucou-র নিজস্ব আনইনস্টলার খোলে। ARIA যা কপি করেছে সব রেখে দেয়।",
+   "pt-BR": "Abre o desinstalador do próprio Coucou. A ARIA mantém tudo o que copiou.",
+   "ru": "Открывает собственный деинсталлятор Coucou. ARIA сохраняет всё, что скопировала.",
+   "id": "Membuka pencopot pemasangan milik Coucou. ARIA menyimpan semua yang sudah disalinnya."
   }
  }
 }

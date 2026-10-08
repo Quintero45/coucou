@@ -1,7 +1,7 @@
 // Orders to the Cursor agent from its conversation in the island. Cursor has no
 // API for the chat open in its window, so an order reaches it one of two ways:
 // * Cursor working: the order waits here and goes out as the `followup_message`
-//   of Cursor's next `stop` hook (coucou-hook asks the pipe for it). The
+//   of Cursor's next `stop` hook (aria-hook asks the pipe for it). The
 //   keyboard is never touched.
 // * Cursor idle: Cursor comes to the front, UI Automation puts the focus in its
 //   chat box (class `aislash-editor-input`, never the code editor or the
@@ -227,7 +227,7 @@ pub fn followup(app: &AppHandle, payload: &Value) -> Option<Followup> {
     Some(Followup { orders })
 }
 
-/// After the reply to the stop: "sent" only once it was written to coucou-hook;
+/// After the reply to the stop: "sent" only once it was written to aria-hook;
 /// otherwise (the hook gave up, Cursor killed it) the orders go back first in line.
 pub fn settle(app: &AppHandle, f: Followup, written: bool) {
     if written {
@@ -252,7 +252,7 @@ fn join(orders: &[Order]) -> String {
 /// the island's PermissionRequest card, raised and answered like a Grok Bot's
 /// tool card (pipe.rs `approve_bot_tool`): same Pending / ack / decision path,
 /// on Cursor's pill. "Siempre" makes a policy.rs allow rule for this tool and
-/// this caller only (1 h, or the session). coucou.log gets sizes, never the text.
+/// this caller only (1 h, or the session). aria.log gets sizes, never the text.
 mod gate {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::Duration;
@@ -344,7 +344,7 @@ mod gate {
     fn card(request_id: &str, shown: &str, chars: usize, files: &[String]) -> Value {
         json!({
             "hook_event_name": "PermissionRequest",
-            "coucou_agent": WHO,
+            "aria_agent": WHO,
             "message": format!("ARIA quiere escribir esto en el chat de Cursor ({chars} caracteres)"),
             "cwd": "",
             "tool_name": TOOL,
@@ -422,7 +422,7 @@ mod gate {
             let files = vec!["a.pdf".to_string()];
             let c = card("cursor-1", "haz esto", 8, &files);
             assert_eq!(c["hook_event_name"], "PermissionRequest");
-            assert_eq!(c["coucou_agent"], "cursor");
+            assert_eq!(c["aria_agent"], "cursor");
             assert_eq!(c["tool_name"], "Escribir en Cursor");
             assert_eq!(c["request_id"], "cursor-1");
             assert_eq!(c["tool_input"]["prompt"], "haz esto");
@@ -466,11 +466,11 @@ mod gate {
             let rule = policy::rule_for(WHO, TOOL, &what, Some(policy::RULE_TTL)).expect("Siempre may be offered");
             assert!(policy::rule_covers(&rule, WHO, TOOL, "otra orden", now));
             assert!(!policy::rule_covers(&rule, "bot-cursor", TOOL, &what, now), "never across callers");
-            assert!(!policy::rule_covers(&rule, policy::MOCHI, TOOL, &what, now));
+            assert!(!policy::rule_covers(&rule, policy::ARIA, TOOL, &what, now));
             assert!(!policy::rule_covers(&rule, WHO, "open_url", &what, now), "never another tool");
             assert!(!policy::rule_covers(&rule, WHO, TOOL, &what, now + policy::RULE_TTL + Duration::from_secs(1)), "expires");
             // Rules made for other tools or callers never cover this one.
-            for (who, tool) in [(WHO, "open_url"), (WHO, "clipboard_write"), ("bot-a", TOOL), (policy::MOCHI, TOOL)] {
+            for (who, tool) in [(WHO, "open_url"), (WHO, "clipboard_write"), ("bot-a", TOOL), (policy::ARIA, TOOL)] {
                 let other = policy::rule_for(who, tool, &what, None).unwrap();
                 assert!(!policy::rule_covers(&other, WHO, TOOL, &what, now), "{who} {tool}");
             }

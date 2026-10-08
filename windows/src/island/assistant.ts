@@ -1,4 +1,4 @@
-// Approval cards for Mochi's own tools (policy.rs). Same card and buttons as an
+// Approval cards for ARIA's own tools (policy.rs). Same card and buttons as an
 // agent's permission request; answering goes back through approval_decision.
 // No click in time, a paused island or a card already up all mean no.
 

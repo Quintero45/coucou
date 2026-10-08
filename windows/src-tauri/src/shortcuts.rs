@@ -14,7 +14,7 @@
 // on E, Q, M, W, C and on every digit and most punctuation keys:
 //
 //   Ctrl+Alt+Space   open the chat           Ctrl+Alt+→ / ←  next / previous pill
-//   Ctrl+Alt+A       waiting permission      Ctrl+Alt+S      mute Mochi
+//   Ctrl+Alt+A       waiting permission      Ctrl+Alt+S      mute ARIA
 //   Ctrl+Alt+T       open the terminal       Ctrl+Alt+G      wardrobe
 //   Ctrl+Alt+N       open / close the island (off by default, as on the Mac)
 //
@@ -58,12 +58,12 @@ pub const ACTIONS: &[ActionDef] = &[
     action("openChat", "Ctrl+Alt+Space", true, true),
     action("goToAlert", "Ctrl+Alt+A", true, true),
     action("jumpToTerminal", "Ctrl+Alt+T", true, true),
-    // Dragging Mochi onto a window is not in this version.
+    // Dragging ARIA onto a window is not in this version.
     action("attachFrontWindow", "Ctrl+Alt+F", true, false),
     action("nextPill", "Ctrl+Alt+Right", true, true),
     action("prevPill", "Ctrl+Alt+Left", true, true),
     action("muteToggle", "Ctrl+Alt+S", true, true),
-    // Mochi on the desktop is not in this version.
+    // ARIA on the desktop is not in this version.
     action("desktopToggle", "Ctrl+Alt+D", true, false),
     action("wardrobeToggle", "Ctrl+Alt+G", true, true),
 ];
@@ -109,7 +109,7 @@ pub enum Status {
     Off,
     /// Another app already holds this combination.
     InUse,
-    /// Another Coucou shortcut has the same combination.
+    /// Another ARIA shortcut has the same combination.
     Duplicate,
     /// Not a combination the OS can register.
     Invalid,
@@ -242,7 +242,7 @@ pub fn plan(
         .collect()
 }
 
-/// `coucou --shortcut <id>` → the action id, when it names a ported one.
+/// `aria --shortcut <id>` → the action id, when it names a ported one.
 pub fn from_args(args: &[String]) -> Option<&'static str> {
     let at = args.iter().position(|a| a == "--shortcut")?;
     let def = find(args.get(at + 1)?)?;
@@ -277,7 +277,7 @@ pub fn dispatch<R: Runtime>(app: &AppHandle<R>, action: &str) {
     }
 }
 
-/// Unregisters everything Coucou holds.
+/// Unregisters everything ARIA holds.
 fn release<R: Runtime>(app: &AppHandle<R>) {
     if let Some(gs) = app.try_state::<GlobalShortcut<R>>() {
         if let Err(err) = gs.unregister_all() {
@@ -334,7 +334,7 @@ pub fn apply<R: Runtime>(app: &AppHandle<R>, stored: &Bindings) {
 }
 
 /// Lets go of every shortcut while a new one is being recorded in Settings,
-/// so pressing a combination Coucou already holds records it instead of
+/// so pressing a combination ARIA already holds records it instead of
 /// running it.
 pub fn suspend<R: Runtime>(app: &AppHandle<R>) {
     release(app);
@@ -359,7 +359,7 @@ fn launch_command() -> String {
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::current_exe().ok())
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| "coucou".to_string());
+        .unwrap_or_else(|| "aria".to_string());
     if exe.contains(' ') {
         format!("\"{exe}\"")
     } else {
@@ -541,11 +541,11 @@ mod tests {
     #[test]
     fn the_command_line_names_an_action() {
         let args = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert_eq!(from_args(&args(&["coucou", "--shortcut", "openChat"])), Some("openChat"));
-        assert_eq!(from_args(&args(&["coucou", "--shortcut", "wardrobeToggle"])), Some("wardrobeToggle"));
-        assert_eq!(from_args(&args(&["coucou", "--shortcut"])), None);
-        assert_eq!(from_args(&args(&["coucou", "--shortcut", "rm -rf"])), None);
-        assert_eq!(from_args(&args(&["coucou", "--shortcut", "desktopToggle"])), None);
-        assert_eq!(from_args(&args(&["coucou"])), None);
+        assert_eq!(from_args(&args(&["aria", "--shortcut", "openChat"])), Some("openChat"));
+        assert_eq!(from_args(&args(&["aria", "--shortcut", "wardrobeToggle"])), Some("wardrobeToggle"));
+        assert_eq!(from_args(&args(&["aria", "--shortcut"])), None);
+        assert_eq!(from_args(&args(&["aria", "--shortcut", "rm -rf"])), None);
+        assert_eq!(from_args(&args(&["aria", "--shortcut", "desktopToggle"])), None);
+        assert_eq!(from_args(&args(&["aria"])), None);
     }
 }

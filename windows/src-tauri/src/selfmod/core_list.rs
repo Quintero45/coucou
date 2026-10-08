@@ -10,6 +10,7 @@ pub const PROTECTED: &[&str] = &[
     "windows/src-tauri/src/policy.rs",
     "windows/src-tauri/src/secrets.rs",
     "windows/src-tauri/src/pipe.rs",
+    "windows/src-tauri/src/migrate.rs",
     "windows/src-tauri/src/selfmod",
     "windows/hook",
 ];

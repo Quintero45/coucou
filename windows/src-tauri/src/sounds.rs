@@ -5,11 +5,11 @@
 //   listo     a task finished           ~450 ms descending resolve    (-3 dBFS)
 //   error     something failed          ~300 ms soft low double tone  (-3 dBFS)
 //
-// The WAVs (44.1 kHz mono 16-bit) were synthesised for Coucou, so they are
+// The WAVs (44.1 kHz mono 16-bit) were synthesised for ARIA, so they are
 // royalty-free, and are embedded in the binary.
 //
 // The front calls `play_sound({ name, volume })` (core/botcmds.ts) after its
-// own "Sonidos de Coucou" switch. Here the app-wide "Sonido" switch
+// own "Sonidos de ARIA" switch. Here the app-wide "Sonido" switch
 // (Settings.sound_enabled, read-only) still wins, and the gain is the volume
 // the front passes, or Settings.sound_volume when it passes none.
 
@@ -32,7 +32,7 @@ pub enum UiSound {
 }
 
 impl UiSound {
-    /// The front's names (core/botcmds.ts `CoucouSound`). Case and spaces are forgiven.
+    /// The front's names (core/botcmds.ts `AriaSound`). Case and spaces are forgiven.
     pub fn parse(name: &str) -> Option<Self> {
         match name.trim().to_ascii_lowercase().as_str() {
             "recibido" => Some(Self::Recibido),
@@ -153,7 +153,7 @@ mod player {
         static TX: OnceLock<Option<Mutex<Sender<Job>>>> = OnceLock::new();
         TX.get_or_init(|| {
             let (tx, rx) = mpsc::channel::<Job>();
-            match std::thread::Builder::new().name("coucou-sounds".into()).spawn(move || run(rx)) {
+            match std::thread::Builder::new().name("aria-sounds".into()).spawn(move || run(rx)) {
                 Ok(_) => Some(Mutex::new(tx)),
                 Err(e) => {
                     log::line(format!("sounds: no player thread: {e}"));

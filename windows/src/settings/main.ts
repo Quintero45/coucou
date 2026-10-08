@@ -4,6 +4,7 @@
 
 import "./settings.css";
 import { assistantSection, connectionsSection, coreSection, grokBotsSection, skillsSection } from "./assistant";
+import { coucouSection } from "./coucou";
 import { soundsSection } from "./sounds";
 import { saveSettingsMerged } from "../core/savesettings";
 import { Bridge, onEvent, type AgentHookStatus, type HookPreview, type HookStatus, type ShortcutsReport } from "../core/bridge";
@@ -196,8 +197,10 @@ function claudeSection(status: HookStatus): HTMLElement {
     if (!status.hookReady) {
       body.append(h("div", {
         class: "notice warn",
-        text: t("coucou-hook.exe is not in place yet. Restart ARIA; if it still fails, build it with `cargo build -p coucou-hook`."),
+        text: t("aria-hook.exe is not in place yet. Restart ARIA; if it still fails, build it with `cargo build -p aria-hook`."),
       }));
+    } else if (status.installed && status.legacy) {
+      body.append(h("div", { class: "notice warn", text: t("Installed by Coucou, ARIA's former name: reinstall so this agent reaches ARIA.") }));
     }
 
     const actions = h("div", { class: "row" });
@@ -287,7 +290,7 @@ function planSection(status: HookStatus): HTMLElement {
         h("label", { text: t("Relay") }),
         statusDot(status.planRelayInstalled),
         h("span", { class: "hint", text: status.planRelayInstalled ? t("installed") : t("not installed") }),
-        status.planRelayInstalled
+        status.planRelayInstalled && !status.planRelayLegacy
           ? h("button", {
               class: "danger",
               text: t("Uninstall relay…"),
@@ -299,7 +302,12 @@ function planSection(status: HookStatus): HTMLElement {
               onclick: () => void reviewChange(body, STATUS_LINE_CHANGE, true, redraw, () => void rebuild()),
             }),
       ),
-      // Codex: nothing to install, Coucou asks the Codex CLI when the pill shows.
+    );
+    if (status.planRelayLegacy) {
+      body.append(h("div", { class: "notice warn", text: t("Installed by Coucou, ARIA's former name: reinstall so this agent reaches ARIA.") }));
+    }
+    body.append(
+      // Codex: nothing to install, ARIA asks the Codex CLI when the pill shows.
       h("div", { class: "hint", text: PLAN_SETTINGS_TEXT.codex }),
       h("div", { class: "row" },
         h("label", { text: PLAN_SETTINGS_TEXT.showCodex }),
@@ -622,7 +630,7 @@ function generalSection(): HTMLElement {
 
 /**
  * Settings → General → Language, as on the Mac: "System" follows the
- * system's language when Coucou has it (else English), or one of the ten.
+ * system's language when ARIA has it (else English), or one of the ten.
  * Both windows and the tray switch in place, without a restart.
  */
 function languageRow(): HTMLElement {
@@ -943,7 +951,7 @@ function agentShown(a: AgentHookStatus): boolean {
 /** Reads what the sections show and draws them all. */
 async function render() {
   const status = (await Bridge.hooksStatus()) ?? {
-    installed: false, planRelayInstalled: false, settingsPath: "", hookPath: "", hookReady: false,
+    installed: false, legacy: false, planRelayInstalled: false, planRelayLegacy: false, settingsPath: "", hookPath: "", hookReady: false,
   };
   const agents = (await Bridge.agentHooksList())?.filter(agentShown) ?? null;
   const shortcutReport = await Bridge.shortcutsStatus();
@@ -965,7 +973,8 @@ async function render() {
   }
 
   const ctx = { get: () => settings, save };
-  const [assistant, bots, connections, skills, core] = await Promise.all([
+  const [coucou, assistant, bots, connections, skills, core] = await Promise.all([
+    coucouSection(),
     assistantSection(ctx),
     grokBotsSection(),
     connectionsSection(),
@@ -978,6 +987,7 @@ async function render() {
   clear(root);
   root.append(
     h("h1", {}, h("span", { text: "ARIA" }), h("span", { class: "version", text: version })),
+    ...(coucou ? [coucou] : []),
     assistant,
     bots,
     soundsSection(ctx),

@@ -318,7 +318,7 @@ test("the island toggle opens with the keyboard, and closes an open island", () 
   assert.deepEqual(did, ["collapse"]);
 });
 
-test("go to alert: the permission first, then a question, else Mochi is annoyed", () => {
+test("go to alert: the permission first, then a question, else ARIA is annoyed", () => {
   runGlobalShortcut(host, "goToAlert", resume);
   assert.deepEqual(did, ["emote:annoyed"]);
 
@@ -394,7 +394,7 @@ test("next and previous pill wrap around and open the overview", () => {
   assert.deepEqual(did, ["resume", "alert:overview", "resume", "alert:overview"]);
 });
 
-test("mute flips the sound, saves it, and Mochi reacts", () => {
+test("mute flips the sound, saves it, and ARIA reacts", () => {
   runGlobalShortcut(host, "muteToggle", resume);
   assert.equal(State.settings.soundEnabled, false);
   assert.equal(sent("save_settings").at(-1).settings.soundEnabled, false);

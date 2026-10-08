@@ -5,9 +5,9 @@
 import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
 import { Ticker } from "./ticker";
-import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, MOCHI_TASK, State, aiProvider, botPhase, type AgentTask } from "../core/state";
+import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, ARIA_TASK, State, aiProvider, botPhase, type AgentTask } from "../core/state";
 import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
-import { createMiniBot, pruneMiniBots } from "../mochi/minibots";
+import { createMiniBot, pruneMiniBots } from "../aria/minibots";
 import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
 import {
@@ -23,7 +23,7 @@ import { lastTextStep } from "../core/diff";
 import { Bridge } from "../core/bridge";
 import { buildRecap } from "./recap";
 import { buildWardrobe } from "./wardrobe";
-import type { Outfit, OutfitSelection } from "../mochi/wardrobe";
+import type { Outfit, OutfitSelection } from "../aria/wardrobe";
 import { hasChat, sendWithOutbox } from "../core/botchat";
 import { loadBotApprovals, type BotApproval } from "../core/botlog";
 import { BotLive } from "../core/botlive";
@@ -57,7 +57,7 @@ export interface ViewActions {
   blip(): void;
   /** Wardrobe click: keeps the outfit ("auto" and "none" included). */
   chooseOutfit(selection: OutfitSelection): void;
-  /** Wardrobe hover: shows an outfit on Mochi without keeping it; null ends it. */
+  /** Wardrobe hover: shows an outfit on ARIA without keeping it; null ends it. */
   previewOutfit(outfit: Outfit | null): void;
   /** A tap on a Grok Bot (its pill or its card): grow the island to the chat's size and open the conversation. */
   openBotDetail(id: string): void;
@@ -724,7 +724,7 @@ function buildApproval(actions: ViewActions): ViewHost {
       const isBot = !!req?.pillId.startsWith(BOT_PREFIX);
       const isQuestion = req?.tool === "Pregunta";
       if (req?.pillId === ASSISTANT_ID) {
-        who.append(agentWho({ ...MOCHI_TASK }, t("wants to use {tool}", { tool: req.tool.replace(/_/g, " ") })));
+        who.append(agentWho({ ...ARIA_TASK }, t("wants to use {tool}", { tool: req.tool.replace(/_/g, " ") })));
       } else if (req && isBot) {
         // A Grok Bot: its name and colour, then what it wants — a yes/no
         // question (`--status ask`) or a tool on this PC with its arguments.
@@ -767,7 +767,7 @@ function buildApproval(actions: ViewActions): ViewHost {
       }
       // Built once per request shape. Rebuilding them between a mouse-down and a
       // mouse-up would swallow the click. "Always" only exists when Claude Code
-      // suggested a rule to remember (or for Mochi's own tools).
+      // suggested a rule to remember (or for ARIA's own tools).
       const key = `${language()}:${hasChoices ? "choices" : req?.allowAlways ? "always" : "plain"}`;
       if (rowKey === key) return;
       rowKey = key;
@@ -1046,7 +1046,7 @@ function buildSettings(actions: ViewActions): ViewHost {
         h("span", { text: "Claude Code" }),
       );
       clear(apiBadge);
-      // Mochi's AI provider (Ajustes → Mochi).
+      // ARIA's AI provider (Ajustes → ARIA).
       const provider = aiProvider(s.provider);
       apiBadge.append(dot(provider.color, 6), h("span", { text: provider.name }));
     },

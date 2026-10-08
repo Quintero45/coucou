@@ -1,5 +1,5 @@
 // The conversation with each Grok Bot: what the owner sent, what the Bot said
-// back (`coucou-hook --bot … --status …`), the steps it reported and the
+// back (`aria-hook --bot … --status …`), the steps it reported and the
 // permissions it asked for. Kept in this webview's localStorage, per Bot,
 // capped at LIMIT entries, so it survives a restart. Nothing secret goes here:
 // permission arguments arrive already sanitised by botlog.ts.
@@ -85,7 +85,9 @@ type NewEntry = BotChatEntry extends infer E ? (E extends BotChatEntry ? Omit<E,
 /** Entries kept per Bot. */
 export const LIMIT = 200;
 
-const storageKey = (slug: string) => `coucou.botchat.${slug}`;
+const storageKey = (slug: string) => `aria.botchat.${slug}`;
+/** Where it was kept while ARIA was Coucou: read when the new key is empty. */
+const legacyKey = (slug: string) => `coucou.botchat.${slug}`;
 const cache = new Map<string, BotChatEntry[]>();
 let counter = 0;
 
@@ -94,7 +96,7 @@ function load(slug: string): BotChatEntry[] {
   if (hit) return hit;
   let list: BotChatEntry[] = [];
   try {
-    const raw = window.localStorage.getItem(storageKey(slug));
+    const raw = window.localStorage.getItem(storageKey(slug)) ?? window.localStorage.getItem(legacyKey(slug));
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     if (Array.isArray(parsed)) {
       list = parsed.filter(

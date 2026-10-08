@@ -53,7 +53,7 @@ pub fn handles(name: &str) -> bool {
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
-        .user_agent("Coucou")
+        .user_agent("ARIA")
         .build()
         .unwrap_or_default()
 }

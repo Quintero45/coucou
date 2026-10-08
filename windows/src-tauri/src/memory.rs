@@ -1,4 +1,4 @@
-// The assistant's memory, in %APPDATA%\Coucou\memory\: notes it was asked to
+// The assistant's memory, in %APPDATA%\ARIA\memory\: notes it was asked to
 // keep (notes.md, read into every conversation) and a history of finished
 // turns (history.jsonl). Plain files on this machine; nothing leaves it.
 
@@ -21,7 +21,7 @@ fn notes_path() -> PathBuf {
 }
 
 /// Creates the memory folder and an empty notes.md on first run, so the folder
-/// is there before Mochi has anything to remember.
+/// is there before ARIA has anything to remember.
 pub fn ensure() {
     if platform::ensure_private_dir(&dir()).is_err() {
         return;

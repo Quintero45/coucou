@@ -1,4 +1,4 @@
-// Coucou for Windows — app wiring and the commands the island calls.
+// ARIA for Windows — app wiring and the commands the island calls.
 
 mod agent;
 mod agent_hooks;
@@ -26,6 +26,7 @@ mod log;
 mod mcp;
 mod meeting;
 mod memory;
+mod migrate;
 mod pipe;
 mod platform;
 mod policy;
@@ -100,9 +101,9 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         let screen_changed = current.screen != settings.screen;
         let autostart_changed = current.autostart != settings.autostart;
         let shortcuts_changed = current.shortcuts != settings.shortcuts;
-        // Where Mochi sits on the desktop is desktop.rs's to say, not a webview's.
+        // Where ARIA sits on the desktop is desktop.rs's to say, not a webview's.
         let mut settings = settings.clone();
-        settings.desktop_mochi = current.desktop_mochi.clone();
+        settings.desktop_aria = current.desktop_aria.clone();
         *current = settings;
         (screen_changed, autostart_changed, shortcuts_changed)
     };
@@ -114,7 +115,7 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         let manager = app.autolaunch();
         let result = if settings.autostart { manager.enable() } else { manager.disable() };
         if let Err(err) = result {
-            eprintln!("[coucou] autostart: {err}");
+            eprintln!("[aria] autostart: {err}");
         }
     }
     if screen_changed {
@@ -301,6 +302,25 @@ fn set_paused(paused: bool) {
     integrations::set_paused(paused);
 }
 
+// ── Coming from Coucou ────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn migration_status() -> migrate::Status {
+    migrate::status()
+}
+
+/// Only from the button in Settings.
+#[tauri::command]
+fn migration_clear_old_keys() -> Result<usize, String> {
+    migrate::clear_old_keys()
+}
+
+/// Only from the button in Settings: Coucou's uninstaller then asks itself.
+#[tauri::command]
+fn migration_uninstall_coucou() -> Result<(), String> {
+    migrate::uninstall_coucou()
+}
+
 // ── Claude Code hooks ─────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -308,7 +328,7 @@ fn hooks_status() -> HookStatus {
     hooks::status()
 }
 
-/// Pill ID → whether that agent's hooks reach Coucou. Read-only.
+/// Pill ID → whether that agent's hooks reach ARIA. Read-only.
 #[tauri::command]
 fn agent_hooks_status() -> std::collections::HashMap<String, bool> {
     agent_hooks::status()
@@ -609,7 +629,7 @@ fn core_status() -> CoreStatus {
     }
 }
 
-/// Opens one of Mochi's own folders in Explorer.
+/// Opens one of ARIA's own folders in Explorer.
 #[tauri::command]
 fn open_data_folder(which: String) {
     let dir = match which.as_str() {
@@ -692,11 +712,11 @@ fn log_line(message: String) {
     log::line(format!("ui  {message}"));
 }
 
-/// Read-only: the last Grok Bot approvals the island wrote to coucou.log
+/// Read-only: the last Grok Bot approvals the island wrote to aria.log
 /// (`bot-approval {json}` lines), oldest first. Nothing is written.
 #[tauri::command]
 fn bot_approvals() -> Vec<String> {
-    let path = settings::local_dir().join("coucou.log");
+    let path = settings::local_dir().join("aria.log");
     let Ok(bytes) = std::fs::read(path) else { return Vec::new() };
     let text = String::from_utf8_lossy(&bytes);
     let lines: Vec<&str> = text.lines().filter(|l| l.contains("bot-approval {")).collect();
@@ -792,13 +812,19 @@ fn open_settings_window(app: AppHandle) {
 
 pub fn run() {
     platform::prepare_environment();
+    // Before settings are read and before any webview: see migrate.rs.
+    let migrated = match migrate::run() {
+        migrate::Outcome::Postponed => return,
+        migrate::Outcome::Done => true,
+        migrate::Outcome::NotNeeded => false,
+    };
     let loaded = settings::load();
     i18n::set_picked(&loaded.language);
     let gate = Arc::new(PollGate::new());
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            // `coucou --shortcut <action>`: what a desktop's own keyboard
+            // `aria --shortcut <action>`: what a desktop's own keyboard
             // settings run where we can't listen for keys ourselves (Wayland).
             match shortcuts::from_args(&argv) {
                 Some(action) => shortcuts::dispatch(app, action),
@@ -841,6 +867,9 @@ pub fn run() {
             editctx::edit_context,
             quit_app,
             hooks_status,
+            migration_status,
+            migration_clear_old_keys,
+            migration_uninstall_coucou,
             agent_hooks_status,
             hooks_preview,
             hooks_apply,
@@ -912,23 +941,23 @@ pub fn run() {
             recap::recap_clear,
             recap::recap_save_png,
             recap::recap_reveal_saved,
-            desktop::desktop_mochi_info,
-            desktop::desktop_mochi_pick_up,
-            desktop::desktop_mochi_carry,
-            desktop::desktop_mochi_carry_end,
-            desktop::desktop_mochi_drag_begin,
-            desktop::desktop_mochi_drag_move,
-            desktop::desktop_mochi_drag_end,
-            desktop::desktop_mochi_fly_out,
-            desktop::desktop_mochi_fly_home,
-            desktop::desktop_mochi_set_asleep,
+            desktop::desktop_aria_info,
+            desktop::desktop_aria_pick_up,
+            desktop::desktop_aria_carry,
+            desktop::desktop_aria_carry_end,
+            desktop::desktop_aria_drag_begin,
+            desktop::desktop_aria_drag_move,
+            desktop::desktop_aria_drag_end,
+            desktop::desktop_aria_fly_out,
+            desktop::desktop_aria_fly_home,
+            desktop::desktop_aria_set_asleep,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
             tray::build(&handle)?;
             // Before the island: see create_settings_window.
             create_settings_window(&handle);
-            // Same rule for Mochi's desktop window.
+            // Same rule for ARIA's desktop window.
             desktop::setup(&handle);
 
             if let Some(win) = island::window(&handle) {
@@ -954,7 +983,7 @@ pub fn run() {
             gate.set_active(true);
             island::spawn_cursor_poll(handle.clone(), gate.clone());
 
-            log::line(format!("--- Coucou {} started ---", env!("CARGO_PKG_VERSION")));
+            log::line(format!("--- ARIA {} started ---", env!("CARGO_PKG_VERSION")));
             selfmod::guard::verify_at_startup();
             selfmod::evolve::startup_health();
             hooks::ensure_hook_exe(&handle);
@@ -968,10 +997,18 @@ pub fn run() {
             voice::resume_pending(handle.clone());
             appwatch::start(handle.clone());
             shortcuts::apply(&handle, &loaded.shortcuts);
+            if migrated {
+                // Coucou started with Windows: now ARIA does, and Coucou no longer.
+                if loaded.autostart && handle.autolaunch().enable().is_ok() && platform::remove_legacy_autostart() {
+                    log::line("autostart moved from Coucou to ARIA");
+                }
+                // What came over, and the agents still on Coucou's relay.
+                show_settings_window(&handle);
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Coucou");
+        .expect("error while running ARIA");
 }
 
 #[cfg(test)]
@@ -980,7 +1017,7 @@ mod tests {
 
     #[test]
     fn only_an_existing_file_by_its_full_path_reaches_the_editor() {
-        let dir = std::env::temp_dir().join(format!("coucou-diff-file-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("aria-diff-file-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("edited.ts");
         std::fs::write(&file, "x").unwrap();

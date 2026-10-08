@@ -1,7 +1,7 @@
-// Skills — reusable tools Mochi writes for itself, installed only after the
+// Skills — reusable tools ARIA writes for itself, installed only after the
 // owner has read the code on the approval card.
 //
-// A skill is a folder in %APPDATA%\Coucou\skills\<name>\ with a skill.json and
+// A skill is a folder in %APPDATA%\ARIA\skills\<name>\ with a skill.json and
 // its files. Two kinds:
 //   * "script": each tool runs one script (PowerShell .ps1, Python .py, Node
 //     .js/.mjs) with the call's arguments as JSON on stdin; stdout is the result.
@@ -228,6 +228,8 @@ async fn run_script(folder: &Path, script: &str, input: &str) -> Outcome {
     cmd.args(pre)
         .arg(folder.join(script))
         .current_dir(folder)
+        .env("ARIA_SKILL_DIR", folder)
+        // Skills written before the rename read this one.
         .env("COUCOU_SKILL_DIR", folder)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

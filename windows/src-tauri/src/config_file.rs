@@ -1,4 +1,4 @@
-// The one careful way Coucou changes a file that belongs to somebody else:
+// The one careful way ARIA changes a file that belongs to somebody else:
 // Claude Code's settings.json, every other agent's hook config, and the plugin
 // files a few agents load.
 //
@@ -108,7 +108,7 @@ pub fn json_edit<'a>(
     })
 }
 
-/// An `Edit` for a text file Coucou generates whole (a plugin): `change` gets
+/// An `Edit` for a text file ARIA generates whole (a plugin): `change` gets
 /// the current text and returns the new one, or `None` to remove the file.
 pub fn text_edit<'a>(
     label: String,
@@ -343,7 +343,7 @@ fn replace(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let path = resolved.as_path();
 
     let name = path.file_name().unwrap_or_default().to_string_lossy();
-    let temp = path.with_file_name(format!("{name}.coucou-{}", std::process::id()));
+    let temp = path.with_file_name(format!("{name}.aria-{}", std::process::id()));
     let result = write_like(&temp, path, bytes).and_then(|()| std::fs::rename(&temp, path));
     if result.is_err() {
         let _ = std::fs::remove_file(&temp);
@@ -433,7 +433,7 @@ pub mod tests {
 
     /// A fresh directory of our own.
     pub fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("coucou-cfg-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("aria-cfg-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -586,7 +586,7 @@ pub mod tests {
     #[test]
     fn removing_a_file_backs_it_up_first() {
         let dir = scratch("remove");
-        let path = dir.join("coucou.json");
+        let path = dir.join("aria.json");
         std::fs::write(&path, b"{\"a\":1}").unwrap();
         let plan = preview(&remove_file_edit(&path)).unwrap();
         assert!(plan.diff.starts_with("The file is removed."));

@@ -1,6 +1,6 @@
 //! What a Grok Bot shows on its pill besides a status: a progress step
-//! (`coucou-hook --step "…" --bot <Name>`) and a file card
-//! (`coucou-hook --attach <path> --bot <Name> [--caption "…"]`).
+//! (`aria-hook --step "…" --bot <Name>`) and a file card
+//! (`aria-hook --attach <path> --bot <Name> [--caption "…"]`).
 //!
 //! Both only display something, so neither asks the owner. A file card does
 //! make its file openable from the island, which is why `open_attachment` only
@@ -66,17 +66,17 @@ pub fn sanitize(text: &str, max: usize) -> String {
     out
 }
 
-/// `coucou_agent` must be this Bot's pill: a card cannot speak for Claude Code
+/// `aria_agent` must be this Bot's pill: a card cannot speak for Claude Code
 /// or for another Bot. Same rule as pipe.rs' tool requests.
 pub fn identity(payload: &Value) -> Result<(String, String), String> {
-    let bot = payload.get("coucou_bot").and_then(Value::as_str).unwrap_or_default().trim().to_string();
+    let bot = payload.get("aria_bot").and_then(Value::as_str).unwrap_or_default().trim().to_string();
     let slug = crate::grokbot::slug(&bot);
     if slug.is_empty() {
         return Err("missing the Bot's name (--bot)".into());
     }
     let agent = format!("bot-{slug}");
-    if payload.get("coucou_agent").and_then(Value::as_str) != Some(agent.as_str()) {
-        return Err(format!("coucou_agent must be {agent}"));
+    if payload.get("aria_agent").and_then(Value::as_str) != Some(agent.as_str()) {
+        return Err(format!("aria_agent must be {agent}"));
     }
     Ok((agent, bot))
 }
@@ -183,7 +183,7 @@ pub fn open_action(path: &Path) -> OpenAction {
     }
 }
 
-/// From pipe.rs: `coucou_kind: "bot_step"`. Fire and forget.
+/// From pipe.rs: `aria_kind: "bot_step"`. Fire and forget.
 pub fn step(app: &AppHandle, payload: &Value) {
     match parse_step(payload, now_ms()) {
         Ok(step) => {
@@ -194,7 +194,7 @@ pub fn step(app: &AppHandle, payload: &Value) {
     }
 }
 
-/// From pipe.rs: `coucou_kind: "bot_attach"`. Answers `{ok}` or `{ok:false,error}`.
+/// From pipe.rs: `aria_kind: "bot_attach"`. Answers `{ok}` or `{ok:false,error}`.
 pub fn attach(app: &AppHandle, payload: &Value) -> Value {
     match parse_attach(payload) {
         Ok((card, k)) => {
@@ -229,8 +229,8 @@ pub fn announce_attachment(app: &AppHandle, bot: &str, path: &Path, caption: Opt
 
 fn attach_payload(bot: &str, path: &Path, caption: Option<&str>) -> Value {
     let mut v = json!({
-        "coucou_agent": format!("bot-{}", crate::grokbot::slug(bot)),
-        "coucou_bot": bot,
+        "aria_agent": format!("bot-{}", crate::grokbot::slug(bot)),
+        "aria_bot": bot,
         "path": path.to_string_lossy(),
     });
     if let Some(c) = caption {
@@ -268,7 +268,7 @@ mod tests {
     use super::*;
 
     fn tmp(name: &str, body: &[u8]) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("coucou-botcards-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("aria-botcards-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join(name);
         std::fs::write(&p, body).unwrap();
@@ -293,12 +293,12 @@ mod tests {
 
     #[test]
     fn steps_need_the_bots_own_pill() {
-        let ok = json!({"coucou_agent":"bot-ventas","coucou_bot":" Ventas ","text":"Paso 1"});
+        let ok = json!({"aria_agent":"bot-ventas","aria_bot":" Ventas ","text":"Paso 1"});
         let s = parse_step(&ok, 42).unwrap();
         assert_eq!(s, BotStep { agent: "bot-ventas".into(), bot: "Ventas".into(), text: "Paso 1".into(), ts: 42 });
-        assert!(parse_step(&json!({"coucou_agent":"claude","coucou_bot":"Ventas","text":"x"}), 0).is_err());
-        assert!(parse_step(&json!({"coucou_agent":"bot-","coucou_bot":"","text":"x"}), 0).is_err());
-        assert!(parse_step(&json!({"coucou_agent":"bot-ventas","coucou_bot":"Ventas","text":" \n "}), 0).is_err());
+        assert!(parse_step(&json!({"aria_agent":"claude","aria_bot":"Ventas","text":"x"}), 0).is_err());
+        assert!(parse_step(&json!({"aria_agent":"bot-","aria_bot":"","text":"x"}), 0).is_err());
+        assert!(parse_step(&json!({"aria_agent":"bot-ventas","aria_bot":"Ventas","text":" \n "}), 0).is_err());
     }
 
     #[test]
@@ -314,12 +314,12 @@ mod tests {
         let dir = f.parent().unwrap().to_string_lossy().to_string();
         assert!(validate_attach(&dir).is_err(), "a folder");
         assert!(validate_attach(&format!("{dir}/no-such-file.txt")).is_err());
-        let payload = json!({"coucou_agent":"bot-a","coucou_bot":"A","path": f.to_string_lossy(),"caption":"  el\ninforme "});
+        let payload = json!({"aria_agent":"bot-a","aria_bot":"A","path": f.to_string_lossy(),"caption":"  el\ninforme "});
         let (card, _) = parse_attach(&payload).unwrap();
         assert_eq!(card.caption.as_deref(), Some("el informe"));
         let v = serde_json::to_value(&card).unwrap();
         assert_eq!(v["agent"], "bot-a");
-        let no_caption = json!({"coucou_agent":"bot-a","coucou_bot":"A","path": f.to_string_lossy()});
+        let no_caption = json!({"aria_agent":"bot-a","aria_bot":"A","path": f.to_string_lossy()});
         let v = serde_json::to_value(parse_attach(&no_caption).unwrap().0).unwrap();
         assert!(v.get("caption").is_none());
         let _ = std::fs::remove_file(&f);

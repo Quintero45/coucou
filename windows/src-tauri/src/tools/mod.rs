@@ -97,9 +97,9 @@ pub fn specs(app: &AppHandle) -> Vec<ToolSpec> {
     out
 }
 
-/// What a Grok Bot may call through `coucou-hook tool` (pipe.rs): the built-in
-/// tools only. Not memory (it is Mochi's), not MCP, skills, self-evolution or
-/// send_to_grok_bot — those keep their own gates and stay with Mochi.
+/// What a Grok Bot may call through `aria-hook tool` (pipe.rs): the built-in
+/// tools only. Not memory (it is ARIA's), not MCP, skills, self-evolution or
+/// send_to_grok_bot — those keep their own gates and stay with ARIA.
 pub fn for_bots() -> Vec<Tool> {
     builtins()
         .into_iter()

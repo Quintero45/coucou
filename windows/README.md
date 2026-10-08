@@ -141,8 +141,8 @@ will change in `%USERPROFILE%\.claude\settings.json`, the path of the dated back
 that will be taken, and nothing is written until you click. Your own hooks are
 never touched, and uninstalling removes only ARIA's entries.
 
-The relay is a tiny executable, `coucou-hook.exe`, copied to
-`%LOCALAPPDATA%\Coucou\bin\` at launch. It is given 300 ms to reach ARIA and
+The relay is a tiny executable, `aria-hook.exe`, copied to
+`%LOCALAPPDATA%\ARIA\bin\` at launch. It is given 300 ms to reach ARIA and
 exits cleanly if the app is closed, slow or crashed — **a Claude Code session is
 never blocked or slowed down by ARIA.** If nobody answers a permission request
 in time, ARIA stays quiet and Claude Code asks in the terminal as usual.
@@ -159,7 +159,7 @@ reset times. Both are off by default; turn them on in **Settings… → Plan usa
 - **Claude** (Pro and Max plans): the numbers come from Claude Code's own status
   line. **Show in notch** first shows you the diff of the `statusLine` change in
   `%USERPROFILE%\.claude\settings.json`, takes a dated backup and writes only
-  after your click, with the same writer as the hooks: the status line becomes `coucou-hook --statusline`, which
+  after your click, with the same writer as the hooks: the status line becomes `aria-hook --statusline`, which
   passes only the limits on (300 ms at most) and runs the status line you had
   before — kept in `statusline-previous.json` next to the relay — with the same
   input, printing what it prints. On Windows that one runs through Git Bash, as
@@ -245,9 +245,9 @@ Tested live on 2026-10-08: Cursor's IDE runs no hook at all (not even an unmatch
 `preToolUse`) for `AskQuestion` or `SwitchMode`, so both still ask in Cursor's own
 window. The entry stays for when Cursor routes them through hooks.
 
-The way round is the relay's own MCP server (`coucou-hook --agent cursor --mcp`,
+The way round is the relay's own MCP server (`aria-hook --agent cursor --mcp`,
 `hook/src/mcp.rs`), which the Cursor install also writes to `~/.cursor/mcp.json` as
-`mcpServers.coucou`. Its one tool, `island_ask`, takes AskQuestion's shape
+`mcpServers.aria`. Its one tool, `island_ask`, takes AskQuestion's shape
 (`questions[]` with `question`, `options[].label`, `multiSelect`) and its
 description and server instructions tell the agent to use it instead of
 AskQuestion. The question goes over the pipe as a Cursor AskQuestion would, and
@@ -262,7 +262,7 @@ Settings flags hooks written by an older build: **Reinstall…** shows the diff.
 routine with a webhook trigger, and its POST URL and key go into ARIA (the key in
 the Credential Manager). Tasks go out as `@Bot task` in the chat, or through ARIA's
 `send_to_grok_bot` tool after an approval. Bots report back by running
-`coucou-hook.exe --bot "<name>" --status working|done|needs|error "<text>"`, which
+`aria-hook.exe --bot "<name>" --status working|done|needs|error "<text>"`, which
 lights up their pill. Grok Bot has no chat API, so a Bot's full answer stays in its
 own chat.
 
@@ -315,7 +315,7 @@ a click, never touch its protected core or reveal keys, treat what it reads as
 data rather than orders.
 
 Memory notes and the chat history (`history.jsonl`, rotated at 2 MB) stay in
-`%APPDATA%\Coucou\memory\`; **Open memory folder** shows them.
+`%APPDATA%\ARIA\memory\`; **Open memory folder** shows them.
 
 ### Connections (MCP)
 
@@ -339,7 +339,7 @@ appear to the model as `mcp__server__tool`.
 ### Skills
 
 ARIA can write herself new tools: a small PowerShell, Python or Node script,
-or an MCP server command, packaged as a skill in `%APPDATA%\Coucou\skills\`.
+or an MCP server command, packaged as a skill in `%APPDATA%\ARIA\skills\`.
 The full source is shown on an approval card before anything is written.
 **Settings… → Skills** turns them on and off or removes them.
 
@@ -347,16 +347,16 @@ The full source is shown on an approval card before anything is written.
 
 ARIA can change her own source code to do what you ask, under supervision:
 
-1. it opens a git worktree on a new `evolve/…` branch (`.coucou-evolve/`, ignored by git);
+1. it opens a git worktree on a new `evolve/…` branch (`.aria-evolve/`, ignored by git);
 2. it edits files there and runs the checks (`cargo test`, `tsc`, the front-end build) — after a click;
 3. **the full diff** is shown on an approval card; on the click it commits, tags
-   the previous state `mochi-pre-…` and fast-forwards your branch;
+   the previous state `aria-pre-…` and fast-forwards your branch;
 4. in a release build it can rebuild itself: the running exe is kept as
-   `coucou.prev.exe`, a watchdog starts the new one and puts the old one back if
+   `aria.prev.exe`, a watchdog starts the new one and puts the old one back if
    it does not report healthy within a minute. `tauri dev` restarts on its own.
 
-The source checkout must have no uncommitted changes. `git reset --hard mochi-pre-…`
-undoes an evolution.
+The source checkout must have no uncommitted changes. `git reset --hard aria-pre-…`
+undoes an evolution (`mochi-pre-…` for one made before the rename).
 
 ### Protected core
 
@@ -402,7 +402,7 @@ you by your first name when your account has one (the Windows display name or
 the Linux GECOS full name; a bare login name is not used).
 
 To send the Claude chat through an Anthropic-compatible gateway, set
-`COUCOU_ANTHROPIC_BASE_URL` (for example `https://gateway.example.com`;
+`ARIA_ANTHROPIC_BASE_URL` (for example `https://gateway.example.com`;
 `/v1/messages` is added). It must be `https://`, or `http://` to this PC only.
 Claude Code's own `ANTHROPIC_BASE_URL` is deliberately ignored: your key only
 goes where you told ARIA to send it. The gateway's host is written to the log
@@ -456,11 +456,11 @@ ships in the app.
 workflow publishes:
 
 ```
-Coucou-Windows-X.Y.Z-setup.exe    the versioned installer
-Coucou-Windows-setup.exe          the same file under the rolling name
+ARIA-Windows-X.Y.Z-setup.exe    the versioned installer
+ARIA-Windows-setup.exe          the same file under the rolling name
 ```
 
-Installing is optional — `target/release/coucou.exe` runs on its own. There is no
+Installing is optional — `target/release/aria.exe` runs on its own. There is no
 window in the taskbar and no console: the island at the top of the screen and the
 ARIA in the notification area are the whole app, and Quit lives in its menu.
 
@@ -479,7 +479,7 @@ npm run icons          # regenerates src-tauri/icons from scripts/gen-icons.mjs
 ```
 windows/
   src/                 island front end (TypeScript, no framework)
-    mochi/             ARIA and the launch greeting, in Canvas 2D
+    aria/             ARIA and the launch greeting, in Canvas 2D
     desktop/           ARIA's own little window, when she lives on the desktop
     island/            state machine, hooks, integrations
     views/             every island view
@@ -492,13 +492,13 @@ windows/
     src/mcp.rs         MCP client
     src/selfmod/       protected core, skills, self-evolution
   core-directive.md    the assistant's ground rules
-  hook/                coucou-hook.exe, the agents' relay
+  hook/                aria-hook.exe, the agents' relay
   scripts/             icon generator
 ```
 
 ### Log
 
-`%LOCALAPPDATA%\Coucou\coucou.log` — hook events, permission decisions, the
+`%LOCALAPPDATA%\ARIA\aria.log` — hook events, permission decisions, the
 assistant's tool calls, MCP connections, poller problems. It stays on your machine.
 The weekly recap's history sits beside it in `recap.json`.
 
@@ -507,11 +507,11 @@ The weekly recap's history sits beside it in `recap.json`.
 ```powershell
 cargo test --workspace
 # the live provider test, against a running Ollama:
-$env:COUCOU_TEST_OLLAMA_MODEL="qwen3.5:9b"; cargo test -p coucou ollama -- --ignored
+$env:ARIA_TEST_OLLAMA_MODEL="qwen3.5:9b"; cargo test -p aria ollama -- --ignored
 ```
 
 If the lib test binary exits with `STATUS_ENTRYPOINT_NOT_FOUND`, it is missing the
-Common Controls v6 manifest. Copy `target\debug\deps\coucou_lib-*.exe` into a new
+Common Controls v6 manifest. Copy `target\debug\deps\aria_lib-*.exe` into a new
 folder outside `%TEMP%` (one hooks test points the home folder there), and put a
 `.manifest` next to it that depends on `Microsoft.Windows.Common-Controls` 6.0.0.0.
 
@@ -529,16 +529,16 @@ Linux.
 |---|---|---|
 | Claude Code | `.claude\settings.json` (**Settings → Claude Code**) | Allow / Deny and questions in the island |
 | Codex | `.codex\hooks.json` — then trust the hooks once with `/hooks` in Codex | Allow / Deny in the island |
-| GitHub Copilot CLI | `.copilot\hooks\coucou.json` | Allow / Deny in the island |
+| GitHub Copilot CLI | `.copilot\hooks\aria.json` | Allow / Deny in the island |
 | Muse Code | `.config\muse\settings.json` | Allow / Deny in the island |
 | Gemini CLI | `.gemini\settings.json` | asked in Gemini CLI |
-| Antigravity | `.gemini\config\hooks.json` (a `coucou` hook group) | asked in Antigravity |
+| Antigravity | `.gemini\config\hooks.json` (a `aria` hook group) | asked in Antigravity |
 | Cursor Agent | `.cursor\hooks.json` — Claude Code in Cursor's terminal also goes on the Cursor pill, through the Claude Code hooks | asked in Cursor |
 | Claude Desktop (Windows) | nothing to install: Claude Code sessions from the Claude app are tagged by the relay | asked in the Claude app |
-| OpenCode | plugin `.config\opencode\plugins\coucou.js` | asked in OpenCode |
-| Amp | plugin `.config\amp\plugins\coucou.ts` | asked in Amp |
-| Hermes Agent | plugin `.hermes\plugins\coucou\` — then `hermes plugins enable coucou` once | asked in Hermes |
-| Any other | run `coucou-hook --agent <name> [<Event>]` from your tool's hooks | asked in the tool |
+| OpenCode | plugin `.config\opencode\plugins\aria.js` | asked in OpenCode |
+| Amp | plugin `.config\amp\plugins\aria.ts` | asked in Amp |
+| Hermes Agent | plugin `.hermes\plugins\aria\` — then `hermes plugins enable aria` once | asked in Hermes |
+| Any other | run `aria-hook --agent <name> [<Event>]` from your tool's hooks | asked in the tool |
 
 The relay maps every agent's event and field names onto Claude Code's (Gemini
 CLI's `BeforeTool`, Copilot's `preToolUse`, Cursor's `beforeSubmitPrompt`…), and
@@ -553,7 +553,7 @@ a verdict, and ARIA never gives one.
 
 **How each agent runs the relay on Windows.** Hook commands are written for the
 shell that runs them: Git Bash for Claude Code (quoted, forward slashes),
-PowerShell for Gemini CLI and Copilot CLI (`& '…\coucou-hook.exe'`), `cmd /C`
+PowerShell for Gemini CLI and Copilot CLI (`& '…\aria-hook.exe'`), `cmd /C`
 for Codex. Cursor, Antigravity and Muse Code do not document theirs: the relay
 path is written bare when it has no space or special character — which works in
 cmd, PowerShell and when started directly — and in double quotes otherwise.
@@ -667,7 +667,7 @@ On Arch Linux, build and install the package from `linux/arch/`:
 
 ```bash
 git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/linux/arch
+cd aria/linux/arch
 makepkg -si
 ```
 
@@ -681,8 +681,8 @@ What changes on Linux:
   and other wlroots compositors. GNOME has no layer-shell and ignores where a
   Wayland window asks to go, so there ARIA runs through XWayland as a dock
   window: top centre, on every workspace, still there after Super+D.
-  `COUCOU_X11=0` keeps the native Wayland window, `COUCOU_DOCK=0` makes it a
-  utility window instead of a dock. `COUCOU_LAYER_SHELL=0` forces the regular
+  `ARIA_X11=0` keeps the native Wayland window, `ARIA_DOCK=0` makes it a
+  utility window instead of a dock. `ARIA_LAYER_SHELL=0` forces the regular
   window anywhere.
 - **Click-through** is the window's input region, kept equal to the island
   shape, so the compositor sends every other click to what is underneath.
@@ -695,8 +695,8 @@ What changes on Linux:
   that display; on X11 it is an ordinary always-on-top window that goes
   anywhere. **GNOME on Wayland** has no layer-shell and lets no app place its
   own window, so there ARIA can't leave the island: dragging her does nothing.
-- **Claude Code hooks** go through `~/.local/share/coucou/bin/coucou-hook` and a
-  Unix socket at `$XDG_RUNTIME_DIR/coucou.sock`. Both ends check that the other
+- **Claude Code hooks** go through `~/.local/share/aria/bin/aria-hook` and a
+  Unix socket at `$XDG_RUNTIME_DIR/aria.sock`. Both ends check that the other
   runs as the same user. Every other agent uses the same relay, single-quoted
   for `sh`, and its config under `~` (see Supported agents). A config that is a
   symlink (dotfiles) is written through to its target, with its permissions
@@ -708,20 +708,20 @@ What changes on Linux:
   key grabs — the GlobalShortcuts portal isn't supported yet — so nothing is
   registered there, and **Settings → Shortcuts** lists commands to bind in your
   desktop's own keyboard settings instead:
-  `coucou --shortcut openChat` (or the AppImage's path) runs the action in the
+  `aria --shortcut openChat` (or the AppImage's path) runs the action in the
   ARIA that is already open. The ids are `toggleIsland`, `openChat`,
   `goToAlert`, `jumpToTerminal`, `nextPill`, `prevPill`, `muteToggle` and
   `wardrobeToggle`.
 - **Keys** live in the Secret Service (GNOME Keyring, KWallet).
-- **Plan usage**: the status line relay is `~/.local/share/coucou/bin/coucou-hook
+- **Plan usage**: the status line relay is `~/.local/share/aria/bin/aria-hook
   --statusline` and runs your previous status line with `/bin/sh -c`, like Claude
   Code. Codex is found on `$PATH`, in `~/.local/bin`, npm's global prefix, Volta,
   Bun, pnpm, or nvm (newest Node first), since a desktop launch often has a
   shorter `$PATH` than your shell.
 - **ARIA's greeting** uses the full name in your account's GECOS field
   (`chfn` sets it); without one the chat stays neutral.
-- **Files**: preferences in `~/.config/coucou/`, the log at
-  `~/.local/share/coucou/coucou.log`, the weekly recap history beside it in
+- **Files**: preferences in `~/.config/aria/`, the log at
+  `~/.local/share/aria/aria.log`, the weekly recap history beside it in
   `recap.json`. A saved recap image goes to the pictures folder named in
   `~/.config/user-dirs.dirs`, else `~/Pictures`, else `~/Downloads`.
 - **Languages**: Hindi, Bengali, Chinese and Arabic need fonts that carry those

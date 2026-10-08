@@ -1,20 +1,20 @@
 // The Cursor engine: Grok (or any model on the owner's Cursor plan) answering
-// as Mochi, with Mochi's own tools.
+// as ARIA, with ARIA's own tools.
 //
 // Cursor has no plain chat API; its SDK drives agents through a local bridge
 // process (github.com/cursor/sdk-bridge) that speaks Connect JSON on loopback.
-// Coucou downloads the bridge on a click in settings (checked against the
+// ARIA downloads the bridge on a click in settings (checked against the
 // release's SHA256SUMS), starts it with the first message and stops it after
 // IDLE_STOP without use. One local agent per conversation, with Cursor's own
-// tools switched off: Mochi's tools are offered as custom tools, which the
+// tools switched off: ARIA's tools are offered as custom tools, which the
 // bridge calls back on a loopback server here. The model only reaches custom
 // tools through Cursor's MCP meta-tools (discover, then invoke), so the "mcp"
 // group is the one left on — with no setting sources loaded, the owner's
-// Cursor MCP servers aren't there, only Mochi's tools. Custom tools skip the
+// Cursor MCP servers aren't there, only ARIA's tools. Custom tools skip the
 // SDK's approval, so policy.rs (through tools::run) is the only gate — the
 // same one every other provider goes through.
 //
-// The bridge has no system prompt option: the directive and Mochi's prompt go
+// The bridge has no system prompt option: the directive and ARIA's prompt go
 // in front of the first message of each conversation.
 
 use std::collections::hash_map::RandomState;
@@ -78,7 +78,7 @@ fn exe() -> PathBuf {
 fn client() -> &'static reqwest::Client {
     static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         reqwest::Client::builder()
-            .user_agent("Coucou")
+            .user_agent("ARIA")
             .connect_timeout(Duration::from_secs(20))
             .build()
             .unwrap_or_default()
@@ -786,7 +786,7 @@ fn same(a: &str, b: &str) -> bool {
     a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
-/// The loopback server the bridge calls when the agent uses one of Mochi's tools.
+/// The loopback server the bridge calls when the agent uses one of ARIA's tools.
 async fn callback() -> Result<(String, String), String> {
     static CALLBACK: tokio::sync::OnceCell<(String, String)> = tokio::sync::OnceCell::const_new();
     CALLBACK
@@ -1036,9 +1036,9 @@ mod tests {
         assert_eq!(req.body, b"{}");
     }
 
-    /// Live: downloads the real bridge into %LOCALAPPDATA%\Coucou, starts it and
+    /// Live: downloads the real bridge into %LOCALAPPDATA%\ARIA, starts it and
     /// checks that a wrong key comes back as a readable error. With
-    /// COUCOU_TEST_CURSOR_KEY set, also lists the account's models.
+    /// ARIA_TEST_CURSOR_KEY set, also lists the account's models.
     #[tokio::test]
     #[ignore]
     async fn bridge_installs_starts_and_checks_keys() {
@@ -1048,7 +1048,7 @@ mod tests {
         assert!(status().installed);
         let err = model_ids("key_not_a_real_key").await.unwrap_err();
         assert!(err.contains("clave") || err.starts_with("Cursor:"), "{err}");
-        if let Ok(key) = std::env::var("COUCOU_TEST_CURSOR_KEY") {
+        if let Ok(key) = std::env::var("ARIA_TEST_CURSOR_KEY") {
             let ids = model_ids(&key).await.expect("models");
             println!("models: {ids:?}\npicked: {:?}", pick_grok(&ids));
         }

@@ -1,7 +1,7 @@
 /* Bot FX — opt-in classes for Grok Bot pills and cards.
  *
  * Nothing here applies on its own: add the classes where wanted (or use
- * `botFx.play(el, name, color?)` from mochi/botfx.ts, which restarts one-shot
+ * `botFx.play(el, name, color?)` from aria/botfx.ts, which restarts one-shot
  * effects and removes them on animationend).
  *
  *   .botfx-smooth   eases background / border / shadow / colour / opacity / transform changes

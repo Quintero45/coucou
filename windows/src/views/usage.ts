@@ -6,7 +6,7 @@
 // The pills sit in the header's right side, before the gear, on the overview
 // only, Claude first. Clicking one puts its card in place of the overview's
 // left card (clicking it again, or the other pill, closes or swaps it), and
-// Mochi wears the plan's colour while it is open. It closes when the view, the
+// ARIA wears the plan's colour while it is open. It closes when the view, the
 // mode or the focused pill changes.
 
 import { Bridge } from "../core/bridge";
@@ -40,7 +40,7 @@ export function planCardOpen(): boolean {
 const claudeColor = (now = Date.now()) => planColor(dominantPct(State.planUsage, now));
 const codexColor = (now = Date.now()) => planColor(dominantPct(State.codexPlanUsage, now));
 
-/** The colour of the open card's plan, which Mochi wears while it is open. */
+/** The colour of the open card's plan, which ARIA wears while it is open. */
 export function openPlanColor(): string {
   return State.planDetailIsCodex ? codexColor() : claudeColor();
 }
@@ -52,7 +52,9 @@ export function closePlanCard(): void {
 
 // ── Claude numbers ────────────────────────────────────────────────────────────
 
-const STORE_KEY = "coucou.claudePlanUsage";
+const STORE_KEY = "aria.claudePlanUsage";
+/** Where it was kept while ARIA was Coucou: read when the new key is empty. */
+const LEGACY_STORE_KEY = "coucou.claudePlanUsage";
 
 /** New numbers from the status line; kept so they survive a restart, as on the Mac. */
 export function setClaudePlanUsage(usage: PlanUsage): void {
@@ -74,7 +76,7 @@ export function setClaudePlanUsage(usage: PlanUsage): void {
 /** The last numbers seen, if any were kept. */
 export function storedClaudePlanUsage(): string | null {
   try {
-    return window.localStorage?.getItem(STORE_KEY) ?? null;
+    return window.localStorage?.getItem(STORE_KEY) ?? window.localStorage?.getItem(LEGACY_STORE_KEY) ?? null;
   } catch {
     return null;
   }

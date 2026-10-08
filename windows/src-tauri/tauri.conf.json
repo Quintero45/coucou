@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Coucou",
+  "productName": "ARIA",
   "version": "0.2.0",
-  "identifier": "fr.louisraille.coucou",
+  "identifier": "dev.miller.aria",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -48,8 +48,8 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
-    "resources": { "../target/release/coucou-hook.exe": "coucou-hook.exe" },
-    "copyright": "© Louis Raille",
+    "resources": { "../target/release/aria-hook.exe": "aria-hook.exe" },
+    "copyright": "© Miller · based on Coucou © Louis Raille",
     "category": "DeveloperTool",
     "shortDescription": "ARIA lives at the top of your screen",
     "longDescription": "ARIA (Adaptive Reasoning & Intelligent Assistant) lives at the top of your screen: she shows your coding agents' sessions and a few integrations, and lets you approve, answer, chat and drop files without leaving what you are doing. Based on Coucou by Louis Raille.",

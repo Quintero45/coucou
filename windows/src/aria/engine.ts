@@ -166,7 +166,7 @@ function starPath(x: CanvasRenderingContext2D, ro: number, ri: number) {
 const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif`;
 
 // ── Gesture layer (mini Grok Bots) ────────────────────────────────────────────
-// Optional, additive: an engine whose `gesture` is null (Mochi, every
+// Optional, additive: an engine whose `gesture` is null (ARIA, every
 // non-bot pill) draws and behaves exactly as before.
 
 /** Geometry handed to gesture hooks for the frame being drawn. */
@@ -223,7 +223,7 @@ export interface BotGesture {
 
 export class BotEngine {
   isMini = false;
-  /** Solid body colour for mini bots / integration pills (null = Mochi gradient). */
+  /** Solid body colour for mini bots / integration pills (null = ARIA gradient). */
   bodyColor: RGB | null = null;
 
   // Animated state (BotEngine `s`)
@@ -231,7 +231,7 @@ export class BotEngine {
   sx = 1; sy = 1; oy = 0; ox = 0;
   tint = 0; morph = 0; hands = 0; blush = 0; es = 1; badgeS = 0;
 
-  // Outfit (the main Mochi only — minis never wear one). `outfit` is what is
+  // Outfit (the main ARIA only — minis never wear one). `outfit` is what is
   // drawn; it changes only once the previous one has left.
   outfit: Outfit = "none";
   /** 0 = gone, 1 = fully on. */
@@ -403,7 +403,7 @@ export class BotEngine {
     this.anim("roll", [[Math.PI * 2 * turns, durationMs, Ease.inOut]], () => { this.roll = 0; });
   }
 
-  /** Peek wave — the "coucou". Timings from BotEngine.greet(). */
+  /** Peek wave — the "aria". Timings from BotEngine.greet(). */
   greet() {
     const t = now();
     const tok = ++this.greetToken;
@@ -538,8 +538,8 @@ export class BotEngine {
   }
 
   /**
-   * Dresses Mochi. Animated: the old outfit leaves (180 ms), the new one drops
-   * in (350 ms) and Mochi does a little squash — BotEngine.setOutfit on macOS.
+   * Dresses ARIA. Animated: the old outfit leaves (180 ms), the new one drops
+   * in (350 ms) and ARIA does a little squash — BotEngine.setOutfit on macOS.
    */
   setOutfit(next: Outfit, animated = true) {
     if (next === this.outfitTarget) return;

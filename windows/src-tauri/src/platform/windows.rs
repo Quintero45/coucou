@@ -34,7 +34,7 @@ use super::LocalTime;
 use crate::session_window::{self, Proc};
 
 /// File name of the Claude Code relay.
-pub const HOOK_EXE: &str = "coucou-hook.exe";
+pub const HOOK_EXE: &str = "aria-hook.exe";
 
 /// Environment variable holding the home directory.
 pub const HOME_VAR: &str = "USERPROFILE";
@@ -44,20 +44,69 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 // ── Files ─────────────────────────────────────────────────────────────────────
 
-/// %APPDATA%\Coucou — preferences.
+/// %APPDATA%\ARIA — preferences.
 pub fn config_dir() -> PathBuf {
     let base = std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Coucou")
+    base.join("ARIA")
 }
 
-/// %LOCALAPPDATA%\Coucou — where coucou-hook.exe, the inbox and the log live.
+/// %LOCALAPPDATA%\ARIA — where aria-hook.exe, the inbox and the log live.
 pub fn local_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Coucou")
+    base.join("ARIA")
+}
+
+/// %APPDATA%\Coucou and %LOCALAPPDATA%\Coucou: what ARIA kept while it was
+/// called Coucou (migrate.rs copies them once, never moves them).
+pub fn legacy_config_dir() -> PathBuf {
+    config_dir().with_file_name("Coucou")
+}
+
+pub fn legacy_local_dir() -> PathBuf {
+    local_dir().with_file_name("Coucou")
+}
+
+/// WebView2's data (localStorage) for the app with `identifier`.
+pub fn webview_dir(identifier: &str) -> PathBuf {
+    local_dir().with_file_name(identifier).join("EBWebView")
+}
+
+/// Coucou still running: its webview files are locked, and its data may still change.
+pub fn legacy_app_running() -> bool {
+    process_table().values().any(|p| p.exe.eq_ignore_ascii_case("coucou.exe"))
+}
+
+/// Asks the owner to close Coucou, before any window of ours exists. True: try again.
+pub fn ask_to_close_legacy_app(text: &str) -> bool {
+    use ::windows::core::PCWSTR;
+    use ::windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, IDRETRY, MB_ICONINFORMATION, MB_RETRYCANCEL};
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    let (text, title) = (wide(text), wide("ARIA"));
+    unsafe { MessageBoxW(None, PCWSTR(text.as_ptr()), PCWSTR(title.as_ptr()), MB_RETRYCANCEL | MB_ICONINFORMATION) == IDRETRY }
+}
+
+/// Removes Coucou's "start with Windows" entry, once ARIA has its own. Only
+/// an entry that really starts coucou.exe goes. True: there was one.
+pub fn remove_legacy_autostart() -> bool {
+    const RUN: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+    const APPROVED: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+    let query = no_console(Command::new("reg").args(["query", RUN, "/v", "Coucou"])).output();
+    let ours = query.is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).to_lowercase().contains("coucou.exe"));
+    if ours {
+        for key in [RUN, APPROVED] {
+            let _ = no_console(Command::new("reg").args(["delete", key, "/v", "Coucou", "/f"])).output();
+        }
+    }
+    ours
+}
+
+/// Coucou's own uninstaller, when it is still installed.
+pub fn legacy_uninstaller() -> Option<PathBuf> {
+    Some(legacy_local_dir().join("uninstall.exe")).filter(|p| p.is_file())
 }
 
 /// Where a saved image goes, best first: Pictures (also where OneDrive moves
@@ -225,8 +274,8 @@ pub fn codex_candidates() -> Vec<PathBuf> {
 // ── Who we are ────────────────────────────────────────────────────────────────
 //
 // Named pipes share one machine-wide namespace, so the SID in the name is what
-// keeps two accounts on the same machine from ever meeting on `coucou-*`.
-// coucou-hook computes the same string (hook/src/win.rs) and additionally checks
+// keeps two accounts on the same machine from ever meeting on `aria-*`.
+// aria-hook computes the same string (hook/src/win.rs) and additionally checks
 // that the process serving the pipe really is us.
 
 /// The SID of the account this process runs as, as `S-1-5-21-…`.
@@ -265,7 +314,7 @@ pub fn current_user_sid() -> Option<String> {
     }
 }
 
-// The display name only feeds Mochi's greeting (identity.rs). The calls are
+// The display name only feeds ARIA's greeting (identity.rs). The calls are
 // declared here by hand, with their documented C signatures, so they need no
 // extra `windows` crate features.
 #[link(name = "secur32")]
@@ -586,7 +635,7 @@ pub fn ctrl_alt_types(vk: u16, shift: bool) -> Option<String> {
     None
 }
 
-// ── Desktop Mochi window ──────────────────────────────────────────────────────
+// ── Desktop ARIA window ──────────────────────────────────────────────────────
 
 /// Windows places a window wherever it is asked, and the cursor poll is there.
 pub fn desktop_mode() -> super::DesktopMode {
@@ -610,6 +659,6 @@ pub fn set_layer_margins(_win: &WebviewWindow, _x: f64, _y: f64) {}
 pub fn set_layer_overlay(_win: &WebviewWindow, _on: bool) {}
 
 /// Layer-shell only (Linux): the logical size of the display the island is on.
-pub fn layer_display(_island: &WebviewWindow, _mochi: &WebviewWindow) -> Option<(f64, f64)> {
+pub fn layer_display(_island: &WebviewWindow, _aria: &WebviewWindow) -> Option<(f64, f64)> {
     None
 }

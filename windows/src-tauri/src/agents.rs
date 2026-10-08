@@ -25,8 +25,16 @@ pub struct InstallOptions {
     pub approvals: bool,
 }
 
-/// Marker that identifies a Coucou entry: the relay's file name.
-const MARKER: &str = "coucou-hook";
+/// Marker that identifies an ARIA entry: the relay's file name.
+const MARKER: &str = "aria-hook";
+/// The relay's name before the rename: entries written then are still ours, so
+/// an install replaces them and an uninstall removes them.
+pub const LEGACY_MARKER: &str = "coucou-hook";
+
+/// A command line that runs ARIA's relay, under its current or former name.
+pub fn runs_relay(command: &str) -> bool {
+    command.contains(MARKER) || command.contains(LEGACY_MARKER)
+}
 
 // ── The relay command line ────────────────────────────────────────────────────
 
@@ -151,16 +159,50 @@ impl Agent {
             // hooks.json first: `installed` and the gates read it.
             Agent::Cursor => vec![home.join(".cursor").join("hooks.json"), home.join(".cursor").join("mcp.json")],
             Agent::Codex => vec![home.join(".codex").join("hooks.json")],
-            Agent::Copilot => vec![home.join(".copilot").join("hooks").join("coucou.json")],
+            Agent::Copilot => vec![home.join(".copilot").join("hooks").join("aria.json")],
             Agent::Muse => vec![home.join(".config").join("muse").join("settings.json")],
             // OpenCode and Amp read ~/.config on Windows too.
+            Agent::OpenCode => vec![home.join(".config").join("opencode").join("plugins").join("aria.js")],
+            Agent::Amp => vec![home.join(".config").join("amp").join("plugins").join("aria.ts")],
+            Agent::Hermes => {
+                let dir = home.join(".hermes").join("plugins").join("aria");
+                vec![dir.join("__init__.py"), dir.join("plugin.yaml")]
+            }
+        }
+    }
+
+    /// Files of ARIA's own this agent had when ARIA was called Coucou.
+    fn legacy_files(self, home: &Path) -> Vec<PathBuf> {
+        match self {
+            Agent::Copilot => vec![home.join(".copilot").join("hooks").join("coucou.json")],
             Agent::OpenCode => vec![home.join(".config").join("opencode").join("plugins").join("coucou.js")],
             Agent::Amp => vec![home.join(".config").join("amp").join("plugins").join("coucou.ts")],
             Agent::Hermes => {
                 let dir = home.join(".hermes").join("plugins").join("coucou");
                 vec![dir.join("__init__.py"), dir.join("plugin.yaml")]
             }
+            _ => Vec::new(),
         }
+    }
+
+    /// The legacy files that are really ours, and so go on install and uninstall.
+    fn legacy_ours(self, home: &Path) -> Vec<PathBuf> {
+        self.legacy_files(home)
+            .into_iter()
+            .filter(|path| match self {
+                Agent::Copilot => read_json(path).is_some_and(|root| copilot_has_ours(&root)),
+                _ => std::fs::read_to_string(path).is_ok_and(|text| is_our_plugin(&text)),
+            })
+            .collect()
+    }
+
+    /// Installed by Coucou, ARIA's former name: the agent still runs the old
+    /// relay, which nothing answers any more.
+    fn legacy(self, home: &Path) -> bool {
+        self.files(home)
+            .iter()
+            .chain(self.legacy_files(home).iter())
+            .any(|path| std::fs::read_to_string(path).is_ok_and(|text| text.contains(LEGACY_MARKER)))
     }
 
     #[cfg(test)]
@@ -168,8 +210,22 @@ impl Agent {
         self.edits_with(home, relay, install, InstallOptions::default())
     }
 
-    /// The edits that install (or remove) Coucou for this agent.
+    /// The edits that install (or remove) ARIA for this agent.
     fn edits_with(self, home: &Path, relay: &Relay, install: bool, opts: InstallOptions) -> Vec<FileEdit<'static>> {
+        let mut edits = self.edits_for_current(home, relay, install, opts);
+        for path in self.legacy_ours(home) {
+            edits.push(match self {
+                Agent::Copilot => {
+                    let label = path.display().to_string();
+                    FileEdit { path, edit: config_file::json_edit(label, copilot_uninstall) }
+                }
+                _ => plugin_edit(path, String::new(), false),
+            });
+        }
+        edits
+    }
+
+    fn edits_for_current(self, home: &Path, relay: &Relay, install: bool, opts: InstallOptions) -> Vec<FileEdit<'static>> {
         let files = self.files(home);
         if let Some(contents) = self.plugin(relay) {
             return files.into_iter().zip(contents).map(|(path, text)| plugin_edit(path, text, install)).collect();
@@ -201,7 +257,7 @@ impl Agent {
     }
 
     /// The change to this agent's JSON config: the new object, or `None` to
-    /// remove a file that is Coucou's alone. Command lines are built here, up
+    /// remove a file that is ARIA's alone. Command lines are built here, up
     /// front, so the change itself is pure.
     fn json_change(self, relay: &Relay, install: bool, opts: InstallOptions) -> JsonChange {
         match (self, install) {
@@ -258,10 +314,13 @@ impl Agent {
         }
     }
 
-    /// True when the agent's config already routes to Coucou. Never fails: a
+    /// True when the agent's config already routes to ARIA. Never fails: a
     /// file we cannot read just reads as "not installed".
     fn installed(self, home: &Path) -> bool {
         let files = self.files(home);
+        if !self.legacy_ours(home).is_empty() {
+            return true;
+        }
         if matches!(self, Agent::OpenCode | Agent::Amp | Agent::Hermes) {
             return std::fs::read_to_string(&files[0]).is_ok_and(|text| is_our_plugin(&text));
         }
@@ -274,13 +333,13 @@ impl Agent {
         };
         match self {
             Agent::Gemini => groups_have_ours(&json(), "gemini"),
-            Agent::Antigravity => json().get("coucou").is_some_and(antigravity_is_ours),
+            Agent::Antigravity => {
+                let root = json();
+                ["aria", ANTIGRAVITY_LEGACY_GROUP].iter().any(|name| root.get(*name).is_some_and(antigravity_is_ours))
+            }
             Agent::Cursor => groups_have_ours(&json(), "cursor"),
             Agent::Codex => groups_have_ours(&json(), "codex"),
-            Agent::Copilot => json()
-                .get("hooks")
-                .and_then(Value::as_object)
-                .is_some_and(|h| h.values().filter_map(Value::as_array).flatten().any(copilot_entry_is_ours)),
+            Agent::Copilot => copilot_has_ours(&json()),
             Agent::Muse => groups_have_ours(&json(), "muse"),
             Agent::OpenCode | Agent::Amp | Agent::Hermes => false,
         }
@@ -324,7 +383,7 @@ impl Agent {
             Agent::Muse => t("Start a new Muse Code session to pick the hooks up."),
             Agent::OpenCode => t("Restart OpenCode to load the plugin."),
             Agent::Amp => t("Restart Amp to load the plugin."),
-            Agent::Hermes => t("Turn it on once with `hermes plugins enable coucou`, then start a new Hermes session."),
+            Agent::Hermes => t("Turn it on once with `hermes plugins enable aria`, then start a new Hermes session."),
         }
     }
 }
@@ -337,7 +396,7 @@ pub struct AgentStatus {
     pub id: &'static str,
     pub name: &'static str,
     pub installed: bool,
-    /// The file (or files, one per line) Coucou writes.
+    /// The file (or files, one per line) ARIA writes.
     pub path: String,
     pub hook_ready: bool,
     /// The island can allow or deny this agent's permission requests.
@@ -345,8 +404,10 @@ pub struct AgentStatus {
     /// Cursor only: whether its shell / MCP approval gates are installed.
     /// `None` for agents without that option.
     pub gates: Option<bool>,
-    /// Installed by an older Coucou: reinstalling brings what's missing.
+    /// Installed by an older ARIA: reinstalling brings what's missing.
     pub outdated: bool,
+    /// Installed by Coucou, ARIA's former name: reinstalling moves it to ARIA's relay.
+    pub legacy: bool,
     pub note: String,
 }
 
@@ -370,6 +431,7 @@ pub fn list() -> Vec<AgentStatus> {
             outdated: a == Agent::Cursor
                 && a.installed(&home)
                 && (cursor_hooks(&home).is_some_and(|root| cursor_outdated(&root)) || !cursor_mcp_installed(&home)),
+            legacy: a.legacy(&home),
             note: a.note(),
         })
         .collect()
@@ -395,10 +457,14 @@ fn apply_in(
     opts: InstallOptions,
 ) -> Result<String, String> {
     let backups = config_file::apply(&agent.edits_with(home, relay, install, opts), fingerprint)?;
-    // Hermes loads every folder under plugins/: an empty `coucou` one goes too.
-    if agent == Agent::Hermes && !install {
-        if let Some(dir) = agent.files(home)[0].parent() {
-            let _ = std::fs::remove_dir(dir);
+    // Hermes loads every folder under plugins/: an empty `aria` one goes too,
+    // and so does the `coucou` one from before the rename.
+    if agent == Agent::Hermes {
+        let current = (!install).then(|| agent.files(home)[0].clone());
+        for file in current.into_iter().chain(agent.legacy_files(home).into_iter().take(1)) {
+            if let Some(dir) = file.parent() {
+                let _ = std::fs::remove_dir(dir);
+            }
         }
     }
     Ok(backups.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join("\n"))
@@ -428,15 +494,15 @@ fn list_at(hooks: &Map<String, Value>, event: &str) -> Result<Vec<Value>, String
     }
 }
 
-/// A command line written by Coucou for `agent`.
+/// A command line written by ARIA for `agent`.
 fn is_our_command(command: Option<&Value>, agent: &str) -> bool {
     command
         .and_then(Value::as_str)
-        .is_some_and(|c| c.contains(MARKER) && c.contains(&format!("--agent {agent}")))
+        .is_some_and(|c| runs_relay(c) && c.contains(&format!("--agent {agent}")))
 }
 
 /// Claude-style groups (`{"matcher"?, "hooks": [{"command"}]}`, or a legacy
-/// flat `{"command"}`) without Coucou's entries for `agent`. A group left
+/// flat `{"command"}`) without ARIA's entries for `agent`. A group left
 /// empty goes; everything else stays exactly as it was.
 fn without_ours_in_groups(groups: &[Value], agent: &str) -> Vec<Value> {
     groups
@@ -463,8 +529,8 @@ fn without_ours_in_groups(groups: &[Value], agent: &str) -> Vec<Value> {
         .collect()
 }
 
-/// `root` with one Coucou group per event, built by `group(event)`. Earlier
-/// Coucou entries for `agent` are replaced; nobody else's are touched.
+/// `root` with one ARIA group per event, built by `group(event)`. Earlier
+/// ARIA entries for `agent` are replaced; nobody else's are touched.
 fn groups_install(
     root: &Value,
     agent: &str,
@@ -481,7 +547,7 @@ fn groups_install(
     Ok(root)
 }
 
-/// `root` without any Coucou group for `agent`; an event left empty goes, and
+/// `root` without any ARIA group for `agent`; an event left empty goes, and
 /// so does `hooks` when nothing is left in it.
 fn groups_uninstall(root: &Value, agent: &str) -> Result<Value, String> {
     let mut root = root.as_object().cloned().unwrap_or_default();
@@ -552,7 +618,7 @@ fn gemini_install(root: &Value, commands: &[(String, String, u64)]) -> Result<Va
 
 // ── Antigravity — ~/.gemini/config/hooks.json ─────────────────────────────────
 //
-// Hooks are named groups at the top level; Coucou's is `coucou`. Tool events
+// Hooks are named groups at the top level; ARIA's is `aria`. Tool events
 // take matcher groups, lifecycle events take handlers directly; timeouts are
 // in seconds. Merge and removal come from #298 (kobaltgit). The relay answers
 // PreToolUse with "{}" — no decision — never with an allow: Antigravity's own
@@ -579,26 +645,35 @@ fn antigravity_block(relay: &Relay) -> Value {
     Value::Object(block)
 }
 
-/// A `coucou` group Coucou wrote (it runs the relay as `--agent antigravity`).
+/// An `aria` (or, before the rename, `coucou`) group ARIA wrote: it runs the
+/// relay as `--agent antigravity`.
 fn antigravity_is_ours(group: &Value) -> bool {
     let text = group.to_string();
-    text.contains(MARKER) && text.contains("--agent antigravity")
+    runs_relay(&text) && text.contains("--agent antigravity")
 }
+
+/// The group's name before the rename.
+const ANTIGRAVITY_LEGACY_GROUP: &str = "coucou";
 
 fn antigravity_install(root: &Value, block: &Value) -> Result<Value, String> {
     let mut root = root.as_object().cloned().unwrap_or_default();
-    if root.get("coucou").is_some_and(|g| !antigravity_is_ours(g)) {
-        return Err(crate::i18n::t("A hook group named \"coucou\" that ARIA did not write is already there — ARIA has not touched it."));
+    if root.get("aria").is_some_and(|g| !antigravity_is_ours(g)) {
+        return Err(crate::i18n::t("A hook group named \"aria\" that ARIA did not write is already there — ARIA has not touched it."));
     }
-    root.insert("coucou".into(), block.clone());
+    if root.get(ANTIGRAVITY_LEGACY_GROUP).is_some_and(antigravity_is_ours) {
+        root.remove(ANTIGRAVITY_LEGACY_GROUP);
+    }
+    root.insert("aria".into(), block.clone());
     Ok(Value::Object(root))
 }
 
-/// Removes Coucou's group, and only if it is Coucou's.
+/// Removes ARIA's group, and only if it is ARIA's.
 fn antigravity_uninstall(root: &Value) -> Result<Value, String> {
     let mut root = root.as_object().cloned().unwrap_or_default();
-    if root.get("coucou").is_some_and(antigravity_is_ours) {
-        root.remove("coucou");
+    for name in ["aria", ANTIGRAVITY_LEGACY_GROUP] {
+        if root.get(name).is_some_and(antigravity_is_ours) {
+            root.remove(name);
+        }
     }
     Ok(Value::Object(root))
 }
@@ -651,7 +726,7 @@ fn cursor_extra_entries(relay: &Relay, opts: InstallOptions) -> Vec<(String, Val
     out
 }
 
-/// Every earlier Coucou entry goes first, wherever it was: turning approvals
+/// Every earlier ARIA entry goes first, wherever it was: turning approvals
 /// off must take the gates out, not leave them behind. `extra` comes before the
 /// plain entries of the same event.
 fn cursor_install(root: &Value, command: &str, extra: &[(String, Value)]) -> Result<Value, String> {
@@ -679,16 +754,19 @@ fn read_json(path: &Path) -> Option<Value> {
 
 // ~/.cursor/mcp.json: the relay's own MCP server (hook/src/mcp.rs), through
 // which Cursor's agent asks its questions in the island — Cursor runs no hook
-// for its built-in AskQuestion. Only `mcpServers.coucou` is ever touched.
+// for its built-in AskQuestion. Only `mcpServers.aria` is ever touched.
 
-const CURSOR_MCP_NAME: &str = "coucou";
+const CURSOR_MCP_NAME: &str = "aria";
+/// The server's name before the rename: taken out on install and uninstall when
+/// it is ours, left alone otherwise.
+const CURSOR_MCP_LEGACY_NAME: &str = "coucou";
 
 fn cursor_mcp_server(relay: &Relay) -> Value {
     json!({ "command": relay.exe, "args": ["--agent", "cursor", "--mcp"] })
 }
 
 fn cursor_mcp_is_ours(server: &Value) -> bool {
-    server.get("command").and_then(Value::as_str).is_some_and(|c| c.contains(MARKER))
+    server.get("command").and_then(Value::as_str).is_some_and(runs_relay)
 }
 
 /// `root` with our server set to `server`, or taken out when `None`. Someone
@@ -703,6 +781,9 @@ fn cursor_mcp(root: &Value, server: Option<&Value>) -> Result<Option<Value>, Str
             "\"{name}\" in mcp.json is not ARIA's — ARIA has not touched it.",
             &[("name", CURSOR_MCP_NAME)],
         ));
+    }
+    if servers.get(CURSOR_MCP_LEGACY_NAME).is_some_and(cursor_mcp_is_ours) {
+        servers.remove(CURSOR_MCP_LEGACY_NAME);
     }
     match server {
         Some(s) => {
@@ -786,14 +867,14 @@ fn codex_install(root: &Value, command: &str) -> Result<Value, String> {
     groups_install(root, "codex", events).map(Value::Object)
 }
 
-// ── GitHub Copilot CLI — ~/.copilot/hooks/coucou.json ─────────────────────────
+// ── GitHub Copilot CLI — ~/.copilot/hooks/aria.json ─────────────────────────
 //
-// A file of Coucou's own in Copilot's hooks folder: camelCase events, each
+// A file of ARIA's own in Copilot's hooks folder: camelCase events, each
 // entry `{"type": "command", "bash": …, "timeoutSec": N}`, plus `powershell`
 // on Windows, where Copilot runs that one. The event goes on the command line
 // because Copilot does not put it in the payload. Copilot is fail-closed on
 // permissionRequest: the relay always answers it with valid JSON — "ask" when
-// nobody clicked. Removing the last of Coucou's entries removes the file.
+// nobody clicked. Removing the last of ARIA's entries removes the file.
 
 const COPILOT_EVENTS: &[(&str, u64)] = &[
     ("sessionStart", 10),
@@ -817,6 +898,12 @@ fn copilot_entry(relay: &Relay, event: &str, timeout: u64) -> Value {
 
 fn copilot_entry_is_ours(entry: &Value) -> bool {
     ["bash", "powershell", "command"].iter().any(|k| is_our_command(entry.get(*k), "copilot"))
+}
+
+fn copilot_has_ours(root: &Value) -> bool {
+    root.get("hooks")
+        .and_then(Value::as_object)
+        .is_some_and(|h| h.values().filter_map(Value::as_array).flatten().any(copilot_entry_is_ours))
 }
 
 fn copilot_install(root: &Value, entries: &[(String, Value)]) -> Result<Value, String> {
@@ -849,7 +936,7 @@ fn copilot_uninstall(root: &Value) -> Result<Option<Value>, String> {
             root.insert("hooks".into(), Value::Object(hooks));
         }
     }
-    // Nothing of anyone else's left: the file was Coucou's, and goes.
+    // Nothing of anyone else's left: the file was ARIA's, and goes.
     if root.keys().all(|k| k == "version") {
         return Ok(None);
     }
@@ -892,16 +979,18 @@ fn muse_install(root: &Value, commands: &[(String, String, u64)]) -> Result<Valu
 // These agents load code rather than run hook commands. The Mac's plugins
 // start `/bin/sh` on a script at a macOS path; these start the relay itself,
 // at this machine's path, with no shell in between. Every one is
-// fire-and-forget: the agent never waits on Coucou, and if Coucou is closed
+// fire-and-forget: the agent never waits on ARIA, and if ARIA is closed
 // nothing happens. None of them ever answers a permission: Hermes keeps its
 // approvals (as on the Mac), and Amp's steps come from `tool.result` so the
 // plugin never has to return a verdict from `tool.call`.
 
-/// Every plugin file Coucou writes says so; only such a file is replaced or removed.
-const GENERATED: &str = "generated by Coucou";
+/// Every plugin file ARIA writes says so; only such a file is replaced or removed.
+const GENERATED: &str = "generated by ARIA";
+/// What plugin files said before the rename.
+const LEGACY_GENERATED: &str = "generated by Coucou";
 
 fn is_our_plugin(text: &str) -> bool {
-    text.contains(GENERATED)
+    text.contains(GENERATED) || text.contains(LEGACY_GENERATED)
 }
 
 fn plugin_edit(path: PathBuf, content: String, install: bool) -> FileEdit<'static> {
@@ -917,9 +1006,9 @@ fn plugin_edit(path: PathBuf, content: String, install: bool) -> FileEdit<'stati
     FileEdit { path, edit }
 }
 
-const OPENCODE_PLUGIN: &str = r#"// Coucou plugin for OpenCode — generated by Coucou.
-// Forwards OpenCode's events to Coucou's relay (coucou-hook), fire-and-forget:
-// OpenCode never waits on it, and nothing happens when Coucou is closed.
+const OPENCODE_PLUGIN: &str = r#"// ARIA plugin for OpenCode — generated by ARIA.
+// Forwards OpenCode's events to ARIA's relay (aria-hook), fire-and-forget:
+// OpenCode never waits on it, and nothing happens when ARIA is closed.
 import { spawn } from 'node:child_process';
 
 const HOOK = {HOOK};
@@ -944,7 +1033,7 @@ function forward(hook_event_name, payload) {
   } catch {}
 }
 
-export const CoucouPlugin = async ({ directory } = {}) => ({
+export const AriaPlugin = async ({ directory } = {}) => ({
   event: async ({ event }) => {
     const hook_event_name = EVENT_MAP[event?.type];
     if (!hook_event_name) return;
@@ -972,8 +1061,8 @@ export const CoucouPlugin = async ({ directory } = {}) => ({
 });
 "#;
 
-const AMP_PLUGIN: &str = r#"// Coucou plugin for Amp — generated by Coucou.
-// Forwards Amp's events to Coucou's relay (coucou-hook), fire-and-forget and
+const AMP_PLUGIN: &str = r#"// ARIA plugin for Amp — generated by ARIA.
+// Forwards Amp's events to ARIA's relay (aria-hook), fire-and-forget and
 // display only: Amp never waits on it, and it never decides anything for Amp.
 import { spawn } from 'node:child_process';
 
@@ -1000,7 +1089,7 @@ export default function (amp: any): void {
     forward('UserPromptSubmit', { ...session(e), prompt: typeof e?.message === 'string' ? e.message : '' });
   });
   // A step per tool once it has run: listening to tool.call would mean
-  // returning a verdict for Amp, and Coucou never makes one.
+  // returning a verdict for Amp, and ARIA never makes one.
   amp.on('tool.result', (e: any) => {
     forward('PreToolUse', { ...session(e), tool_name: typeof e?.tool === 'string' ? e.tool : '', tool_input: e?.input ?? null });
   });
@@ -1008,8 +1097,8 @@ export default function (amp: any): void {
 }
 "#;
 
-const HERMES_PLUGIN: &str = r#"# Coucou plugin for Hermes Agent — generated by Coucou.
-# Session and tool events go to Coucou's relay (coucou-hook), fire-and-forget:
+const HERMES_PLUGIN: &str = r#"# ARIA plugin for Hermes Agent — generated by ARIA.
+# Session and tool events go to ARIA's relay (aria-hook), fire-and-forget:
 # Hermes never waits on it, and keeps every approval decision to itself.
 import json, os, subprocess, threading
 
@@ -1078,9 +1167,9 @@ def register(ctx):
     ctx.register_hook('pre_approval_request', pre_approval_request)
 "#;
 
-const HERMES_PLUGIN_YAML: &str = r#"name: coucou
+const HERMES_PLUGIN_YAML: &str = r#"name: aria
 version: "1.0"
-description: Coucou island integration — generated by Coucou
+description: ARIA island integration — generated by ARIA
 "#;
 
 #[cfg(test)]
@@ -1089,15 +1178,15 @@ mod tests {
     use crate::config_file::tests::scratch;
 
     fn linux() -> Relay {
-        Relay { exe: "/home/me/.local/share/coucou/bin/coucou-hook".into(), windows: false }
+        Relay { exe: "/home/me/.local/share/aria/bin/aria-hook".into(), windows: false }
     }
 
     fn windows(exe: &str) -> Relay {
         Relay { exe: exe.into(), windows: true }
     }
 
-    const WIN: &str = r"C:\Users\me\AppData\Local\Coucou\bin\coucou-hook.exe";
-    const WIN_SPACE: &str = r"C:\Users\Jane O'Neil\AppData\Local\Coucou\bin\coucou-hook.exe";
+    const WIN: &str = r"C:\Users\me\AppData\Local\ARIA\bin\aria-hook.exe";
+    const WIN_SPACE: &str = r"C:\Users\Jane O'Neil\AppData\Local\ARIA\bin\aria-hook.exe";
 
     /// Installs then uninstalls `agent` in a fresh home holding `existing` in
     /// its first file, and returns (installed file, uninstalled file).
@@ -1133,12 +1222,12 @@ mod tests {
     fn the_command_is_quoted_for_the_shell_that_runs_it() {
         assert_eq!(
             linux().command(Shell::Cmd, "--agent codex"),
-            "'/home/me/.local/share/coucou/bin/coucou-hook' --agent codex"
+            "'/home/me/.local/share/aria/bin/aria-hook' --agent codex"
         );
         let w = windows(WIN);
         assert_eq!(
             w.command(Shell::Sh, "Stop"),
-            "\"C:/Users/me/AppData/Local/Coucou/bin/coucou-hook.exe\" Stop"
+            "\"C:/Users/me/AppData/Local/ARIA/bin/aria-hook.exe\" Stop"
         );
         assert_eq!(
             w.command(Shell::PowerShell, "--agent gemini Stop"),
@@ -1151,7 +1240,7 @@ mod tests {
         assert_eq!(spaced.command(Shell::Cmd, "x"), format!("\"{WIN_SPACE}\" x"));
         assert_eq!(
             spaced.command(Shell::PowerShell, "x"),
-            r"& 'C:\Users\Jane O''Neil\AppData\Local\Coucou\bin\coucou-hook.exe' x"
+            r"& 'C:\Users\Jane O''Neil\AppData\Local\ARIA\bin\aria-hook.exe' x"
         );
     }
 
@@ -1191,8 +1280,8 @@ mod tests {
 
     #[test]
     fn installing_twice_leaves_one_entry_per_event() {
-        let once = gemini_install(&json!({}), &[("BeforeTool".into(), "'x/coucou-hook' --agent gemini PreToolUse".into(), 5000)]).unwrap();
-        let twice = gemini_install(&once, &[("BeforeTool".into(), "'y/coucou-hook' --agent gemini PreToolUse".into(), 5000)]).unwrap();
+        let once = gemini_install(&json!({}), &[("BeforeTool".into(), "'x/aria-hook' --agent gemini PreToolUse".into(), 5000)]).unwrap();
+        let twice = gemini_install(&once, &[("BeforeTool".into(), "'y/aria-hook' --agent gemini PreToolUse".into(), 5000)]).unwrap();
         assert_eq!(twice["hooks"]["BeforeTool"].as_array().unwrap().len(), 1);
     }
 
@@ -1204,7 +1293,7 @@ mod tests {
             if file.extension().is_some_and(|e| e == "json") {
                 std::fs::create_dir_all(file.parent().unwrap()).unwrap();
                 let shaped: &[&str] = match agent {
-                    Agent::Antigravity => &[r#"{"coucou":"nope"}"#],
+                    Agent::Antigravity => &[r#"{"aria":"nope"}"#],
                     _ => &[r#"{"hooks":"nope"}"#, r#"{"hooks":[1]}"#],
                 };
                 for odd in shaped.iter().copied().chain(["[1,2]", "{ broken", "\"text\""]) {
@@ -1223,7 +1312,7 @@ mod tests {
         let existing = r#"{"my-guard":{"PreToolUse":[{"matcher":"run_command","hooks":[{"command":"/bin/guard"}]}]}}"#;
         let (home, installed, removed) = round_trip(Agent::Antigravity, Some(existing));
         assert_eq!(installed["my-guard"]["PreToolUse"][0]["matcher"], "run_command");
-        let ours = &installed["coucou"];
+        let ours = &installed["aria"];
         for event in ANTIGRAVITY_TOOL_EVENTS {
             assert_eq!(ours[event][0]["matcher"], "*");
             let cmd = ours[event][0]["hooks"][0]["command"].as_str().unwrap();
@@ -1238,8 +1327,8 @@ mod tests {
     }
 
     #[test]
-    fn a_coucou_group_someone_else_wrote_is_neither_replaced_nor_removed() {
-        let theirs = json!({ "coucou": { "Stop": [{ "command": "/bin/notify" }] } });
+    fn a_aria_group_someone_else_wrote_is_neither_replaced_nor_removed() {
+        let theirs = json!({ "aria": { "Stop": [{ "command": "/bin/notify" }] } });
         assert!(antigravity_install(&theirs, &antigravity_block(&linux())).is_err());
         assert_eq!(antigravity_uninstall(&theirs).unwrap(), theirs);
     }
@@ -1269,7 +1358,7 @@ mod tests {
 
     #[test]
     fn a_new_cursor_file_gets_its_version() {
-        let after = cursor_install(&json!({}), "'x/coucou-hook' --agent cursor", &[]).unwrap();
+        let after = cursor_install(&json!({}), "'x/aria-hook' --agent cursor", &[]).unwrap();
         assert_eq!(after["version"], 1);
         // A version the user set is theirs.
         let after = cursor_install(&json!({ "version": 2 }), "c", &[]).unwrap();
@@ -1322,14 +1411,14 @@ mod tests {
         assert_eq!(server["args"], json!(["--agent", "cursor", "--mcp"]));
         let theirs = json!({ "mcpServers": { "windows": { "command": "uvx" } }, "other": 1 });
         let installed = cursor_mcp(&theirs, Some(&server)).unwrap().unwrap();
-        assert_eq!(installed["mcpServers"]["coucou"], server);
+        assert_eq!(installed["mcpServers"]["aria"], server);
         assert_eq!(installed["mcpServers"]["windows"], theirs["mcpServers"]["windows"]);
         assert_eq!(cursor_mcp(&installed, Some(&server)).unwrap().unwrap(), installed, "reinstalling changes nothing");
         assert_eq!(cursor_mcp(&installed, None).unwrap().unwrap(), theirs);
         // No file and nothing to remove: no file written.
         assert_eq!(cursor_mcp(&json!({}), None).unwrap(), None);
-        // A "coucou" server that isn't ours is never replaced.
-        let squatter = json!({ "mcpServers": { "coucou": { "command": "node other.js" } } });
+        // A "aria" server that isn't ours is never replaced.
+        let squatter = json!({ "mcpServers": { "aria": { "command": "node other.js" } } });
         assert!(cursor_mcp(&squatter, Some(&server)).is_err());
         assert!(cursor_mcp(&json!({ "mcpServers": [] }), Some(&server)).is_err());
     }
@@ -1358,7 +1447,7 @@ mod tests {
     }
 
     #[test]
-    fn copilot_gets_a_file_of_its_own_which_goes_when_coucou_leaves() {
+    fn copilot_gets_a_file_of_its_own_which_goes_when_aria_leaves() {
         let (home, installed, removed) = round_trip(Agent::Copilot, None);
         assert_eq!(installed["version"], 1);
         for (event, timeout) in COPILOT_EVENTS {
@@ -1387,7 +1476,7 @@ mod tests {
         assert_eq!(entry["powershell"], format!("& '{WIN}' --agent copilot preToolUse"));
         assert_eq!(
             entry["bash"],
-            "\"C:/Users/me/AppData/Local/Coucou/bin/coucou-hook.exe\" --agent copilot preToolUse"
+            "\"C:/Users/me/AppData/Local/ARIA/bin/aria-hook.exe\" --agent copilot preToolUse"
         );
     }
 
@@ -1398,7 +1487,7 @@ mod tests {
         assert_eq!(installed["hooks"]["PermissionRequest"][0]["hooks"][0]["timeout"], 120_000);
         assert_eq!(installed["hooks"]["PreToolUse"][0]["matcher"], "*");
         assert!(installed["hooks"]["Stop"][0]["hooks"][0]["command"].as_str().unwrap().ends_with("--agent muse Stop"));
-        // Only Coucou's hooks go; the file and its schema_version stay.
+        // Only ARIA's hooks go; the file and its schema_version stay.
         assert_eq!(removed.unwrap(), json!({ "schema_version": 1 }));
         let _ = std::fs::remove_dir_all(home);
 
@@ -1426,7 +1515,7 @@ mod tests {
             let main = std::fs::read_to_string(&agent.files(&home)[0]).unwrap();
             // The relay itself, at this machine's path, as a string literal: no
             // shell, no macOS path.
-            assert!(main.contains(r#""/home/me/.local/share/coucou/bin/coucou-hook""#), "{agent:?}");
+            assert!(main.contains(r#""/home/me/.local/share/aria/bin/aria-hook""#), "{agent:?}");
             assert!(!main.contains("/bin/sh") && !main.contains("nb-hook"), "{agent:?}");
             assert!(main.contains(&format!("'--agent', '{}'", agent.id())), "{agent:?}");
             // Never a verdict for the agent.
@@ -1443,7 +1532,7 @@ mod tests {
     }
 
     #[test]
-    fn a_plugin_file_coucou_did_not_write_is_left_alone() {
+    fn a_plugin_file_aria_did_not_write_is_left_alone() {
         let home = scratch("plugin-foreign");
         let file = Agent::OpenCode.files(&home)[0].clone();
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();

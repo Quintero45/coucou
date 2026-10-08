@@ -20,5 +20,7 @@ DerivedData/
 .claude/
 _prive/
 
-# Mochi's self-evolution worktree (windows/src-tauri/src/selfmod/evolve.rs)
+# ARIA's self-evolution worktree (windows/src-tauri/src/selfmod/evolve.rs), and
+# its name before the rename
+.aria-evolve/
 .coucou-evolve/

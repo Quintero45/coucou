@@ -1,7 +1,7 @@
-// Mochi on the desktop — the pure logic, port of
+// ARIA on the desktop — the pure logic, port of
 // NotchBuddy/Sources/App/DesktopMochiLogic.swift and of the life cycle in
-// DesktopMochiController (DesktopMochi.swift). No DOM, no Tauri: the island
-// wires it up in src/island/desktop.ts, the desktop window draws him in
+// DesktopAriaController (DesktopMochi.swift). No DOM, no Tauri: the island
+// wires it up in src/island/desktop.ts, the desktop window draws her in
 // src/desktop/main.ts, and Rust owns the window (src-tauri/src/desktop.rs).
 //
 // Coordinates are y-down everywhere on a PC, so the Mac's DesktopSpace flip is
@@ -13,26 +13,26 @@ import type { Outfit } from "./wardrobe";
 /** What the island tells the desktop window, whenever it changes. */
 export interface DesktopSnapshot {
   state: BotStateName;
-  /** He is always the main Mochi, so always dressed (try-ons included). */
+  /** She is always the main ARIA, so always dressed (try-ons included). */
   outfit: Outfit;
   soundEnabled: boolean;
   soundVolume: number;
-  /** Tray → Pause: he dozes off and stays asleep. */
+  /** Tray → Pause: she dozes off and stays asleep. */
   paused: boolean;
 }
 
-/** Events between the two windows. Rust adds `desktop-mochi-dropped`. */
+/** Events between the two windows. Rust adds `desktop-aria-dropped`. */
 export const DESKTOP_EVENTS = {
   /** island → desktop window */
-  state: "desktop-mochi-state",
-  emote: "desktop-mochi-emote",
+  state: "desktop-aria-state",
+  emote: "desktop-aria-emote",
   /** desktop window → island */
-  ready: "desktop-mochi-ready",
-  home: "desktop-mochi-home",
-  wardrobe: "desktop-mochi-wardrobe",
-  dizzy: "desktop-mochi-dizzy",
+  ready: "desktop-aria-ready",
+  home: "desktop-aria-home",
+  wardrobe: "desktop-aria-wardrobe",
+  dizzy: "desktop-aria-dizzy",
   /** Rust → island: a drag ended, `{ from: "island" | "desktop", home }`. */
-  dropped: "desktop-mochi-dropped",
+  dropped: "desktop-aria-dropped",
   /** Rust → desktop window */
   cursor: "desktop-cursor",
   visible: "desktop-visible",
@@ -43,9 +43,9 @@ export const DESKTOP_EVENTS = {
 
 /** Side of the desktop window, logical pixels. */
 export const PANEL_SIZE = 120;
-/** Seconds without agent activity before he may fall asleep. */
+/** Seconds without agent activity before she may fall asleep. */
 export const SLEEP_TIMEOUT = 120;
-/** He only dozes off once the pointer is at least this far from him. */
+/** She only dozes off once the pointer is at least this far from her. */
 export const SLEEP_MOUSE_DISTANCE = 150;
 /** Clickable body radius, as a fraction of the window side. */
 export const BODY_RADIUS_FRACTION = 0.24;
@@ -67,8 +67,8 @@ export interface Point {
 }
 
 /**
- * Whether Mochi should be asleep: no agent activity for longer than
- * SLEEP_TIMEOUT (strictly), and the pointer not close to him.
+ * Whether ARIA should be asleep: no agent activity for longer than
+ * SLEEP_TIMEOUT (strictly), and the pointer not close to her.
  */
 export function shouldSleep(sinceAgentActive: number, mouseDistanceToCenter: number): boolean {
   return sinceAgentActive > SLEEP_TIMEOUT && mouseDistanceToCenter >= SLEEP_MOUSE_DISTANCE;
@@ -96,18 +96,18 @@ export function gaze(bot: Point, mouse: Point): { lookX: number; lookY: number }
   };
 }
 
-/** An alert went up during a flight: once landed, he turns right back. */
+/** An alert went up during a flight: once landed, she turns right back. */
 export function shouldRetractOnLanding(alertActive: boolean): boolean {
   return alertActive;
 }
 
-/** Agent work keeps him awake; idle and sleeping don't. */
+/** Agent work keeps her awake; idle and sleeping don't. */
 export function agentActive(state: BotStateName): boolean {
   return state !== "idle" && state !== "sleeping";
 }
 
 /**
- * What sends him back to the island (the Mac's pendingApproval /
+ * What sends her back to the island (the Mac's pendingApproval /
  * pendingQuestion): the island's card waiting for an answer — a permission
  * from any agent, or a question Claude Code asked (#216, the same card with
  * `questions`), folded or not — or an agent asking a question by notification.
@@ -121,15 +121,15 @@ export function alertActive(s: {
 }
 
 /**
- * Linux has no global cursor (Wayland), so his window only hears the pointer
- * while it is over his body. That counts as "near" for this long afterwards.
+ * Linux has no global cursor (Wayland), so her window only hears the pointer
+ * while it is over her body. That counts as "near" for this long afterwards.
  */
 export const POINTER_MEMORY_MS = 4000;
 
 /**
- * Distance from the pointer to his centre, for shouldSleep. With a cursor
+ * Distance from the pointer to her centre, for shouldSleep. With a cursor
  * poll (Windows) it is measured; without one, the pointer is near while it was
- * over him a moment ago, and far otherwise.
+ * over her a moment ago, and far otherwise.
  */
 export function pointerDistance(
   cursorPoll: boolean,
@@ -161,42 +161,42 @@ export function windowDragTopLeft(origin: Point, screen: Point, screenAtPress: P
   };
 }
 
-// ── Life cycle (DesktopMochiController) ──────────────────────────────────────
+// ── Life cycle (DesktopAriaController) ──────────────────────────────────────
 
 export type DesktopPhase =
   /** No window on screen. */
   | "home"
-  /** Window flying from the island to his spot. */
+  /** Window flying from the island to her spot. */
   | "flyingOut"
   /** On the desktop: the normal state. */
   | "onDesktop"
   /** An alert just went up: surprised, about to fly to the island. */
   | "retracting"
-  /** The alert was answered while he was flying to the island. */
+  /** The alert was answered while she was flying to the island. */
   | "alertResolvedDuringRetract"
   /** In the island, showing the alert; back out once it is answered. */
   | "atNotchForAlert";
 
 /** Everything the life cycle does to the world, injected so it can be tested. */
 export interface DesktopPorts {
-  /** Shows the window at the island and flies it to his spot. False: no spot. */
+  /** Shows the window at the island and flies it to her spot. False: no spot. */
   flyOut(): Promise<boolean>;
-  /** Flies the window to the island and hides it. `forget`: he lives there again. */
+  /** Flies the window to the island and hides it. `forget`: she lives there again. */
   flyHome(forget: boolean): Promise<boolean>;
-  /** The island's own Mochi hides while he is out. */
+  /** The island's own ARIA hides while she is out. */
   setAway(away: boolean): void;
-  /** An emote on the desktop Mochi. */
+  /** An emote on the desktop ARIA. */
   emote(emote: BotEmoteName, duration?: number): void;
   play(sound: string): void;
   alertActive(): boolean;
-  /** The island must be on screen for him to show the alert there. */
+  /** The island must be on screen for her to show the alert there. */
   revealIsland(): void;
   later(fn: () => void, ms: number): void;
 }
 
-export class DesktopMochiController {
+export class DesktopAriaController {
   phase: DesktopPhase = "home";
-  /** He lives on the desktop (the `onDesktop` preference). */
+  /** She lives on the desktop (the `onDesktop` preference). */
   enabled = false;
 
   private lastState: BotStateName | null = null;
@@ -206,10 +206,10 @@ export class DesktopMochiController {
     this.port = port;
   }
 
-  /** Launch, and back from an alert: fly out to his spot if he lives there. */
+  /** Launch, and back from an alert: fly out to her spot if she lives there. */
   async launchFlyIfNeeded(): Promise<void> {
     if (!this.enabled || this.phase !== "home") return;
-    // An alert is up: wait in the island, the alert's end flies him out.
+    // An alert is up: wait in the island, the alert's end flies her out.
     if (this.port.alertActive()) {
       this.phase = "atNotchForAlert";
       return;
@@ -219,7 +219,7 @@ export class DesktopMochiController {
     const ok = await this.port.flyOut();
     if (this.phase !== "flyingOut") return;
     if (!ok) {
-      // His spot is on a display that is gone: he stays home.
+      // Her spot is on a display that is gone: she stays home.
       this.phase = "home";
       this.enabled = false;
       this.port.setAway(false);
@@ -228,7 +228,7 @@ export class DesktopMochiController {
     this.landed();
   }
 
-  /** Dropped on the desktop after a drag out of the island (Rust placed him). */
+  /** Dropped on the desktop after a drag out of the island (Rust placed her). */
   installed() {
     if (this.phase !== "home") return;
     this.enabled = true;
@@ -240,7 +240,7 @@ export class DesktopMochiController {
 
   /** Double click, or dropped on the island: home for good. */
   async flyHome(): Promise<void> {
-    // Also in the instant between an alert and his flight to the island: the
+    // Also in the instant between an alert and her flight to the island: the
     // user's "home" wins, and the pending retract finds nothing left to do.
     const out = ["onDesktop", "retracting", "alertResolvedDuringRetract"];
     if (!out.includes(this.phase)) return;
@@ -290,7 +290,7 @@ export class DesktopMochiController {
       if (this.phase === "retracting") {
         void this.retractForAlert();
       } else if (this.phase === "alertResolvedDuringRetract") {
-        // Answered before he even took off: he never left his spot.
+        // Answered before she even took off: she never left her spot.
         this.phase = "onDesktop";
       }
     }, RETRACT_DELAY_MS);

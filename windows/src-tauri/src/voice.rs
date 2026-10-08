@@ -1,5 +1,5 @@
 ﻿// The local speech engine's plumbing, shared by dictation and meetings
-// (meeting.rs, Whisper): its folder (%LOCALAPPDATA%\Coucou\voice\), resumable
+// (meeting.rs, Whisper): its folder (%LOCALAPPDATA%\ARIA\voice\), resumable
 // downloads with progress on the `voice-engine` event, and unzipping.
 
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use crate::{grokbot, log, platform, settings};
 
 // ── Paths and small helpers (shared with meeting.rs) ──────────────────────────
 
-/// %LOCALAPPDATA%\Coucou\voice
+/// %LOCALAPPDATA%\ARIA\voice
 pub(crate) fn voice_dir() -> PathBuf {
     settings::local_dir().join("voice")
 }
@@ -187,7 +187,7 @@ async fn download_once(app: &AppHandle, engine: &str, item: &str, url: &str, des
         }
     };
     let client = reqwest::Client::builder()
-        .user_agent("Coucou")
+        .user_agent("ARIA")
         .connect_timeout(Duration::from_secs(20))
         .build()
         .map_err(|e| Fatal(e.to_string()))?;

@@ -71,7 +71,7 @@ export function runGlobalShortcut(host: ShortcutHost, action: string, resume: ()
         host.alert("question");
         host.takeKeyboard();
       } else {
-        // Nothing is waiting: Mochi says so.
+        // Nothing is waiting: ARIA says so.
         host.emote("annoyed");
         Sound.play("error");
       }
@@ -156,7 +156,7 @@ function inTextField(target: EventTarget | null): boolean {
 export function registerShortcutHandlers(host: ShortcutHost, resume: () => void) {
   void onEvent<string>("shortcut", (action) => runGlobalShortcut(host, action, resume));
   // The wardrobe shortcut comes as its own event (shortcuts.rs): it opens the
-  // wardrobe (mochi/wardrobe.ts, views/wardrobe.ts), or closes it again.
+  // wardrobe (aria/wardrobe.ts, views/wardrobe.ts), or closes it again.
   void onEvent<null>("open-wardrobe", () => {
     resume();
     host.wardrobeAnywhere();

@@ -15,7 +15,7 @@ pub(crate) use self::win::exe_name;
 #[cfg(not(windows))]
 pub fn start(_app: tauri::AppHandle) {}
 
-/// Executable name (lower case) → coucou_agent name.
+/// Executable name (lower case) → aria_agent name.
 #[cfg_attr(not(windows), allow(dead_code))]
 const APPS: &[(&str, &str)] = &[("cursor.exe", "cursor")];
 

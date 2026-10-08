@@ -22,7 +22,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T |
   try {
     return await invoke<T>(cmd, args);
   } catch (err) {
-    console.error(`[coucou] ${cmd} failed`, err);
+    console.error(`[aria] ${cmd} failed`, err);
     return null;
   }
 }
@@ -87,12 +87,19 @@ export const Bridge = {
 
   openSettingsWindow: () => call<void>("open_settings_window"),
 
-  /** Writes to %LOCALAPPDATA%\Coucou\coucou.log, next to the Rust lines. */
+  /** Writes to %LOCALAPPDATA%\ARIA\aria.log, next to the Rust lines. */
   log: (message: string) => call<void>("log_line", { message }),
 
   // ── Claude Code hooks ─────────────────────────────────────────────────────
   hooksStatus: () => call<HookStatus>("hooks_status"),
-  /** Pill ID → whether that agent's hooks reach Coucou (read-only, Mac #183). */
+
+  // ── Coming from Coucou (migrate.rs) ───────────────────────────────────────
+  migrationStatus: () => call<MigrationStatus>("migration_status"),
+  /** Deletes Coucou's copy of the keys; returns how many. */
+  migrationClearOldKeys: () => callOrThrow<number>("migration_clear_old_keys"),
+  /** Starts Coucou's own uninstaller. */
+  migrationUninstallCoucou: () => callOrThrow<void>("migration_uninstall_coucou"),
+  /** Pill ID → whether that agent's hooks reach ARIA (read-only, Mac #183). */
   agentHooksStatus: () => call<Record<string, boolean>>("agent_hooks_status"),
   /** Diff to show before anything is written. `install: false` previews removal. */
   hooksPreview: (install: boolean) => callOrThrow<HookPreview>("hooks_preview", { install }),
@@ -157,7 +164,7 @@ export const Bridge = {
   /** Starts the Bot's routine with this task. Spends the owner's Grok Bot usage. */
   grokbotSend: (bot: string, message: string, attachments?: AttachmentIn[]) =>
     callOrThrow<string>("grokbot_send", { bot, message, attachments: attachments ?? null }),
-  /** Read-only: the last `bot-approval` lines of coucou.log, oldest first. */
+  /** Read-only: the last `bot-approval` lines of aria.log, oldest first. */
   botApprovals: () => call<string[]>("bot_approvals"),
   grokbotInstructions: (id: string) => callOrThrow<string>("grokbot_instructions", { id }),
   /** The Cursor engine (sdk-bridge): installed, and which version. */
@@ -235,24 +242,24 @@ export const Bridge = {
   /** Opens the folder of the image saved last. */
   recapRevealSaved: () => call<void>("recap_reveal_saved"),
 
-  // ── Mochi on the desktop (src-tauri/src/desktop.rs) ───────────────────────
-  desktopInfo: () => call<DesktopInfo>("desktop_mochi_info"),
+  // ── ARIA on the desktop (src-tauri/src/desktop.rs) ───────────────────────
+  desktopInfo: () => call<DesktopInfo>("desktop_aria_info"),
   /** Dragged out of the island: (x, y) is the pointer in island-window coordinates. */
-  desktopPickUp: (x: number, y: number) => call<boolean>("desktop_mochi_pick_up", { x, y }),
-  /** Linux: the pointer moved during that drag (Windows carries him from Rust). */
-  desktopCarry: (x: number, y: number) => call<void>("desktop_mochi_carry", { x, y }),
-  desktopCarryEnd: (x: number, y: number) => call<void>("desktop_mochi_carry_end", { x, y }),
-  /** A drag started on the desktop Mochi; resolves to his top-left corner. */
-  desktopDragBegin: () => call<[number, number] | null>("desktop_mochi_drag_begin"),
+  desktopPickUp: (x: number, y: number) => call<boolean>("desktop_aria_pick_up", { x, y }),
+  /** Linux: the pointer moved during that drag (Windows carries her from Rust). */
+  desktopCarry: (x: number, y: number) => call<void>("desktop_aria_carry", { x, y }),
+  desktopCarryEnd: (x: number, y: number) => call<void>("desktop_aria_carry_end", { x, y }),
+  /** A drag started on the desktop ARIA; resolves to her top-left corner. */
+  desktopDragBegin: () => call<[number, number] | null>("desktop_aria_drag_begin"),
   /** X11: top-left corner, physical pixels. */
-  desktopDragMove: (x: number, y: number) => call<void>("desktop_mochi_drag_move", { x, y }),
-  desktopDragEnd: (x: number, y: number) => call<void>("desktop_mochi_drag_end", { x, y }),
-  /** From the island to his spot. False: no spot on any connected display. */
-  desktopFlyOut: () => call<boolean>("desktop_mochi_fly_out"),
-  /** To the island, then hidden. `forget`: he lives in the island again. */
-  desktopFlyHome: (forget: boolean) => call<boolean>("desktop_mochi_fly_home", { forget }),
+  desktopDragMove: (x: number, y: number) => call<void>("desktop_aria_drag_move", { x, y }),
+  desktopDragEnd: (x: number, y: number) => call<void>("desktop_aria_drag_end", { x, y }),
+  /** From the island to her spot. False: no spot on any connected display. */
+  desktopFlyOut: () => call<boolean>("desktop_aria_fly_out"),
+  /** To the island, then hidden. `forget`: she lives in the island again. */
+  desktopFlyHome: (forget: boolean) => call<boolean>("desktop_aria_fly_home", { forget }),
   /** Asleep, the cursor poll stops. */
-  desktopSetAsleep: (asleep: boolean) => call<void>("desktop_mochi_set_asleep", { asleep }),
+  desktopSetAsleep: (asleep: boolean) => call<void>("desktop_aria_set_asleep", { asleep }),
 };
 
 /** `bot-step` event: a progress line on a Bot's pill. `ts` is epoch ms. */
@@ -309,22 +316,22 @@ export interface ShortcutsReport {
   command: string;
 }
 
-/** How the desktop Mochi's window works here (platform::DesktopMode). */
+/** How the desktop ARIA's window works here (platform::DesktopMode). */
 export type DesktopMode = "poll" | "window" | "layer" | "off";
 
 export interface DesktopInfo {
   mode: DesktopMode;
-  /** He was on the desktop when the app last quit. */
+  /** She was on the desktop when the app last quit. */
   onDesktop: boolean;
 }
 
-/** An event for one window only (island ⇄ desktop Mochi). Never throws. */
+/** An event for one window only (island ⇄ desktop ARIA). Never throws. */
 export async function emitToWindow(label: string, event: string, payload?: unknown) {
   if (!IS_TAURI) return;
   try {
     await emitTo(label, event, payload);
   } catch (err) {
-    console.error(`[coucou] emit ${event} failed`, err);
+    console.error(`[aria] emit ${event} failed`, err);
   }
 }
 
@@ -399,10 +406,22 @@ export interface AgentHookOptions {
   approvals?: boolean;
 }
 
+/** migrate.rs `Status`: what came over from Coucou and what is left of it. */
+export interface MigrationStatus {
+  report: { at: string; files: number; keys: string[]; webview: boolean; problems: string[] } | null;
+  oldKeys: number;
+  uninstaller: boolean;
+  legacyAgents: string[];
+}
+
 export interface HookStatus {
   installed: boolean;
-  /** Coucou's status line relay (plan usage) is the status line in settings.json. */
+  /** Hooks written by Coucou, ARIA's former name. */
+  legacy: boolean;
+  /** ARIA's status line relay (plan usage) is the status line in settings.json. */
   planRelayInstalled: boolean;
+  /** That status line still runs Coucou's relay. */
+  planRelayLegacy: boolean;
   settingsPath: string;
   hookPath: string;
   hookReady: boolean;
@@ -414,15 +433,17 @@ export interface AgentHookStatus {
   id: string;
   name: string;
   installed: boolean;
-  /** The file (or files, one per line) Coucou writes. */
+  /** The file (or files, one per line) ARIA writes. */
   path: string;
   hookReady: boolean;
   /** The island can allow or deny this agent's permission requests. */
   approvals: boolean;
   /** Cursor only: its shell / MCP approval gates are installed; null for the others. */
   gates: boolean | null;
-  /** Installed by an older Coucou: reinstalling brings what's missing. */
+  /** Installed by an older ARIA: reinstalling brings what's missing. */
   outdated: boolean;
+  /** Installed by Coucou, ARIA's former name. */
+  legacy: boolean;
   /** What to do once it is written. */
   note: string;
 }
@@ -522,7 +543,7 @@ export async function onDragDrop(handler: (e: DragDropPayload) => void) {
       handler({ type: "drop", paths: [], shift: dropShift, position: dropAt });
       return;
     }
-    webview.postMessageWithAdditionalObjects("coucou-file-drop", files);
+    webview.postMessageWithAdditionalObjects("aria-file-drop", files);
   };
 
   window.addEventListener("dragenter", onEnter);

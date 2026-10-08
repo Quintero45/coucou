@@ -92,7 +92,7 @@ fn clean_clipboard(raw: &str) -> Option<String> {
 
 /// The owner's screen right now (the monitor of their foreground window), saved
 /// in the inbox: an order to Cursor carries its path and Cursor opens it.
-/// Coucou's own windows (the island with its conversations) are left out, as
+/// ARIA's own windows (the island with its conversations) are left out, as
 /// in a screen share. Call it off the main thread.
 pub fn screen_png_file(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let sharing = SHARE.lock().unwrap().is_some();
@@ -535,7 +535,7 @@ pub fn stop_screen_share_on_quit(app: &AppHandle) {
 /// Registers the quit hook without touching lib.rs' `.run(…)`:
 /// `.plugin(context::exit_plugin())` on the builder.
 pub fn exit_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
-    tauri::plugin::Builder::new("coucou-screen-share")
+    tauri::plugin::Builder::new("aria-screen-share")
         .on_event(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 stop_screen_share_on_quit(app);

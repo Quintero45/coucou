@@ -1,7 +1,7 @@
 // The editor view: an agent's file edit across the whole overview, as a small
 // code window — file tab, real line numbers, the lines around the change, the
 // removed lines struck through and the new ones typed in. On its left, under
-// Mochi, the agent and its latest steps.
+// ARIA, the agent and its latest steps.
 
 import { h, svg, clear } from "./dom";
 import { ICONS } from "./icons";

@@ -94,7 +94,7 @@ test("no chat provider that works here says Coming soon", () => {
   for (const id of ["ai_anthropic", "ai_google", "ai_openai", "ai_ollama", "ai_lmstudio"]) {
     assert.ok(!isComingSoon(id), id);
   }
-  // The local servers are connected through Mochi's provider settings, not a key.
+  // The local servers are connected through ARIA's provider settings, not a key.
   assert.deepEqual(pillDefinition("ai_ollama").connect, { kind: "server", provider: "ollama" });
   assert.deepEqual(pillDefinition("ai_lmstudio").connect, { kind: "server", provider: "lmstudio" });
   assert.equal(pillDefinition("ai_google").connect.key, "google-api-key");

@@ -1,7 +1,7 @@
 // App state — mirror of AppState.swift (the parts the island needs).
 
 import type { BotEmoteName, BotStateName, IslandMode, IslandViewName } from "./layout";
-import type { EyeShape } from "../mochi/engine";
+import type { EyeShape } from "../aria/engine";
 import {
   DEFAULT_MAIN_PILL, HOST_OS, availablePills, orderPills, pillDefinition, sanitizeDeclared,
   toggleDeclared, type HostOs, type PillDefinition,
@@ -9,7 +9,7 @@ import {
 import type { CodexPlanUsage, PlanUsage } from "./plan";
 import type { FileDiff } from "./diff";
 import type { Bindings } from "./shortcuts";
-import { DEFAULT_OUTFIT, type Outfit } from "../mochi/wardrobe";
+import { DEFAULT_OUTFIT, type Outfit } from "../aria/wardrobe";
 import { t } from "../i18n/i18n";
 
 export type AgentSource = "claudeCode" | "n8n" | "agent";
@@ -44,15 +44,15 @@ export interface AgentTask {
 export interface ApprovalInfo {
   requestId: string;
   sessionId: string;
-  /** The pill the request belongs to: VS Code, Cursor, an agent (Codex…), a Grok Bot or Mochi. */
+  /** The pill the request belongs to: VS Code, Cursor, an agent (Codex…), a Grok Bot or ARIA. */
   pillId: string;
   tool: string;
   command: string;
   /** Set when an agent is asking questions rather than for a permission. */
   questions?: AskedQuestion[];
-  /** Claude Code when it suggested a rule; Mochi's own tools for the session. */
+  /** Claude Code when it suggested a rule; ARIA's own tools for the session. */
   allowAlways?: boolean;
-  /** Full text under review (a skill's code, a diff) — Mochi's requests only. */
+  /** Full text under review (a skill's code, a diff) — ARIA's requests only. */
   detail?: string | null;
   /** Wrap the detail as prose (a Bot's question, its arguments) instead of code. */
   detailWrap?: boolean;
@@ -84,11 +84,11 @@ export interface ChatMessage {
   steps?: string[];
 }
 
-/** Owner of the approval cards raised by Mochi's own tools (agent.rs). */
+/** Owner of the approval cards raised by ARIA's own tools (agent.rs). */
 export const ASSISTANT_ID = "assistant";
 
-/** How Mochi signs its own approval cards. */
-export const MOCHI_TASK: AgentTask = {
+/** How ARIA signs its own approval cards. */
+export const ARIA_TASK: AgentTask = {
   id: ASSISTANT_ID, name: "ARIA", color: "#A78BFA", state: "approval", stepIndex: 0, steps: [],
   source: "agent", isIntegration: false,
 };
@@ -144,7 +144,7 @@ function taskFor(def: PillDefinition, name = def.name): AgentTask {
   };
 }
 
-/** Agent name (coucou_agent) → its catalog pill, when there is one. */
+/** Agent name (aria_agent) → its catalog pill, when there is one. */
 export function catalogAgent(name: string): AgentTask | null {
   const def = pillDefinition(`agent_${name}`);
   return def ? { ...taskFor(def), isIntegration: false } : null;
@@ -179,7 +179,7 @@ export function botColor(bot: { id: string; name: string; color: string }): stri
   return defaultBotColor(bot.name, bot.id) ?? "#38BDF8";
 }
 
-/** Grok Bot pills: `agent_bot-<id>`, fed by `coucou-hook --bot`. */
+/** Grok Bot pills: `agent_bot-<id>`, fed by `aria-hook --bot`. */
 export const BOT_PREFIX = "agent_bot-";
 
 export function botPillId(bot: GrokBot): string {
@@ -261,24 +261,24 @@ export interface Settings {
   grokBots: GrokBot[];
   /** Show the Claude plan pill (5 h and weekly limits) in the island's header. */
   showPlanInNotch: boolean;
-  /** Coucou's status line relay is installed in Claude Code's settings. */
+  /** ARIA's status line relay is installed in Claude Code's settings. */
   planRelayInstalled: boolean;
   /** Show the Codex plan pill in the island's header. */
   showCodexPlanInNotch: boolean;
   /** Global shortcuts the user changed, by action id (see core/shortcuts.ts). */
   shortcuts: Bindings;
   /**
-   * Mochi's outfit: "auto" (dresses for the season), "none" or an outfit id.
-   * Same raw values as the Mac's "mochiOutfit"; read it through parseOutfit.
+   * ARIA's outfit: "auto" (dresses for the season), "none" or an outfit id.
+   * Same raw values as the Mac's "ariaOutfit"; read it through parseOutfit.
    */
-  mochiOutfit: string;
+  ariaOutfit: string;
   /**
-   * Interface language: "" follows the system (when Coucou has its language,
+   * Interface language: "" follows the system (when ARIA has its language,
    * else English), or one of src/i18n's ten codes ("fr", "pt-BR", "zh-Hans"…).
    */
   language: string;
-  /** Mochi on the desktop. Rust owns it: whatever the page sends back is ignored. */
-  desktopMochi?: {
+  /** ARIA on the desktop. Rust owns it: whatever the page sends back is ignored. */
+  desktopAria?: {
     onDesktop: boolean;
     spot: { x: number; y: number; space: string } | null;
   };
@@ -309,7 +309,7 @@ export const DEFAULT_SETTINGS: Settings = {
   planRelayInstalled: false,
   showCodexPlanInNotch: false,
   shortcuts: {},
-  mochiOutfit: DEFAULT_OUTFIT,
+  ariaOutfit: DEFAULT_OUTFIT,
   language: "",
 };
 
@@ -369,12 +369,12 @@ class AppState {
   /** From 1: a diff id of 0 is a FileDiff that was never stored. */
   private nextDiffId = 1;
   /**
-   * Mochi is out of the island — on the desktop, flying, or being dragged
-   * there — so the island's own Mochi is hidden (AppState.mochiOnDesktop).
+   * ARIA is out of the island — on the desktop, flying, or being dragged
+   * there — so the island's own ARIA is hidden (AppState.ariaOnDesktop).
    */
-  mochiOnDesktop = false;
+  ariaOnDesktop = false;
 
-  /** Outfit shown on Mochi while the pointer rests on a wardrobe button. */
+  /** Outfit shown on ARIA while the pointer rests on a wardrobe button. */
   wardrobePreview: Outfit | null = null;
 
   lastActivity = performance.now();

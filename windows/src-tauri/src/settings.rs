@@ -45,7 +45,7 @@ pub struct Settings {
     /// Show the Claude plan pill (5 h and weekly limits) in the island's header.
     /// Off until the user turns it on, so the header stays as it shipped.
     pub show_plan_in_notch: bool,
-    /// Coucou's status line relay is the one in Claude Code's settings.json.
+    /// ARIA's status line relay is the one in Claude Code's settings.json.
     /// Like `hooks_installed`, the real state wins at launch over what was stored.
     pub plan_relay_installed: bool,
     /// Show the Codex plan pill (5 h / weekly limits from `codex app-server`).
@@ -54,25 +54,25 @@ pub struct Settings {
     /// Global shortcuts the user changed, by action id; the others keep their
     /// default (see shortcuts.rs).
     pub shortcuts: crate::shortcuts::Bindings,
-    /// Mochi's outfit, picked in the wardrobe: "auto" (dresses for the
+    /// ARIA's outfit, picked in the wardrobe: "auto" (dresses for the
     /// season), "none" or an outfit id — the Mac's raw values. The island reads
     /// anything it doesn't know as "auto", so the value is stored as it comes.
-    pub mochi_outfit: String,
+    pub aria_outfit: String,
     /// Interface language: "" follows the system, else one of i18n::LANGUAGES
-    /// ("fr", "pt-BR", "zh-Hans"…). Kept as it comes, like `mochi_outfit`: a
+    /// ("fr", "pt-BR", "zh-Hans"…). Kept as it comes, like `aria_outfit`: a
     /// code this build doesn't know reads as "".
     pub language: String,
-    /// Mochi on the desktop: whether he lives there, and his spot. Owned by
+    /// ARIA on the desktop: whether she lives there, and her spot. Owned by
     /// the Rust side (desktop.rs) — what a webview sends back is ignored.
-    pub desktop_mochi: DesktopMochiPref,
+    pub desktop_aria: DesktopAriaPref,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
-pub struct DesktopMochiPref {
-    /// He was on the desktop when the app quit: he flies back out at launch.
+pub struct DesktopAriaPref {
+    /// She was on the desktop when the app quit: she flies back out at launch.
     pub on_desktop: bool,
-    /// Top-left corner of his window where the user last left him.
+    /// Top-left corner of her window where the user last left her.
     pub spot: Option<DesktopSpot>,
 }
 
@@ -142,9 +142,9 @@ impl Default for Settings {
             plan_relay_installed: false,
             show_codex_plan_in_notch: false,
             shortcuts: Default::default(),
-            mochi_outfit: "auto".into(),
+            aria_outfit: "auto".into(),
             language: String::new(),
-            desktop_mochi: DesktopMochiPref::default(),
+            desktop_aria: DesktopAriaPref::default(),
         }
     }
 }
@@ -182,7 +182,7 @@ fn not_loaded() -> MutexGuard<'static, Vec<PathBuf>> {
     NOT_LOADED.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// One line in coucou.log. Tests must never write to the real one.
+/// One line in aria.log. Tests must never write to the real one.
 fn note(message: String) {
     #[cfg(not(test))]
     crate::log::line(message);
@@ -193,15 +193,25 @@ fn note(message: String) {
 /// The settings held in the bytes of a settings.json, or `None` when there is
 /// nothing usable in them. Split from `load_from` so it can be tested without a
 /// file.
+/// Keys written while ARIA was Mochi, read under their new names. Done before
+/// deserializing: `salvage` tries each field against the defaults, which
+/// already hold the new key, so a serde alias would read as a duplicate.
+const RENAMED_KEYS: [(&str, &str); 2] = [("mochiOutfit", "ariaOutfit"), ("desktopMochi", "desktopAria")];
+
 fn parse(bytes: &[u8]) -> Option<Settings> {
     // PowerShell 5 and Notepad write a UTF-8 BOM, and serde_json refuses it.
     let text = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
     if text.iter().all(u8::is_ascii_whitespace) {
         return Some(Settings::default());
     }
-    let Value::Object(fields) = serde_json::from_slice(text).ok()? else {
+    let Value::Object(mut fields) = serde_json::from_slice(text).ok()? else {
         return None;
     };
+    for (old, new) in RENAMED_KEYS {
+        if let Some(value) = fields.remove(old) {
+            fields.entry(new).or_insert(value);
+        }
+    }
     let whole = serde_json::from_value(Value::Object(fields.clone()));
     Some(whole.unwrap_or_else(|_| salvage(fields)))
 }
@@ -227,7 +237,7 @@ fn salvage(fields: Map<String, Value>) -> Settings {
 
 /// The log line for a field `salvage` had to drop. The name comes straight from
 /// the file, so it is written escaped: a line break in it must not be able to
-/// start what looks like another line of coucou.log.
+/// start what looks like another line of aria.log.
 fn unusable_field(key: &str) -> String {
     format!("settings.json: {key:?} is not usable — its default is used instead")
 }
@@ -380,7 +390,7 @@ fn save_to(path: &Path, settings: &Settings) -> std::io::Result<()> {
 
     // Write beside the target and rename over it: a crash, a full disk or a
     // power cut leaves the previous settings.json intact rather than half a file.
-    let temp = path.with_extension(format!("json.coucou-{}", std::process::id()));
+    let temp = path.with_extension(format!("json.aria-{}", std::process::id()));
     let written = std::fs::File::create(&temp)
         .and_then(|mut file| write_whole(&mut file, &json))
         .and_then(|()| std::fs::rename(&temp, path));
@@ -419,9 +429,9 @@ mod tests {
   "planRelayInstalled": true,
   "showCodexPlanInNotch": true,
   "shortcuts": { "openChat": { "keys": "Ctrl+Shift+K", "enabled": false } },
-  "mochiOutfit": "witchHat",
+  "ariaOutfit": "witchHat",
   "language": "pt-BR",
-  "desktopMochi": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
+  "desktopAria": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
 }"##;
 
     fn custom() -> Value {
@@ -450,7 +460,7 @@ mod tests {
     /// A fresh directory of our own, and the settings.json it will hold.
     fn scratch(name: &str) -> (PathBuf, PathBuf) {
         let dir = std::env::temp_dir()
-            .join(format!("coucou-settings-{name}-{}", std::process::id()));
+            .join(format!("aria-settings-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("settings.json");
@@ -512,43 +522,60 @@ mod tests {
     }
 
     #[test]
-    fn a_file_from_before_the_wardrobe_dresses_mochi_for_the_seasons() {
-        let loaded = parse(&custom_with("mochiOutfit", None)).unwrap();
-        assert_eq!(loaded.mochi_outfit, "auto");
+    fn a_file_from_before_the_wardrobe_dresses_aria_for_the_seasons() {
+        let loaded = parse(&custom_with("ariaOutfit", None)).unwrap();
+        assert_eq!(loaded.aria_outfit, "auto");
         assert_eq!(loaded.model, "some-model");
         assert!(!loaded.sound_enabled);
     }
 
     #[test]
-    fn a_file_from_before_the_desktop_mochi_keeps_him_in_the_island() {
-        let loaded = parse(&custom_with("desktopMochi", None)).unwrap();
-        assert_eq!(loaded.desktop_mochi, DesktopMochiPref::default());
-        assert!(!loaded.desktop_mochi.on_desktop);
-        assert_eq!(loaded.mochi_outfit, "witchHat");
+    fn a_file_from_before_the_desktop_aria_keeps_him_in_the_island() {
+        let loaded = parse(&custom_with("desktopAria", None)).unwrap();
+        assert_eq!(loaded.desktop_aria, DesktopAriaPref::default());
+        assert!(!loaded.desktop_aria.on_desktop);
+        assert_eq!(loaded.aria_outfit, "witchHat");
+    }
+
+    #[test]
+    fn keys_from_before_the_rename_are_read() {
+        let old = json!({
+            "mochiOutfit": "topHat",
+            "desktopMochi": { "onDesktop": true },
+            "soundEnabled": "not a bool",
+        });
+        // With a field that fails (`salvage`) and without (read as a whole).
+        for text in [old.clone(), { let mut o = old.clone(); o.as_object_mut().unwrap().remove("soundEnabled"); o }] {
+            let loaded = parse(text.to_string().as_bytes()).unwrap();
+            assert_eq!(loaded.aria_outfit, "topHat");
+            assert!(loaded.desktop_aria.on_desktop);
+        }
+        let both = json!({ "mochiOutfit": "topHat", "ariaOutfit": "witchHat" });
+        assert_eq!(parse(both.to_string().as_bytes()).unwrap().aria_outfit, "witchHat");
     }
 
     #[test]
     fn a_half_written_desktop_spot_costs_only_the_spot() {
         let loaded = parse(&custom_with(
-            "desktopMochi",
+            "desktopAria",
             Some(json!({ "onDesktop": true, "spot": { "x": "left" } })),
         ))
         .unwrap();
         // The whole field falls back, and nothing else does.
-        assert_eq!(loaded.desktop_mochi, DesktopMochiPref::default());
+        assert_eq!(loaded.desktop_aria, DesktopAriaPref::default());
         assert_eq!(loaded.model, "some-model");
 
-        let loaded = parse(&custom_with("desktopMochi", Some(json!({ "onDesktop": true })))).unwrap();
-        assert!(loaded.desktop_mochi.on_desktop);
-        assert_eq!(loaded.desktop_mochi.spot, None);
+        let loaded = parse(&custom_with("desktopAria", Some(json!({ "onDesktop": true })))).unwrap();
+        assert!(loaded.desktop_aria.on_desktop);
+        assert_eq!(loaded.desktop_aria.spot, None);
     }
 
     #[test]
     fn an_outfit_this_build_does_not_know_is_kept_as_written() {
         // A newer build may add outfits: the island shows "auto" for it, but
         // the choice must survive a save made by this one.
-        let loaded = parse(&custom_with("mochiOutfit", Some(json!("topHat")))).unwrap();
-        assert_eq!(loaded.mochi_outfit, "topHat");
+        let loaded = parse(&custom_with("ariaOutfit", Some(json!("topHat")))).unwrap();
+        assert_eq!(loaded.aria_outfit, "topHat");
         // The language too: "" (follow the system) when absent, as it comes otherwise.
         assert_eq!(parse(&custom_with("language", None)).unwrap().language, "");
         assert_eq!(parse(&custom_with("language", Some(json!("xx")))).unwrap().language, "xx");
@@ -805,9 +832,9 @@ mod tests {
                 "planRelayInstalled",
                 "showCodexPlanInNotch",
                 "shortcuts",
-                "mochiOutfit",
+                "ariaOutfit",
                 "language",
-                "desktopMochi",
+                "desktopAria",
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);
@@ -837,7 +864,7 @@ mod tests {
         // directory squatting on that name, the write cannot even start.
         let (dir, file) = scratch("blocked");
         std::fs::write(&file, CUSTOM).unwrap();
-        let temp = dir.join(format!("settings.json.coucou-{}", std::process::id()));
+        let temp = dir.join(format!("settings.json.aria-{}", std::process::id()));
         std::fs::create_dir(&temp).unwrap();
 
         assert!(save_to(&file, &Settings::default()).is_err());

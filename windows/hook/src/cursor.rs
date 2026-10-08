@@ -29,12 +29,12 @@ pub enum Wait {
     Ask,
     /// `stop`: the island may hand back queued orders.
     Followup,
-    /// The gate, for Coucou's own question tool (mcp.rs): allowed at once, the
+    /// The gate, for ARIA's own question tool (mcp.rs): allowed at once, the
     /// question itself being the card.
     Pass,
 }
 
-/// Coucou's MCP question tool, as Cursor's beforeMCPExecution names it.
+/// ARIA's MCP question tool, as Cursor's beforeMCPExecution names it.
 pub const ASK_TOOL: &str = "island_ask";
 
 /// Our own question tool, served by this relay (`--mcp`): asking has no side
@@ -42,7 +42,7 @@ pub const ASK_TOOL: &str = "island_ask";
 fn is_our_ask(map: &Map<String, Value>) -> bool {
     let tool = map.get("tool_name").and_then(Value::as_str).unwrap_or_default();
     let command = map.get("command").and_then(Value::as_str).unwrap_or_default();
-    tool.rsplit([':', '-', '/']).next() == Some(ASK_TOOL) && command.contains("coucou-hook") && command.contains("--mcp")
+    tool.rsplit([':', '-', '/']).next() == Some(ASK_TOOL) && command.contains("aria-hook") && command.contains("--mcp")
 }
 
 /// Events that can carry an approval. They only become a `PermissionRequest`
@@ -151,7 +151,7 @@ pub fn normalize(map: &mut Map<String, Value>, raw: &str, approve: bool, ask: bo
         return ("PermissionRequest".into(), Wait::Decision);
     }
     if name == "Stop" {
-        map.insert("coucou_kind".into(), json!("cursor_stop"));
+        map.insert("aria_kind".into(), json!("cursor_stop"));
         return (name, Wait::Followup);
     }
     (name, Wait::Nothing)
@@ -512,7 +512,7 @@ mod tests {
     #[test]
     fn our_own_question_tool_passes_the_gate() {
         let ours = json!({ "tool_name": "island_ask", "tool_input": "{}",
-            "command": r"C:\Users\me\AppData\Local\Coucou\bin\coucou-hook.exe --agent cursor --mcp" });
+            "command": r"C:\Users\me\AppData\Local\ARIA\bin\aria-hook.exe --agent cursor --mcp" });
         let mut m = obj(ours.clone());
         assert_eq!(normalize(&mut m, "beforeMCPExecution", true, false), ("PreToolUse".into(), Wait::Pass));
         assert_eq!(stdout(Wait::Pass, None, &Context::default()).unwrap(), r#"{"permission":"allow"}"#);
@@ -546,7 +546,7 @@ mod tests {
         assert_eq!(normalize(&mut m, "stop", false, false), ("StopFailure".into(), Wait::Nothing));
         let mut ok = obj(json!({ "status": "completed" }));
         assert_eq!(normalize(&mut ok, "stop", false, false), ("Stop".into(), Wait::Followup));
-        assert_eq!(ok["coucou_kind"], "cursor_stop");
+        assert_eq!(ok["aria_kind"], "cursor_stop");
 
         let ctx = Context::default();
         let orders = r#"{"decision":"followup","answers":{"message":"run the tests"}}"#;
@@ -598,7 +598,7 @@ mod tests {
         assert_eq!(normalize(&mut q, "preToolUse", false, true), ("PermissionRequest".into(), Wait::Ask));
         assert_eq!(q["tool_name"], "Pregunta");
         assert_eq!(q["source_tool"], "AskQuestion");
-        assert!(q.get("coucou_kind").is_none(), "not the step-by-step question card");
+        assert!(q.get("aria_kind").is_none(), "not the step-by-step question card");
         assert_eq!(q["tool_input"]["command"], "¿Qué motor?");
         assert_eq!(q["options"], json!([{ "label": "Grok", "description": "rápido" }, { "label": "Claude" }]));
         assert_eq!(q["allowCustom"], true);

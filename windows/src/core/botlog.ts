@@ -1,5 +1,5 @@
 // Grok Bot approvals: each decision the island takes on a Bot's request goes to
-// coucou.log as one `bot-approval {json}` line, and the island / Settings read
+// aria.log as one `bot-approval {json}` line, and the island / Settings read
 // the last ones back (bot_approvals, read-only). Nothing else is stored.
 //
 // The line also carries the request's tool_input, made safe for a log first:
@@ -120,7 +120,7 @@ function sanitize(value: unknown, key: string, writeTool: boolean, depth: number
   return out;
 }
 
-/** The tool_input as it may go into coucou.log. */
+/** The tool_input as it may go into aria.log. */
 export function safeToolInput(
   tool: string,
   input: Record<string, unknown> | null | undefined,

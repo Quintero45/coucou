@@ -1,12 +1,12 @@
-//! `coucou-hook tool <name> [<json>|-] --bot <name> [--timeout <secs>]` and
-//! `coucou-hook tool --list` — how the owner's Grok Bots use Mochi's own tools
+//! `aria-hook tool <name> [<json>|-] --bot <name> [--timeout <secs>]` and
+//! `aria-hook tool --list` — how the owner's Grok Bots use ARIA's own tools
 //! on this computer.
 //!
 //! The call goes to the running app over the same pipe as every hook event.
-//! The app looks the tool up in Mochi's registry (`tools/`), runs reads at once,
+//! The app looks the tool up in ARIA's registry (`tools/`), runs reads at once,
 //! and puts every side effect on the island as that Bot's approval card
 //! (Permitir / Denegar) — exactly the card `--bot … --status ask` raises. Each
-//! call, allowed or not, is written to coucou.log. Nothing here can approve.
+//! call, allowed or not, is written to aria.log. Nothing here can approve.
 //!
 //! `--timeout` is how long the owner has to answer the card (default 180 s).
 //! The app enforces it; we wait that long plus the time the tool itself may
@@ -128,7 +128,7 @@ fn parse_rest(args: &[String], stdin: impl FnOnce() -> Option<String>) -> Result
     let tool = positional.next().unwrap_or_default();
     if tool.is_empty() || tool.starts_with('-') {
         return Err(Fail::Usage(
-            "usage: coucou-hook tool <name> [<json>|-] --bot <name> [--timeout <secs>]  |  coucou-hook tool --list".into(),
+            "usage: aria-hook tool <name> [<json>|-] --bot <name> [--timeout <secs>]  |  aria-hook tool --list".into(),
         ));
     }
     // `-` reads the input from stdin: quoting JSON for PowerShell is a trap.
@@ -156,19 +156,19 @@ fn parse_input(raw: &str) -> Result<Value, Fail> {
     }
 }
 
-/// The one line sent to the app. `coucou_kind` routes it in pipe.rs; the
-/// `bot-<slug>` / `coucou_bot` pair is the same attribution `--bot` sends.
+/// The one line sent to the app. `aria_kind` routes it in pipe.rs; the
+/// `bot-<slug>` / `aria_bot` pair is the same attribution `--bot` sends.
 pub fn request_line(cmd: &Cmd) -> String {
     let mut v = match cmd {
         Cmd::Call { bot, tool, input, timeout_secs } => json!({
-            "coucou_kind": "tool",
-            "coucou_agent": format!("bot-{}", crate::bot::slug(bot)),
-            "coucou_bot": bot,
+            "aria_kind": "tool",
+            "aria_agent": format!("bot-{}", crate::bot::slug(bot)),
+            "aria_bot": bot,
             "tool_name": tool,
             "tool_input": input,
             "timeout_ms": timeout_secs * 1000,
         }),
-        Cmd::List { bot } => json!({ "coucou_kind": "tool_list", "coucou_bot": bot }),
+        Cmd::List { bot } => json!({ "aria_kind": "tool_list", "aria_bot": bot }),
     }
     .to_string();
     v.push('\n');
@@ -338,14 +338,14 @@ mod tests {
         let line = request_line(&c);
         assert!(line.ends_with('\n') && line.matches('\n').count() == 1);
         let v: Value = serde_json::from_str(&line).unwrap();
-        assert_eq!(v["coucou_kind"], "tool");
-        assert_eq!(v["coucou_agent"], "bot-diseno-bot");
-        assert_eq!(v["coucou_bot"], "Diseño Bot");
+        assert_eq!(v["aria_kind"], "tool");
+        assert_eq!(v["aria_agent"], "bot-diseno-bot");
+        assert_eq!(v["aria_bot"], "Diseño Bot");
         assert_eq!(v["tool_name"], "open_app");
         assert_eq!(v["tool_input"], json!({"target":"notepad"}));
         assert_eq!(v["timeout_ms"], 30_000);
         let v: Value = serde_json::from_str(&request_line(&Cmd::List { bot: String::new() })).unwrap();
-        assert_eq!(v["coucou_kind"], "tool_list");
+        assert_eq!(v["aria_kind"], "tool_list");
     }
 
     #[test]

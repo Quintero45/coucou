@@ -4,7 +4,7 @@
 // approval card. No click in time, a paused island or a card already in use all
 // mean no. "Permitir siempre" creates an allow rule (see `AllowRule`): for a
 // file-writing tool, a folder (canonical path prefix); for any other tool, that
-// tool for that caller (Mochi or one Bot). Rules expire (1 h by default, or at
+// tool for that caller (ARIA or one Bot). Rules expire (1 h by default, or at
 // app restart), live in memory only, are logged when added, used and expired,
 // and never cover a shell (run_powershell & co.): those always ask.
 // Every call — free, approved, refused — is written to the audit log.
@@ -37,8 +37,8 @@ pub enum Risk {
 
 /// Default life of a "Permitir siempre" rule.
 pub const RULE_TTL: Duration = Duration::from_secs(60 * 60);
-/// Who asks when it is Mochi (Bots are `bot-<slug>`).
-pub const MOCHI: &str = "mochi";
+/// Who asks when it is ARIA (Bots are `bot-<slug>`).
+pub const ARIA: &str = "aria";
 
 /// Tools a standing approval may never cover: anything that runs a command.
 const NEVER_ALWAYS: &[&str] = &["run_powershell", "powershell", "shell", "run_shell", "run_command", "bash", "cmd", "terminal"];
@@ -60,7 +60,7 @@ pub enum RuleScope {
 
 #[derive(Debug, Clone)]
 pub struct AllowRule {
-    /// `mochi` or `bot-<slug>`: a rule never crosses callers.
+    /// `aria` or `bot-<slug>`: a rule never crosses callers.
     pub who: String,
     pub tool: String,
     pub scope: RuleScope,
@@ -418,7 +418,7 @@ pub async fn approve(app: &AppHandle, tool: &str, target: &str) -> bool {
 /// Same, with the full text under review (a skill's code, a diff) shown in a
 /// scrollable box on the card. "Always" is never offered for these.
 pub async fn approve_with_detail(app: &AppHandle, tool: &str, target: &str, detail: Option<&str>) -> bool {
-    if detail.is_none() && allowed_by_rule(MOCHI, tool, target) {
+    if detail.is_none() && allowed_by_rule(ARIA, tool, target) {
         audit(tool, "allowed (rule)", target);
         return true;
     }
@@ -448,7 +448,7 @@ pub async fn approve_with_detail(app: &AppHandle, tool: &str, target: &str, deta
             true
         }
         Some(d @ ("always" | "always-session")) if detail.is_none() => {
-            let made = remember_always(MOCHI, tool, target, d);
+            let made = remember_always(ARIA, tool, target, d);
             audit(tool, if made { "allowed (rule added)" } else { "allowed (once; no rule for this tool)" }, target);
             true
         }
@@ -480,34 +480,34 @@ mod tests {
     use super::*;
 
     fn tmpdir(tag: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("coucou-policy-{tag}-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("aria-policy-{tag}-{}", std::process::id()));
         std::fs::create_dir_all(d.join("sub")).unwrap();
         d
     }
 
     #[test]
     fn shells_never_get_a_rule() {
-        assert!(rule_for(MOCHI, "run_powershell", "Get-ChildItem", Some(RULE_TTL)).is_none());
+        assert!(rule_for(ARIA, "run_powershell", "Get-ChildItem", Some(RULE_TTL)).is_none());
         assert!(rule_for("bot-a", "Shell", "ls", None).is_none());
-        let forged = AllowRule { who: MOCHI.into(), tool: "run_powershell".into(), scope: RuleScope::Tool, expires: None };
-        assert!(!rule_covers(&forged, MOCHI, "run_powershell", "x", Instant::now()));
+        let forged = AllowRule { who: ARIA.into(), tool: "run_powershell".into(), scope: RuleScope::Tool, expires: None };
+        assert!(!rule_covers(&forged, ARIA, "run_powershell", "x", Instant::now()));
     }
 
     #[test]
     fn folder_rules_cover_the_folder_only() {
         let d = tmpdir("folder");
         let target = |p: &Path| format!("{} (10 chars, overwrite)", p.display());
-        let rule = rule_for(MOCHI, "write_file", &target(&d.join("a.txt")), Some(RULE_TTL)).unwrap();
+        let rule = rule_for(ARIA, "write_file", &target(&d.join("a.txt")), Some(RULE_TTL)).unwrap();
         let now = Instant::now();
-        assert!(rule_covers(&rule, MOCHI, "write_file", &target(&d.join("new.txt")), now));
-        assert!(rule_covers(&rule, MOCHI, "write_file", &target(&d.join("sub").join("b.txt")), now));
-        assert!(!rule_covers(&rule, MOCHI, "write_file", &target(&d.parent().unwrap().join("x.txt")), now));
+        assert!(rule_covers(&rule, ARIA, "write_file", &target(&d.join("new.txt")), now));
+        assert!(rule_covers(&rule, ARIA, "write_file", &target(&d.join("sub").join("b.txt")), now));
+        assert!(!rule_covers(&rule, ARIA, "write_file", &target(&d.parent().unwrap().join("x.txt")), now));
         let sibling = PathBuf::from(format!("{}x", d.display())).join("y.txt");
-        assert!(!rule_covers(&rule, MOCHI, "write_file", &target(&sibling), now), "prefix is per component");
+        assert!(!rule_covers(&rule, ARIA, "write_file", &target(&sibling), now), "prefix is per component");
         let detour = d.join("sub").join("..").join("..").join("escape.txt");
-        assert!(!rule_covers(&rule, MOCHI, "write_file", &target(&detour), now), "canonicalized");
+        assert!(!rule_covers(&rule, ARIA, "write_file", &target(&detour), now), "canonicalized");
         assert!(!rule_covers(&rule, "bot-a", "write_file", &target(&d.join("a.txt")), now), "never across callers");
-        assert!(rule_for(MOCHI, "write_file", "relative.txt (1 chars, append)", None).is_none());
+        assert!(rule_for(ARIA, "write_file", "relative.txt (1 chars, append)", None).is_none());
         let _ = std::fs::remove_dir_all(&d);
     }
 
@@ -519,8 +519,8 @@ mod tests {
         assert!(!rule_covers(&rule, "bot-otro", "open_url", "https://example.com", now));
         assert!(!rule_covers(&rule, "bot-ventas", "open_app", "notepad", now));
         assert!(!rule_covers(&rule, "bot-ventas", "open_url", "x", now + Duration::from_secs(61)));
-        let forever = rule_for(MOCHI, "clipboard_write", "x", None).unwrap();
-        assert!(rule_covers(&forever, MOCHI, "clipboard_write", "y", now + Duration::from_secs(86_400)));
+        let forever = rule_for(ARIA, "clipboard_write", "x", None).unwrap();
+        assert!(rule_covers(&forever, ARIA, "clipboard_write", "y", now + Duration::from_secs(86_400)));
     }
 
     #[test]

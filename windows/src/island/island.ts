@@ -1,4 +1,4 @@
-// The island: DOM shell, sizing animation, Mochi placement, mouse handling.
+// The island: DOM shell, sizing animation, ARIA placement, mouse handling.
 // Mirrors IslandRootView.swift + IslandWindowController.swift.
 
 import { Tracked, Spring, clamp } from "../core/anim";
@@ -19,26 +19,26 @@ import { BotLive } from "../core/botlive";
 import { registerBotEvents } from "./botevents";
 import { APPROVAL_ANSWER, CURSOR_WRITE, callCmd } from "../core/botcmds";
 import { ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
-import { BotEngine, hexToRGB } from "../mochi/engine";
-import { Greeting } from "../mochi/greeting";
-import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
-import { SeasonCache, parseOutfit } from "../mochi/wardrobe";
+import { BotEngine, hexToRGB } from "../aria/engine";
+import { Greeting } from "../aria/greeting";
+import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../aria/minibots";
+import { SeasonCache, parseOutfit } from "../aria/wardrobe";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { closePlanCard, openPlanColor, planCardOpen } from "../views/usage";
 import { botDetail, buildHeader, buildViews, liveDiff, type ViewActions, type ViewHost } from "../views/views";
 import { botCanReply } from "../views/integrations";
-import { botFx } from "../mochi/botfx";
+import { botFx } from "../aria/botfx";
 import { h, clear } from "../views/dom";
 import { t } from "../i18n/i18n";
 import { IslandStateMachine } from "./fsm";
 import { refreshHookPills } from "./integrations";
 import { DesktopLink } from "./desktop";
-import { DRAG_THRESHOLD } from "../mochi/desktop-logic";
+import { DRAG_THRESHOLD } from "../aria/desktop-logic";
 
 const BOT_OVERHANG = 40;
 const CLAUDE_DESKTOP_ID = "agent_claude-desktop";
-/** Extra canvas on each side of Mochi, for the witch hat's brim and the Santa hat's tip. */
+/** Extra canvas on each side of ARIA, for the witch hat's brim and the Santa hat's tip. */
 const BOT_SIDE = 24;
 /** Same margin as the Rust hit test (src-tauri/src/island.rs). */
 const HIT_MARGIN = 14;
@@ -46,7 +46,7 @@ const HIT_MARGIN = 14;
 const REPLY_GROW = 34;
 /** And a little more while files wait above it. */
 const REPLY_CHIPS = 22;
-/** Dragging over the overview but not over a Bot this long hands the file to Mochi. */
+/** Dragging over the overview but not over a Bot this long hands the file to ARIA. */
 const DROP_DWELL_MS = 700;
 /** The island just opened itself for a drag: this long to reach a Bot's pill first. */
 const DROP_OPEN_GRACE_MS = 1500;
@@ -67,8 +67,8 @@ const PRE_PROGRESS = USC.T_PROG_START - USC.T_DROP;
 const modeOrder = (m: IslandMode) => (m === "hidden" ? 0 : m === "compact" ? 1 : 2);
 
 /**
- * The open Grok Bot detail takes the chat's geometry: same size, same Mochi
- * spot. The editor view takes the diff's: taller, Mochi up in the corner.
+ * The open Grok Bot detail takes the chat's geometry: same size, same ARIA
+ * spot. The editor view takes the diff's: taller, ARIA up in the corner.
  */
 function layoutView(): IslandViewName {
   if (State.view !== "overview") return State.view;
@@ -76,14 +76,14 @@ function layoutView(): IslandViewName {
   return liveDiff.id != null ? "diff" : "overview";
 }
 
-/** A Bot's card was answered: a short glow on its mascot (mochi/botfx.ts). */
+/** A Bot's card was answered: a short glow on its mascot (aria/botfx.ts). */
 function flashBot(agentId: string) {
   botFx.flash(agentId);
 }
 
 export class Island {
   readonly fsm = new IslandStateMachine();
-  /** Mochi on the desktop: his life cycle and the drag out of the island. */
+  /** ARIA on the desktop: her life cycle and the drag out of the island. */
   readonly desktop: DesktopLink;
 
   private root: HTMLElement;
@@ -165,7 +165,7 @@ export class Island {
   onGreetingDone: (() => void) | null = null;
   onWake: (() => void) | null = null;
 
-  /** Where a press on Mochi started: moving past DRAG_THRESHOLD drags him out. */
+  /** Where a press on ARIA started: moving past DRAG_THRESHOLD drags her out. */
   private botPress: { x: number; y: number } | null = null;
 
   /** Drop sequence bookkeeping: last tick played, and whether the ✓ has fired. */
@@ -380,8 +380,8 @@ export class Island {
       openSettingsWindow: () => void Bridge.openSettingsWindow(),
       blip: () => Sound.play("blip"),
       chooseOutfit: (selection) => {
-        if (parseOutfit(State.settings.mochiOutfit) === selection) return;
-        State.settings.mochiOutfit = selection;
+        if (parseOutfit(State.settings.ariaOutfit) === selection) return;
+        State.settings.ariaOutfit = selection;
         void Bridge.saveSettings(State.settings);
         Sound.play("pop");
         this.engine.triggerEmote("proud");
@@ -413,7 +413,7 @@ export class Island {
     for (const v of this.views.values()) this.viewsEl.append(v.el);
     this.contentEl = h("div", { id: "content" }, this.header.el, this.viewsEl);
 
-    // The drop sequence draws the card, the bar and its own Mochi. It sits under
+    // The drop sequence draws the card, the bar and its own ARIA. It sits under
     // the header, which stays visible on top of it exactly as on macOS.
     this.uploadCanvas = new UploadCanvas({
       ask: () => {
@@ -459,17 +459,17 @@ export class Island {
   private wireFsm() {
     this.fsm.homeToPetitDelay = State.settings.autoCloseInterval;
     this.fsm.onTransition = (from, to) => {
-      // The greeting is over, however it ended: back to his desktop spot.
-      if (from === "coucou" && to !== "coucou") this.desktop.launch();
+      // The greeting is over, however it ended: back to her desktop spot.
+      if (from === "aria" && to !== "aria") this.desktop.launch();
       switch (to) {
         case "hidden":
           this.setMode("hidden");
           break;
         case "petit":
-          if (from === "coucou") this.greeting.interrupt();
+          if (from === "aria") this.greeting.interrupt();
           else if (from === "hidden") Sound.play("peek");
           this.setMode("compact");
-          if (from === "coucou") State.view = State.defaultView();
+          if (from === "aria") State.view = State.defaultView();
           if (!this.wasInIsland) this.fsm.mouseLeft();
           break;
         case "home":
@@ -479,7 +479,7 @@ export class Island {
           // say so on the next open, without polling while the island is shut.
           void refreshHookPills();
           break;
-        case "coucou":
+        case "aria":
           this.expand("greeting");
           this.greeting.start();
           break;
@@ -620,17 +620,17 @@ export class Island {
     this.fsm.reveal();
   }
 
-  /** Right-click on Mochi: wardrobe open ↔ back to the usual view. */
+  /** Right-click on ARIA: wardrobe open ↔ back to the usual view. */
   toggleWardrobe() {
     if (State.paused || State.mode === "hidden") return;
-    // The greeting and the drop sequence draw a Mochi of their own.
+    // The greeting and the drop sequence draw an ARIA of their own.
     if (State.mode === "expanded" && (State.view === "greeting" || this.uploadActive)) return;
     if (State.mode === "expanded" && State.view === "wardrobe") this.setView(State.defaultView());
     else this.setView("wardrobe");
   }
 
   /**
-   * Right-click on the desktop Mochi (macOS openWardrobeFromDesktop): opens the
+   * Right-click on the desktop ARIA (macOS openWardrobeFromDesktop): opens the
    * wardrobe from any state, or goes back if it is already open.
    */
   wardrobeFromDesktop() {
@@ -639,7 +639,7 @@ export class Island {
 
   /**
    * The wardrobe from any state — compact or hidden island included — or back
-   * to the usual view if it is already open. The desktop Mochi's right-click
+   * to the usual view if it is already open. The desktop ARIA's right-click
    * and the wardrobe shortcut (`open-wardrobe`) both land here.
    */
   wardrobeAnywhere() {
@@ -695,7 +695,7 @@ export class Island {
         this.cancelDragFold();
         if (State.fileDragOver) return;
         // There are Bots to drop on: open the island on the overview (even from
-        // folded) and let the drag find one, lit in its colour, before Mochi
+        // folded) and let the drag find one, lit in its colour, before ARIA
         // takes the file.
         if (this.dragMode === "bots" || this.hasBotTargets()) {
           if (this.dragMode !== "bots") this.openForDrag();
@@ -704,7 +704,7 @@ export class Island {
           this.trackDropTarget(x, y);
           break;
         }
-        this.startMochiDrag();
+        this.startAriaDrag();
         break;
       }
       case "leave": {
@@ -744,8 +744,8 @@ export class Island {
             this.dropOnBot(id, e.paths);
             return;
           }
-          // Not on a Bot: Mochi eats it, exactly as before.
-          if (e.paths?.length) this.startMochiDrag();
+          // Not on a Bot: ARIA eats it, exactly as before.
+          if (e.paths?.length) this.startAriaDrag();
         }
         State.fileDragOver = false;
         const path = e.paths?.[0];
@@ -760,8 +760,8 @@ export class Island {
     }
   }
 
-  /** Mochi's drop sequence takes the drag (the island opens on `upload`). */
-  private startMochiDrag() {
+  /** ARIA's drop sequence takes the drag (the island opens on `upload`). */
+  private startAriaDrag() {
     State.fileDragOver = true;
     this.engine.animateMorph(1);
     // enterZone must run before the island expands, so the sequence is
@@ -770,7 +770,7 @@ export class Island {
     this.alert("upload");
   }
 
-  /** "ui drag …" lines in coucou.log; over at most twice a second. */
+  /** "ui drag …" lines in aria.log; over at most twice a second. */
   private logDrag(e: { type: string; paths?: string[]; position?: { x: number; y: number } }) {
     const now = performance.now();
     if (e.type === "over") {
@@ -778,8 +778,8 @@ export class Island {
       this.lastOverLog = now;
     }
     const p = e.position ? `${Math.round(e.position.x)},${Math.round(e.position.y)}` : "-";
-    const line = `drag ${e.type} files=${e.paths?.length ?? 0} pos=${p} mode=${State.mode} view=${State.view} drag=${this.dragMode ?? (State.fileDragOver ? "mochi" : "none")} bot=${this.dropBot ?? "-"}`;
-    console.debug(`[coucou] ${line}`);
+    const line = `drag ${e.type} files=${e.paths?.length ?? 0} pos=${p} mode=${State.mode} view=${State.view} drag=${this.dragMode ?? (State.fileDragOver ? "aria" : "none")} bot=${this.dropBot ?? "-"}`;
+    console.debug(`[aria] ${line}`);
     void Bridge.log(line);
   }
 
@@ -854,7 +854,7 @@ export class Island {
     return hit?.dataset.botDrop ?? null;
   }
 
-  /** Lights the Bot under the drag; off any Bot for a while, Mochi takes over. */
+  /** Lights the Bot under the drag; off any Bot for a while, ARIA takes over. */
   private trackDropTarget(x: number, y: number) {
     const id = this.botUnder(x, y);
     if (id !== this.dropBot) {
@@ -877,7 +877,7 @@ export class Island {
         this.dropDwell = null;
         if (this.dragMode !== "bots" || this.dropBot) return;
         this.endBotDrag();
-        this.startMochiDrag();
+        this.startAriaDrag();
       }, wait);
     }
   }
@@ -1000,7 +1000,7 @@ export class Island {
   }
 
   /**
-   * Mochi eats the file. Nothing here waits on the file system: the copy into
+   * ARIA eats the file. Nothing here waits on the file system: the copy into
    * the inbox runs in the background and swaps the path in when it lands, so a
    * slow disk can never stall the animation — same as FileDropHandler on macOS.
    */
@@ -1052,7 +1052,7 @@ export class Island {
 
   /**
    * Sounds and view changes hung off the canvas timeline: a `tick` every 10 %,
-   * the ✓ chime when the bar completes, then `choose` once Mochi has grown back.
+   * the ✓ chime when the bar completes, then `choose` once ARIA has grown back.
    */
   private stepSequence() {
     const since = UploadSeq.sinceDrop();
@@ -1187,11 +1187,11 @@ export class Island {
     this.islandEl.addEventListener("mousedown", (e) => {
       Sound.resume();
       State.lastActivity = performance.now();
-      // A press on Mochi may become a drag out to the desktop.
+      // A press on ARIA may become a drag out to the desktop.
       if (e.button === 0 && this.isBotHit(e.clientX, e.clientY)) {
         this.botPress = { x: e.clientX, y: e.clientY };
       }
-      // Right-click on Mochi opens the wardrobe, and closes it again.
+      // Right-click on ARIA opens the wardrobe, and closes it again.
       if (e.button === 2 && this.isBotHit(e.clientX, e.clientY)) {
         this.cancelBotHover();
         this.toggleWardrobe();
@@ -1207,13 +1207,13 @@ export class Island {
       }
     });
 
-    // No browser menu over Mochi: his right-click is the wardrobe. Everywhere
+    // No browser menu over ARIA: her right-click is the wardrobe. Everywhere
     // else (the chat field) the webview keeps its own menu.
     this.islandEl.addEventListener("contextmenu", (e) => {
       if (this.isBotHit(e.clientX, e.clientY)) e.preventDefault();
     });
 
-    // Dragging Mochi out of the island puts him on the desktop.
+    // Dragging ARIA out of the island puts her on the desktop.
     window.addEventListener("mousemove", (e) => {
       if (this.desktop.carrying) {
         this.desktop.carry(e.clientX, e.clientY);
@@ -1313,7 +1313,7 @@ export class Island {
       y >= rect.y - HIT_MARGIN && y <= rect.y + rect.h + HIT_MARGIN;
 
     if (inIsland && !this.wasInIsland) {
-      if (this.fsm.state === "coucou") this.greeting.hover();
+      if (this.fsm.state === "aria") this.greeting.hover();
       this.fsm.mouseEntered();
     }
     if (!inIsland && this.wasInIsland) {
@@ -1349,15 +1349,15 @@ export class Island {
     this.ensureRunning();
   }
 
-  /** The greeting and the drop sequence draw a Mochi of their own: not that one. */
+  /** The greeting and the drop sequence draw an ARIA of their own: not that one. */
   private canDragOut(): boolean {
     if (State.mode === "hidden" || !this.desktop.canPickUp()) return false;
     return !(State.mode === "expanded" && (State.view === "greeting" || this.uploadActive));
   }
 
   private isBotHit(x: number, y: number): boolean {
-    // Out on the desktop, the island's Mochi is invisible: nothing to hit.
-    if (State.mochiOnDesktop) return false;
+    // Out on the desktop, the island's ARIA is invisible: nothing to hit.
+    if (State.ariaOnDesktop) return false;
     const rect = this.islandRect();
     const cx = rect.x + this.botCx.value;
     const cy = rect.y + this.botCy.value;
@@ -1449,7 +1449,7 @@ export class Island {
         this.greeting.draw(gctx);
       }
     } else {
-      // Kept running even while the drop canvas is up, so the island's own Mochi
+      // Kept running even while the drop canvas is up, so the island's own ARIA
       // is already in the right place the moment the canvas fades out.
       this.drawBot(dt);
     }
@@ -1494,9 +1494,9 @@ export class Island {
     this.botSize.target = p.diameter / 0.6;
 
     const greetingActive = State.mode === "expanded" && State.view === "greeting";
-    // The drop canvas draws its own Mochi; two of them would overlap. Out on the
-    // desktop, he isn't here at all.
-    const away = State.mochiOnDesktop;
+    // The drop canvas draws its own ARIA; two of them would overlap. Out on the
+    // desktop, she isn't here at all.
+    const away = State.ariaOnDesktop;
     const visible = p.opacity > 0 && !greetingActive && !this.uploadActive && !away;
     this.botCanvas.style.opacity = visible ? "1" : "0";
 
@@ -1535,7 +1535,7 @@ export class Island {
     if (!ctx) return;
 
     const focus = State.focusTask;
-    // While a plan card is open Mochi wears the plan's colour, like its pill.
+    // While a plan card is open ARIA wears the plan's colour, like its pill.
     this.engine.bodyColor = planCardOpen()
       ? hexToRGB(openPlanColor())
       : focus?.isIntegration
@@ -1553,14 +1553,14 @@ export class Island {
         this.engine.slotHVel = 0;
       }
     }
-    // Only the main Mochi is dressed — the one of the main tool's pill (Settings →
+    // Only the main ARIA is dressed — the one of the main tool's pill (Settings →
     // Active pills): a focused integration pill shows its own colours, unless
     // the wardrobe is open (BotCanvasView.showOutfit, macOS).
     // In the wardrobe the hovered outfit swaps in at once, without the drop-in.
     const inWardrobe = State.mode === "expanded" && State.view === "wardrobe";
     const mainFocused = State.focusId == null || State.focusId === State.mainPillId;
     const showOutfit = mainFocused || State.mode !== "expanded" || inWardrobe;
-    const outfit = State.wardrobePreview ?? this.seasons.get(parseOutfit(State.settings.mochiOutfit));
+    const outfit = State.wardrobePreview ?? this.seasons.get(parseOutfit(State.settings.ariaOutfit));
     this.engine.setOutfit(showOutfit ? outfit : "none", !inWardrobe);
 
     this.engine.update(dt);

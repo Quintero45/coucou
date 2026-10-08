@@ -798,11 +798,11 @@ mod tests {
         assert_eq!(v["content"][1]["image_url"]["url"], "data:image/png;base64,AAA");
     }
 
-    /// Needs a running Ollama: `COUCOU_TEST_OLLAMA_MODEL=qwen3.5:9b cargo test ollama -- --ignored`.
+    /// Needs a running Ollama: `ARIA_TEST_OLLAMA_MODEL=qwen3.5:9b cargo test ollama -- --ignored`.
     #[tokio::test]
     #[ignore]
     async fn ollama_streams_text_and_calls_tools() {
-        let model = std::env::var("COUCOU_TEST_OLLAMA_MODEL").unwrap_or_else(|_| "llama3.2".into());
+        let model = std::env::var("ARIA_TEST_OLLAMA_MODEL").unwrap_or_else(|_| "llama3.2".into());
         let ep = Endpoint {
             provider: Provider::Ollama,
             base: Provider::Ollama.info().base.into(),

@@ -4,7 +4,7 @@
 // terminal (Windows Terminal, VS Code, PowerShell…) and all of them are handled.
 // The relay has already mapped every agent's events and fields onto Claude
 // Code's (hook/src/normalize.rs, hook/src/cursor.rs), so one handler serves
-// them all; Grok Bots report through `coucou-hook --bot` (hook/src/bot.rs).
+// them all; Grok Bots report through `aria-hook --bot` (hook/src/bot.rs).
 
 import { Bridge, onEvent } from "../core/bridge";
 import { BotChat, CURSOR_CHAT } from "../core/botchat";
@@ -76,13 +76,13 @@ interface HookPayload {
   tool_name?: string;
   tool_input?: Record<string, unknown>;
   /** Set by the relay when an edit was too big to forward whole (> 256 KB). */
-  coucou_diff_truncated?: boolean;
+  aria_diff_truncated?: boolean;
   /** Optional agent tag: lowercase, digits and hyphens, ≤ 24 chars. */
-  coucou_agent?: string;
+  aria_agent?: string;
   /** Claude Code's suggested rules for "Always". */
   permission_suggestions?: unknown[];
-  /** `coucou-hook --bot`: the Bot's display name and what it reports. */
-  coucou_bot?: string;
+  /** `aria-hook --bot`: the Bot's display name and what it reports. */
+  aria_bot?: string;
   bot_status?: "working" | "done" | "needs" | "error";
   /** Hermes: where the session runs (telegram, discord…; "cli" in a terminal). */
   platform?: string;
@@ -197,7 +197,7 @@ function approvalTarget(tool: string, input: Record<string, unknown>): string {
   return tool;
 }
 
-/** `coucou-hook --bot … --status ask` arrives as this tool, its question in `command`. */
+/** `aria-hook --bot … --status ask` arrives as this tool, its question in `command`. */
 const BOT_QUESTION_TOOL = "Pregunta";
 
 /** Longest string kept per argument, and for the whole block, on a Bot's card. */
@@ -228,13 +228,13 @@ function botName(agentId: string, fallback?: string): string {
 
 /** A Bot's request that never reached a card still belongs in its history. */
 function logBotDecline(payload: HookPayload, decision: BotDecision) {
-  const agent = validateAgent(payload.coucou_agent);
+  const agent = validateAgent(payload.aria_agent);
   if (payload.hook_event_name !== "PermissionRequest" || !agent?.startsWith("bot-")) return;
   const agentId = `agent_${agent}`;
   const tool = payload.tool_name ?? "Tool";
   recordBotApproval({
     bot: agent.slice(4),
-    name: botName(agentId, payload.coucou_bot),
+    name: botName(agentId, payload.aria_bot),
     tool,
     decision,
     target: approvalTarget(tool, payload.tool_input ?? {}),
@@ -309,7 +309,7 @@ function clearFinalLine(id: string) {
  * Returns the diff, for the conversations (Cursor, Grok Bots).
  */
 function recordDiff(agentId: string, payload: HookPayload): FileDiff | null {
-  if (payload.coucou_diff_truncated) return null;
+  if (payload.aria_diff_truncated) return null;
   if (!State.tasks.some((t) => t.id === agentId)) return null;
   const diff = buildFileDiff(payload.tool_name ?? "", payload.tool_input ?? {});
   if (!diff) return null;
@@ -325,7 +325,7 @@ export function registerHookHandlers(island: Island) {
   // Cursor was opened (Rust's appwatch): it fires no hook of its own until the
   // first agent chat, so this stands in for its SessionStart.
   void onEvent<{ agent?: string }>("agent-app-opened", (p) => {
-    if (p?.agent) handleHook(island, { hook_event_name: "SessionStart", coucou_agent: p.agent });
+    if (p?.agent) handleHook(island, { hook_event_name: "SessionStart", aria_agent: p.agent });
   });
 }
 
@@ -352,12 +352,12 @@ function handleHook(island: Island, payload: HookPayload) {
   const raw = lastPathComponent(cwd);
   const projectName = aliasProjectName(raw || t("Session"));
 
-  // Route to the right pill. Valid coucou_agent → "agent_<name>" pill, with the
+  // Route to the right pill. Valid aria_agent → "agent_<name>" pill, with the
   // catalog's name and colour when it is a known agent (Cursor, Codex…), or the
   // owner's Grok Bot for "bot-<id>". "claude" is reserved; absent or invalid →
   // Claude Code's own pill: Cursor's when it runs in Cursor's terminal (Mac
   // #120), VS Code's otherwise.
-  const validAgent = validateAgent(payload.coucou_agent);
+  const validAgent = validateAgent(payload.aria_agent);
   const workspaceId = payload.term_editor === "cursor" ? CURSOR_ID : CLAUDE_ID;
   const agentId = validAgent ? `agent_${validAgent}` : workspaceId;
   const isExternalAgent = validAgent !== null;
@@ -385,7 +385,7 @@ function handleHook(island: Island, payload: HookPayload) {
   const ensurePill = () => {
     if (isExternalAgent) {
       const bot = State.settings.grokBots.find((b) => botPillId(b) === agentId);
-      const sent = isBotPill ? payload.coucou_bot?.trim().slice(0, 40) : "";
+      const sent = isBotPill ? payload.aria_bot?.trim().slice(0, 40) : "";
       const label = bot?.name ?? (sent || agentName(validAgent!));
       State.upsertExternalAgent(agentId, label, bot?.color ?? agentColor(validAgent!));
       const t = State.tasks.find((x) => x.id === agentId);
@@ -634,7 +634,7 @@ function handleHook(island: Island, payload: HookPayload) {
       State.appendStep(agentId, t("• subagent done"));
       break;
 
-    // A Grok Bot reporting through `coucou-hook --bot`.
+    // A Grok Bot reporting through `aria-hook --bot`.
     case "BotUpdate": {
       if (!isBotPill) break;
       ensurePill();
@@ -777,7 +777,7 @@ function handleHook(island: Island, payload: HookPayload) {
       playSound("pregunta", State.settings);
       // A Bot's conversation on screen answers it inline (Permitir / Denegar).
       if (!inChat) island.alert(view);
-      // Coucou answers within 108 s or not at all; after that the terminal has
+      // ARIA answers within 108 s or not at all; after that the terminal has
       // taken over and the card would be lying.
       pendingTimeout = window.setTimeout(() => {
         pendingTimeout = null;

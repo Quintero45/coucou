@@ -1,10 +1,10 @@
-// Self-modification — the supervised path by which Mochi improves itself.
+// Self-modification — the supervised path by which ARIA improves itself.
 //
 // Three pieces, all under the owner's eye:
-//   * guard   — the protected core: files Mochi may never change, verified at
+//   * guard   — the protected core: files ARIA may never change, verified at
 //               startup against hashes baked in at build time.
-//   * skills  — small reusable tools Mochi writes, each an approved MCP server.
-//   * evolve  — changes to Mochi's own source, in a git worktree, checked and
+//   * skills  — small reusable tools ARIA writes, each an approved MCP server.
+//   * evolve  — changes to ARIA's own source, in a git worktree, checked and
 //               shown as a diff before anything is applied.
 //
 // Everything with a side effect here goes through policy::approve, and the core

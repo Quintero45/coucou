@@ -1,4 +1,4 @@
-// Self-evolution — Mochi changing its own source, always in a git worktree, the
+// Self-evolution — ARIA changing its own source, always in a git worktree, the
 // checks run, and the diff shown to the owner before anything is applied.
 //
 // The loop the model drives:
@@ -11,7 +11,7 @@
 //   evolve_apply  — show the diff on an approval card; on the click, tag the
 //                   current HEAD, commit, and fast-forward the branch.
 //   evolve_rebuild — after another click: build the release, keep the running
-//                   exe as coucou.prev.exe, and hand over to a watchdog that
+//                   exe as aria.prev.exe, and hand over to a watchdog that
 //                   starts the new one and puts the old one back if the new one
 //                   does not report healthy within a minute. In a dev build,
 //                   `tauri dev` already rebuilds on its own.
@@ -48,7 +48,7 @@ static SESSION: Mutex<Option<Session>> = Mutex::new(None);
 /// Where evolutions happen: inside the repository so the build finds its
 /// relative paths, ignored by git, and off-limits to write_file (guard.rs).
 pub fn worktree_dir() -> PathBuf {
-    guard::repo_root().join(".coucou-evolve")
+    guard::repo_root().join(".aria-evolve")
 }
 
 fn git_root() -> Option<PathBuf> {
@@ -145,7 +145,7 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Option<Outcome> {
             policy::audit("evolve_edit", "worktree", arg(&call.input, "path"));
             edit(arg(&call.input, "path"), arg(&call.input, "content"))
         }
-        // The checks run code Mochi wrote (tests, build scripts): a click first.
+        // The checks run code ARIA wrote (tests, build scripts): a click first.
         "evolve_check" => {
             let which = arg(&call.input, "which");
             let target = format!("Build and test the modified code in the worktree ({})", if which.is_empty() { "all" } else { which });
@@ -288,7 +288,7 @@ async fn check(which: &str) -> Outcome {
     };
     let windows = wt.join("windows");
     // The app bundles the release relay as a resource, so it has to exist first.
-    const RUST: &str = "cargo build -q -p coucou-hook --release; if ($LASTEXITCODE -eq 0) { cargo test --workspace }";
+    const RUST: &str = "cargo build -q -p aria-hook --release; if ($LASTEXITCODE -eq 0) { cargo test --workspace }";
     let steps: Vec<(&str, &str, PathBuf)> = match which {
         "rust" => vec![("cargo test", RUST, windows.clone())],
         "ts" => vec![("tsc", "npx --no-install tsc --noEmit", windows.clone())],
@@ -367,9 +367,9 @@ async fn apply(app: &AppHandle, summary: &str) -> Outcome {
 
     let Some(root) = git_root() else { return Outcome::err("no repository") };
     let message = format!("ARIA: {summary}\n\nTask: {task}");
-    let tag = format!("mochi-pre-{}", stamp());
+    let tag = format!("aria-pre-{}", stamp());
     let run = async {
-        git(&wt, &["-c", "user.name=ARIA", "-c", "user.email=mochi@coucou.local", "commit", "-m", &message], 60).await?;
+        git(&wt, &["-c", "user.name=ARIA", "-c", "user.email=aria@aria.local", "commit", "-m", &message], 60).await?;
         git(&root, &["tag", &tag], 30).await?;
         // Fast-forward only: if the owner's branch moved meanwhile, nothing is merged.
         git(&root, &["merge", "--ff-only", &branch], 120).await
@@ -414,8 +414,8 @@ async fn rebuild(app: &AppHandle) -> Outcome {
     }
     let Some(root) = git_root() else { return Outcome::err("This build has no source repository.") };
     let Ok(exe) = std::env::current_exe() else { return Outcome::err("cannot locate the running program") };
-    let built = root.join("windows").join("target").join("release").join("coucou.exe");
-    let prev = exe.with_file_name("coucou.prev.exe");
+    let built = root.join("windows").join("target").join("release").join("aria.exe");
+    let prev = exe.with_file_name("aria.prev.exe");
 
     let target = format!("Rebuild ARIA from {} and restart into it (previous version kept as {})", root.display(), prev.display());
     if !policy::approve(app, "evolve_rebuild", &target).await {
@@ -563,7 +563,7 @@ mod tests {
 
     #[test]
     fn unlinking_the_modules_junction_keeps_its_target() {
-        let base = std::env::temp_dir().join(format!("coucou-evolve-test-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("aria-evolve-test-{}", std::process::id()));
         let target = base.join("real_modules");
         let worktree = base.join("wt");
         std::fs::create_dir_all(&target).unwrap();

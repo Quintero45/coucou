@@ -1,4 +1,4 @@
-// «Sonidos» — Coucou's own sounds (recibido, pregunta, listo, error), played by
+// «Sonidos» — ARIA's own sounds (recibido, pregunta, listo, error), played by
 // Rust's play_sound (Aerys) at settings.soundVolume. Uses the settings Rust
 // already carries, soundEnabled and soundVolume, saved with saveSettingsMerged.
 

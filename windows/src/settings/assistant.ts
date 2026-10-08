@@ -1,5 +1,5 @@
 // Settings for the assistant: provider, model and keys; the owner's Grok Bots;
-// MCP connections; skills Mochi installed; the protected core. Every write here
+// MCP connections; skills ARIA installed; the protected core. Every write here
 // is a click in this window — keys go to the Credential Manager, never to disk.
 
 import {
@@ -91,7 +91,7 @@ const KEY_PLACEHOLDERS: Record<string, string> = {
 const installedText = (version: string | null | undefined) =>
   version ? t("Installed ({version}).", { version }) : t("Installed.");
 
-/** The Cursor engine: the SDK bridge Coucou drives, downloaded on a click. */
+/** The Cursor engine: the SDK bridge ARIA drives, downloaded on a click. */
 async function cursorEngineRows(feedback: HTMLElement): Promise<HTMLElement[]> {
   const st = await Bridge.cursorStatus();
   const state = h("span", {
@@ -765,7 +765,7 @@ export async function coreSection(): Promise<HTMLElement> {
       : notice("warn", t("Changed since this build: {files}. Self-evolution is blocked until you rebuild.", { files: status.tampered.join(", ") })),
     h("div", { class: "row" },
       h("button", { text: t("Open log folder"), onclick: () => void Bridge.openDataFolder("log") }),
-      h("span", { class: "hint", text: t("coucou.log lists every tool ARIA used and whether you allowed it.") }),
+      h("span", { class: "hint", text: t("aria.log lists every tool ARIA used and whether you allowed it.") }),
     ),
   );
 }

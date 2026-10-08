@@ -36,7 +36,7 @@ export type PillConnect =
   | { kind: "hooks" }
   /** A key in the credential store. */
   | { kind: "key"; key: string }
-  /** A local model server Mochi uses or has an address for (Ajustes → Asistente). */
+  /** A local model server ARIA uses or has an address for (Ajustes → Asistente). */
   | { kind: "server"; provider: "ollama" | "lmstudio" }
   /** Nothing to set up. */
   | { kind: "none" };
@@ -60,7 +60,7 @@ const key = (k: string): PillConnect => ({ kind: "key", key: k });
 const none: PillConnect = { kind: "none" };
 const server = (provider: "ollama" | "lmstudio"): PillConnect => ({ kind: "server", provider });
 
-/** A local model server counts as connected once Mochi uses it or has its address. */
+/** A local model server counts as connected once ARIA uses it or has its address. */
 export function serverConnected(
   s: { provider: string; providerUrls: Record<string, string> },
   provider: "ollama" | "lmstudio",

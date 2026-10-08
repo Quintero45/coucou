@@ -36,7 +36,7 @@ pub fn handles(name: &str) -> bool {
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(25))
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Coucou")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) ARIA")
         .build()
         .unwrap_or_default()
 }

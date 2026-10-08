@@ -1,11 +1,11 @@
 // The owner's Grok Bots (Cursor's Grok Bot app).
 //
 // Grok Bot has no chat API. Two documented doors make it work with the island:
-//   * Coucou → Bot: each Bot gets a routine with a webhook trigger. A POST with
+//   * ARIA → Bot: each Bot gets a routine with a webhook trigger. A POST with
 //     the routine's Bearer key starts a run with our JSON body; the result shows
 //     in the Bot's own chat (a 200 only means "started").
-//   * Bot → Coucou: Grok Bot can run commands on this computer (its local
-//     execution). The Bot runs `coucou-hook --bot "<name>" --status … "<text>"`,
+//   * Bot → ARIA: Grok Bot can run commands on this computer (its local
+//     execution). The Bot runs `aria-hook --bot "<name>" --status … "<text>"`,
 //     which lands in the island as that Bot's pill (hook/src/bot.rs).
 //
 // The webhook key lives in the Credential Manager (`grokbot-key:<id>`); only the

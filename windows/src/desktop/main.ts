@@ -1,27 +1,27 @@
-// The desktop Mochi's own window (mochi.html): draws him, and turns clicks and
-// drags on him into pokes, flights home, the wardrobe and a new spot. Port of
-// DesktopBotView + the mouse half of DesktopMochiController (DesktopMochi.swift).
+// The desktop ARIA's own window (aria-desktop.html): draws her, and turns clicks and
+// drags on her into pokes, flights home, the wardrobe and a new spot. Port of
+// DesktopBotView + the mouse half of DesktopAriaController (DesktopMochi.swift).
 //
-// What he shows comes from the island (DESKTOP_EVENTS.state), where he is from
+// What she shows comes from the island (DESKTOP_EVENTS.state), where she is from
 // Rust. The page draws only while the window is on screen, at 30 fps awake
 // like the Mac, and a few frames a second asleep — with no cursor polling at
-// all while he sleeps.
+// all while she sleeps.
 
 import { Bridge, emitToWindow, onEvent, type DesktopMode } from "../core/bridge";
 import type { BotEmoteName } from "../core/layout";
 import { Sound } from "../core/sound";
-import { BotEngine } from "../mochi/engine";
+import { BotEngine } from "../aria/engine";
 import {
   DESKTOP_EVENTS, DOUBLE_CLICK_MS, DRAG_THRESHOLD, PANEL_SIZE, agentActive, gaze, isOverBody,
   layerDragTopLeft, lookOrigin, pointerDistance, shouldSleep, windowDragTopLeft,
   type DesktopSnapshot, type Point,
-} from "../mochi/desktop-logic";
+} from "../aria/desktop-logic";
 
 const ISLAND = "island";
 
 /**
- * Width Mochi is drawn at. The engine's body radius is 0.3 × width, so this
- * gives the 28.8 px body the hit test uses, and leaves room around him for
+ * Width ARIA is drawn at. The engine's body radius is 0.3 × width, so this
+ * gives the 28.8 px body the hit test uses, and leaves room around her for
  * hats, hands and hearts inside the 120 px window.
  */
 const DRAW_W = PANEL_SIZE * 0.8;
@@ -30,7 +30,7 @@ const SIDE = (PANEL_SIZE - DRAW_W) / 2;
 const AWAKE_FRAME_MS = 1000 / 30;
 const ASLEEP_FRAME_MS = 250;
 
-class DesktopMochi {
+class DesktopAria {
   private engine = new BotEngine();
   private canvas: HTMLCanvasElement;
   private mode: DesktopMode = "off";
@@ -88,7 +88,7 @@ class DesktopMochi {
     await onEvent<Point>(DESKTOP_EVENTS.cursor, (p) => this.notePointer(p));
     await onEvent<boolean>(DESKTOP_EVENTS.visible, (on) => this.setVisible(on));
     await onEvent<string>(DESKTOP_EVENTS.flight, (kind) => {
-      // He fades in on the way out of the island (alphaValue 0 → 1 on macOS).
+      // She fades in on the way out of the island (alphaValue 0 → 1 on macOS).
       if (kind !== "out") return;
       this.canvas.style.transition = "none";
       this.canvas.style.opacity = "0";
@@ -117,7 +117,7 @@ class DesktopMochi {
     if (on) {
       // The two pages may have started in either order: ask again if needed.
       if (!this.informed) void emitToWindow(ISLAND, DESKTOP_EVENTS.ready);
-      // Landing counts as something going on: he looks around for a while.
+      // Landing counts as something going on: she looks around for a while.
       this.lastAgentActive = performance.now();
       this.asleep = false;
       this.engine.setState(this.snap.state, true);
@@ -143,8 +143,8 @@ class DesktopMochi {
     if (sleep === this.asleep) return;
     this.asleep = sleep;
     this.engine.setState(sleep ? "sleeping" : this.snap.state);
-    // Asleep, Rust stops the cursor poll; his whole little window then listens
-    // for the pointer, and the first move over it wakes him.
+    // Asleep, Rust stops the cursor poll; her whole little window then listens
+    // for the pointer, and the first move over it wakes her.
     void Bridge.desktopSetAsleep(sleep);
     if (sleep) Sound.idle();
     this.schedule();
@@ -155,7 +155,7 @@ class DesktopMochi {
     this.updateSleep(performance.now());
   }
 
-  /** Pointer in window coordinates: his eyes, and waking up. */
+  /** Pointer in window coordinates: her eyes, and waking up. */
   private notePointer(p: Point) {
     this.cursor = p;
     this.lastPointer = performance.now();
@@ -198,7 +198,7 @@ class DesktopMochi {
     const engine = this.engine;
     engine.setOutfit(this.snap.outfit, true);
     if (!this.asleep) {
-      // Windows: the global cursor. Linux: only while the pointer is over him.
+      // Windows: the global cursor. Linux: only while the pointer is over her.
       const fresh = this.mode === "poll" || now - this.lastPointer < 1500;
       const g = this.cursor && fresh ? gaze(lookOrigin(0, 0), this.cursor) : { lookX: 0, lookY: 0 };
       engine.lookX = g.lookX;
@@ -308,7 +308,7 @@ class DesktopMochi {
     });
   }
 
-  /** Linux: the page drives the drag. Windows: the cursor poll carries him. */
+  /** Linux: the page drives the drag. Windows: the cursor poll carries her. */
   private dragTo(e: PointerEvent) {
     const origin = this.dragOrigin;
     const press = this.press;
@@ -350,5 +350,5 @@ class DesktopMochi {
   }
 }
 
-const canvas = document.getElementById("mochi");
-if (canvas instanceof HTMLCanvasElement) void new DesktopMochi(canvas).start();
+const canvas = document.getElementById("aria");
+if (canvas instanceof HTMLCanvasElement) void new DesktopAria(canvas).start();

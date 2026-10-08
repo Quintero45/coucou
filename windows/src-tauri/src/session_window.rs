@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn windows_terminal_is_found_above_the_shells() {
-        // WindowsTerminal → pwsh → claude (node) → bash → coucou-hook
+        // WindowsTerminal → pwsh → claude (node) → bash → aria-hook
         let procs = tree(&[
             (4, 0, "System"),
             (100, 4, "explorer.exe"),
@@ -149,7 +149,7 @@ mod tests {
             (300, 200, "pwsh.exe"),
             (400, 300, "node.exe"),
             (500, 400, "bash.exe"),
-            (600, 500, "coucou-hook.exe"),
+            (600, 500, "aria-hook.exe"),
         ]);
         assert_eq!(ancestors(&procs, 600), [500, 400, 300, 200]);
         assert_eq!(window_owner(&procs, 600, |pid| pid == 200 || pid == 100), Some(200));
@@ -163,7 +163,7 @@ mod tests {
             (220, 210, "Code.exe"),
             (300, 220, "powershell.exe"),
             (400, 300, "node.exe"),
-            (600, 400, "coucou-hook.exe"),
+            (600, 400, "aria-hook.exe"),
         ]);
         assert_eq!(window_owner(&procs, 600, |pid| pid == 210), Some(210));
     }
@@ -176,7 +176,7 @@ mod tests {
             (100, 1, "explorer.exe"),
             (300, 100, "cmd.exe"),
             (400, 300, "node.exe"),
-            (600, 400, "coucou-hook.exe"),
+            (600, 400, "aria-hook.exe"),
         ]);
         assert_eq!(window_owner(&procs, 600, |pid| pid == 100), None);
     }
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn a_relay_already_gone_or_a_loop_ends_the_walk() {
         assert!(ancestors(&tree(&[]), 600).is_empty());
-        let looped = tree(&[(1, 2, "a.exe"), (2, 1, "b.exe"), (3, 1, "coucou-hook.exe")]);
+        let looped = tree(&[(1, 2, "a.exe"), (2, 1, "b.exe"), (3, 1, "aria-hook.exe")]);
         assert_eq!(ancestors(&looped, 3), [1, 2]);
         let deep: Vec<(u32, u32, &str)> = (1..100).map(|i| (i, i + 1, "x.exe")).collect();
         assert_eq!(ancestors(&tree(&deep), 1).len(), MAX_DEPTH);
@@ -194,13 +194,13 @@ mod tests {
     fn the_window_named_after_the_project_wins() {
         let windows = vec![
             (1, "notes — Visual Studio Code".to_string()),
-            (2, "app.ts — coucou — Visual Studio Code".to_string()),
+            (2, "app.ts — aria — Visual Studio Code".to_string()),
         ];
-        assert_eq!(pick_window(&windows, "Coucou"), Some(&2));
+        assert_eq!(pick_window(&windows, "ARIA"), Some(&2));
         assert_eq!(pick_window(&windows, "other"), Some(&1));
         assert_eq!(pick_window(&windows, ""), Some(&1));
         assert_eq!(pick_window::<i32>(&[], "x"), None);
-        assert_eq!(folder_name(r"C:\Users\me\coucou\"), "coucou");
+        assert_eq!(folder_name(r"C:\Users\me\aria\"), "aria");
         assert_eq!(folder_name("/home/me/proj"), "proj");
     }
 

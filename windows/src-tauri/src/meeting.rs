@@ -3,8 +3,8 @@
 // to 16 kHz mono, transcribed locally by whisper.cpp's prebuilt whisper-cli.exe.
 //
 // whisper-cli and its model are downloaded at first use into
-// %LOCALAPPDATA%\Coucou\voice\whisper\ (progress on `voice-engine`). Meeting
-// transcripts go to %LOCALAPPDATA%\Coucou\meetings\<timestamp>.txt; each ~45 s
+// %LOCALAPPDATA%\ARIA\voice\whisper\ (progress on `voice-engine`). Meeting
+// transcripts go to %LOCALAPPDATA%\ARIA\meetings\<timestamp>.txt; each ~45 s
 // chunk is also sent to the chosen Grok Bot, and at the end the whole transcript
 // with a request for a summary and tasks.
 
@@ -53,7 +53,7 @@ fn model_path() -> PathBuf {
 
 async fn whisper_release_url() -> String {
     let found = async {
-        let client = reqwest::Client::builder().user_agent("Coucou").timeout(Duration::from_secs(15)).build().ok()?;
+        let client = reqwest::Client::builder().user_agent("ARIA").timeout(Duration::from_secs(15)).build().ok()?;
         let releases: Value = client.get(WHISPER_RELEASES).send().await.ok()?.json().await.ok()?;
         releases.as_array()?.iter().find_map(|r| {
             r["assets"].as_array()?.iter().find_map(|a| {
@@ -253,7 +253,7 @@ impl Capture {
         let thread = {
             let (stop, mic_buf, sys_buf) = (stop.clone(), mic_buf.clone(), sys_buf.clone());
             std::thread::Builder::new()
-                .name("coucou-capture".into())
+                .name("aria-capture".into())
                 .spawn(move || capture_thread(mic, system, stop, mic_buf, sys_buf, tx))
                 .map_err(|e| e.to_string())?
         };
@@ -732,8 +732,8 @@ fn announce_transcript(app: &AppHandle, bot: &str, path: &str) {
         .map(|b| b.name)
         .unwrap_or_else(|| bot.to_string());
     let payload = serde_json::json!({
-        "coucou_bot": name,
-        "coucou_agent": format!("bot-{}", grokbot::slug(&name)),
+        "aria_bot": name,
+        "aria_agent": format!("bot-{}", grokbot::slug(&name)),
         "path": path,
         "caption": "Transcripción de la reunión",
     });

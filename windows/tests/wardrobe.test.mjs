@@ -1,12 +1,12 @@
-// Mochi's wardrobe: season → outfit, stored preference → outfit (src/mochi/wardrobe.ts).
-// Mirrors tests/MochiWardrobeTests.swift so both platforms dress Mochi alike.
+// ARIA's wardrobe: season → outfit, stored preference → outfit (src/aria/wardrobe.ts).
+// Mirrors tests/MochiWardrobeTests.swift so both platforms dress ARIA alike.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   OUTFIT_SELECTIONS, OUTFIT_LABELS, SeasonCache, easterDate, parseOutfit, resolveOutfit,
   seasonalOutfit, wardrobeHeader,
-} from "../src/mochi/wardrobe.ts";
+} from "../src/aria/wardrobe.ts";
 import { DEFAULT_SETTINGS } from "../src/core/state.ts";
 
 /** A local calendar day, at noon so no time zone can push it into the next one. */
@@ -106,11 +106,11 @@ test("removed, unknown or missing preferences mean auto", () => {
 });
 
 test("preferences from before the wardrobe start on auto", () => {
-  assert.equal(DEFAULT_SETTINGS.mochiOutfit, "auto");
-  // What main.ts does with a settings.json that has no mochiOutfit key.
+  assert.equal(DEFAULT_SETTINGS.ariaOutfit, "auto");
+  // What main.ts does with a settings.json that has no ariaOutfit key.
   const old = { soundEnabled: false, model: "x" };
   const merged = { ...DEFAULT_SETTINGS, ...old };
-  assert.equal(parseOutfit(merged.mochiOutfit), "auto");
+  assert.equal(parseOutfit(merged.ariaOutfit), "auto");
 });
 
 test("the wardrobe header names the hovered outfit, else the current choice", () => {

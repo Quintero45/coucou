@@ -1,35 +1,35 @@
-// Mochi on the desktop, island side: runs his life cycle (the controller in
-// mochi/desktop-logic.ts) against the real app, tells the desktop window what
+// ARIA on the desktop, island side: runs her life cycle (the controller in
+// aria/desktop-logic.ts) against the real app, tells the desktop window what
 // to show, and handles the drag out of the island. The window itself lives in
-// src-tauri/src/desktop.rs and draws him in src/desktop/main.ts.
+// src-tauri/src/desktop.rs and draws her in src/desktop/main.ts.
 
 import { Bridge, emitToWindow, onEvent, type DesktopMode } from "../core/bridge";
 import type { BotEmoteName } from "../core/layout";
 import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import {
-  DESKTOP_EVENTS, DesktopMochiController, alertActive, type DesktopSnapshot,
-} from "../mochi/desktop-logic";
-import { SeasonCache, parseOutfit } from "../mochi/wardrobe";
+  DESKTOP_EVENTS, DesktopAriaController, alertActive, type DesktopSnapshot,
+} from "../aria/desktop-logic";
+import { SeasonCache, parseOutfit } from "../aria/wardrobe";
 
-/** Label of the desktop Mochi's window (desktop.rs LABEL). */
-const WINDOW = "mochi";
+/** Label of the desktop ARIA's window (desktop.rs LABEL). */
+const WINDOW = "aria";
 
 /** What the life cycle needs from the island. */
 export interface DesktopHost {
   /** Shows the island (compact) if it is hidden. */
   reveal(): void;
-  /** Right-click on the desktop Mochi: the wardrobe, or back. */
+  /** Right-click on the desktop ARIA: the wardrobe, or back. */
   wardrobeFromDesktop(): void;
-  /** Three pokes on the desktop Mochi. */
+  /** Three pokes on the desktop ARIA. */
   dizzyFromDesktop(): void;
 }
 
 export class DesktopLink {
   mode: DesktopMode = "off";
-  readonly controller: DesktopMochiController;
+  readonly controller: DesktopAriaController;
 
-  /** The pointer is dragging Mochi out of the island. */
+  /** The pointer is dragging ARIA out of the island. */
   carrying = false;
 
   private seasons = new SeasonCache();
@@ -40,11 +40,11 @@ export class DesktopLink {
 
   constructor(host: DesktopHost) {
     this.host = host;
-    this.controller = new DesktopMochiController({
+    this.controller = new DesktopAriaController({
       flyOut: async () => (await Bridge.desktopFlyOut()) ?? false,
       flyHome: async (forget) => (await Bridge.desktopFlyHome(forget)) ?? true,
       setAway: (away) => {
-        State.mochiOnDesktop = away;
+        State.ariaOnDesktop = away;
         State.notify();
       },
       emote: (emote: BotEmoteName, duration = 1.8) =>
@@ -58,7 +58,7 @@ export class DesktopLink {
     });
   }
 
-  /** False where windows can't be placed (GNOME on Wayland): he stays in the island. */
+  /** False where windows can't be placed (GNOME on Wayland): she stays in the island. */
   get supported(): boolean {
     return this.mode !== "off";
   }
@@ -85,32 +85,32 @@ export class DesktopLink {
     this.sync();
   }
 
-  /** The launch greeting is over: back to his spot if that is where he lives. */
+  /** The launch greeting is over: back to her spot if that is where she lives. */
   launch() {
     if (this.supported) void this.controller.launchFlyIfNeeded();
   }
 
   // ── Drag out of the island ──────────────────────────────────────────────────
 
-  /** Whether Mochi can be picked up from the island right now. */
+  /** Whether ARIA can be picked up from the island right now. */
   canPickUp(): boolean {
-    return this.supported && !State.paused && !State.mochiOnDesktop && this.controller.phase === "home";
+    return this.supported && !State.paused && !State.ariaOnDesktop && this.controller.phase === "home";
   }
 
   /** (x, y): the pointer, island-window coordinates. */
   pickUp(x: number, y: number) {
     this.carrying = true;
-    State.mochiOnDesktop = true;
+    State.ariaOnDesktop = true;
     State.notify();
     void Bridge.desktopPickUp(x, y).then((ok) => {
       if (ok) return;
       this.carrying = false;
-      State.mochiOnDesktop = false;
+      State.ariaOnDesktop = false;
       State.notify();
     });
   }
 
-  /** The pointer moved during the drag. Windows carries him from Rust. */
+  /** The pointer moved during the drag. Windows carries her from Rust. */
   carry(x: number, y: number) {
     if (!this.carrying || this.mode === "poll") return;
     this.pendingCarry = { x, y };
@@ -135,8 +135,8 @@ export class DesktopLink {
     if (from === "island") {
       this.carrying = false;
       if (home) {
-        // Dropped back on the island: he is simply there again.
-        State.mochiOnDesktop = false;
+        // Dropped back on the island: she is simply there again.
+        State.ariaOnDesktop = false;
         State.notify();
       } else {
         this.controller.installed();
@@ -157,7 +157,7 @@ export class DesktopLink {
   private push() {
     const snapshot: DesktopSnapshot = {
       state: State.effectiveState,
-      outfit: State.wardrobePreview ?? this.seasons.get(parseOutfit(State.settings.mochiOutfit)),
+      outfit: State.wardrobePreview ?? this.seasons.get(parseOutfit(State.settings.ariaOutfit)),
       soundEnabled: State.settings.soundEnabled,
       soundVolume: State.settings.soundVolume,
       paused: State.paused,

@@ -32,7 +32,7 @@ pub fn home_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
-/// How the desktop Mochi's window can be placed and clicked on this system.
+/// How the desktop ARIA's window can be placed and clicked on this system.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DesktopMode {
     /// Windows: placed anywhere, and a cursor poll drives click-through, the
@@ -46,7 +46,7 @@ pub enum DesktopMode {
     /// with margins.
     Layer,
     /// Wayland without layer-shell (GNOME): no way to put a window where the
-    /// user dropped it, so Mochi stays in the island.
+    /// user dropped it, so ARIA stays in the island.
     Off,
 }
 
@@ -72,14 +72,14 @@ impl DesktopMode {
     }
 }
 
-/// Which part of the desktop Mochi's window takes the mouse.
+/// Which part of the desktop ARIA's window takes the mouse.
 #[derive(Clone, Copy, PartialEq, Debug)]
 #[cfg_attr(windows, allow(dead_code))]
 pub enum MouseShape {
     /// Nothing: every click goes to what is underneath (during a flight).
     Empty,
-    /// The whole window (while he is being dragged across the screen).
+    /// The whole window (while she is being dragged across the screen).
     Whole,
-    /// A disc, in window-logical pixels: Mochi's body.
+    /// A disc, in window-logical pixels: ARIA's body.
     Disc { cx: f64, cy: f64, r: f64 },
 }

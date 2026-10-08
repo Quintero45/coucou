@@ -1,4 +1,4 @@
-// Mochi's outfits, drawn in code — port of design/outfits/mochi-outfits.js (the
+// ARIA's outfits, drawn in code — port of design/outfits/aria-outfits.js (the
 // Canvas reference the Mac version was built from) and of the Mac's
 // NotchBuddy/Sources/CoucouKit/MochiOutfitDrawing.swift, whose fixes win where
 // the two differ (front arcs found by silhouette, simplified drawing below
@@ -7,7 +7,7 @@
 // Coordinates are BotEngine's body space: origin at the body centre, y down,
 // R = W × 0.3, rx = 1.14 R, ry = 0.88 R. The head is a superellipsoid whose
 // horizontal radius at height y (y up, −1…1) is (1 − |y|^2.7)^(1/2.7), so its
-// silhouette matches Mochi's body at yaw = pitch = 0. Accessories are seen
+// silhouette matches ARIA's body at yaw = pitch = 0. Accessories are seen
 // slightly from above and follow the head pitch only partly, so a hat never
 // flips to a top-down view.
 
@@ -142,7 +142,7 @@ function fillAll(ctx: Ctx, H: Head) {
   ctx.fillRect(-H.rx * 4, -H.ry * 4, H.rx * 8, H.ry * 8);
 }
 
-/** Mochi's body outline, same superellipse as the engine. */
+/** ARIA's body outline, same superellipse as the engine. */
 export function bodyOutline(rx: number, ry: number): Path2D {
   const p = new Path2D();
   const n = 96;
@@ -982,7 +982,7 @@ const HATS: ReadonlySet<Outfit> = new Set(["beanie", "santaHat", "partyHat", "cr
 export interface OutfitState {
   /** 0 = gone, 1 = fully on. Animated by the engine. */
   presence: number;
-  /** Mochi's mailbox morph: outfits fade away as he turns into a box. */
+  /** ARIA's mailbox morph: outfits fade away as she turns into a box. */
   morph: number;
 }
 
@@ -1007,7 +1007,7 @@ function layerAlpha(st: OutfitState): number {
 }
 
 /**
- * The parts behind Mochi's body. `ctx` is in body space (translated to the body
+ * The parts behind ARIA's body. `ctx` is in body space (translated to the body
  * centre, tilted and squashed exactly like the body).
  */
 export function drawOutfitBehind(ctx: Ctx, outfit: Outfit, H: Head, st: OutfitState) {
@@ -1034,7 +1034,7 @@ export function drawOutfitBehind(ctx: Ctx, outfit: Outfit, H: Head, st: OutfitSt
   ctx.restore();
 }
 
-/** The parts in front of Mochi, drawn after the body and the eyes. */
+/** The parts in front of ARIA, drawn after the body and the eyes. */
 export function drawOutfitFront(ctx: Ctx, outfit: Outfit, H: Head, st: OutfitState) {
   if (outfit === "none" || outfit === "bunnyEars") return;
   if (ON_FACE.has(outfit) && faceTurnedAway(H)) return;
@@ -1075,8 +1075,8 @@ export function drawOutfitFront(ctx: Ctx, outfit: Outfit, H: Head, st: OutfitSta
 
 const INK = "rgb(26,20,18)";
 
-/** A little Mochi wearing `outfit`, centred in a `size`×`size` icon. */
-function iconMochi(ctx: Ctx, size: number, outfit: Outfit) {
+/** A little ARIA wearing `outfit`, centred in a `size`×`size` icon. */
+function iconAria(ctx: Ctx, size: number, outfit: Outfit) {
   const R = 10;
   const H = makeHead(R);
   const cx = size / 2;
@@ -1132,7 +1132,7 @@ export function drawWardrobeIcon(ctx: Ctx, size: number, selection: OutfitSelect
     ctx.restore();
     return;
   }
-  iconMochi(ctx, size, selection === "auto" ? seasonal : selection);
+  iconAria(ctx, size, selection === "auto" ? seasonal : selection);
   if (selection !== "auto") return;
   const R = 10;
   const by = size / 2 + R * 0.62 + R * 0.88 * 0.72;

@@ -1,4 +1,4 @@
-//! `coucou-hook --agent cursor --mcp` — a tiny MCP server (stdio, JSON-RPC 2.0,
+//! `aria-hook --agent cursor --mcp` — a tiny MCP server (stdio, JSON-RPC 2.0,
 //! one message per line) with one tool, `island_ask`: the agent's questions
 //! with options, asked in the island instead of the agent's own window.
 //!
@@ -7,7 +7,7 @@
 //! the app over the pipe exactly like a Cursor AskQuestion through `--ask`
 //! (cursor.rs builds the card), and the answer comes back as the tool's result.
 //!
-//! Never blocks the agent for long: Coucou closed, another card on screen, or
+//! Never blocks the agent for long: ARIA closed, another card on screen, or
 //! no answer within ASK_BUDGET all return at once with a result telling the
 //! agent to ask in its own window instead.
 
@@ -111,7 +111,7 @@ fn respond(id: Value, method: &str, params: &Value) -> Value {
         "initialize" => json!({
             "protocolVersion": params.get("protocolVersion").and_then(Value::as_str).unwrap_or(PROTOCOL_VERSION),
             "capabilities": { "tools": { "listChanged": false } },
-            "serverInfo": { "name": "coucou", "version": env!("CARGO_PKG_VERSION") },
+            "serverInfo": { "name": "aria", "version": env!("CARGO_PKG_VERSION") },
             "instructions": INSTRUCTIONS,
         }),
         "ping" => json!({}),
@@ -164,7 +164,7 @@ fn question_line(arguments: &Value, cwd: &str) -> Option<(String, cursor::Contex
     let (name, _) = cursor::normalize(&mut map, "preToolUse", false, true);
     map.insert("hook_event_name".into(), json!(name));
     map.insert("source_event".into(), json!("mcp"));
-    map.insert("coucou_agent".into(), json!("cursor"));
+    map.insert("aria_agent".into(), json!("cursor"));
     if !cwd.is_empty() {
         map.insert("cwd".into(), json!(cwd));
     }
@@ -207,7 +207,7 @@ mod tests {
     fn the_server_introduces_itself_and_its_one_tool() {
         let init = respond(json!(1), "initialize", &json!({ "protocolVersion": "2025-03-26" }));
         assert_eq!(init["result"]["protocolVersion"], "2025-03-26");
-        assert_eq!(init["result"]["serverInfo"]["name"], "coucou");
+        assert_eq!(init["result"]["serverInfo"]["name"], "aria");
         assert!(init["result"]["instructions"].as_str().unwrap().contains("island_ask"));
         let list = respond(json!(2), "tools/list", &Value::Null);
         assert_eq!(list["result"]["tools"][0]["name"], ASK_TOOL);
@@ -222,7 +222,7 @@ mod tests {
         }] }));
         assert_eq!(v["hook_event_name"], "PermissionRequest");
         assert_eq!(v["tool_name"], "Pregunta");
-        assert_eq!(v["coucou_agent"], "cursor");
+        assert_eq!(v["aria_agent"], "cursor");
         assert_eq!(v["source_event"], "mcp");
         assert_eq!(v["cwd"], "C:\\p");
         assert_eq!(v["allowCustom"], true);

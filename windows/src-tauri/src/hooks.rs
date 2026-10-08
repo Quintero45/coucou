@@ -3,7 +3,7 @@
 // The rule from CLAUDE.md is strict and is followed to the letter:
 // read %USERPROFILE%\.claude\settings.json, take a dated backup, merge without
 // touching anybody else's hooks, show the diff, and write only after an explicit
-// click. Uninstall removes Coucou's entries and nothing else.
+// click. Uninstall removes ARIA's entries and nothing else.
 //
 // The command is only the quoted exe path in forward slashes plus the event name:
 // on Windows Claude Code runs hook commands through Git Bash, and anything with
@@ -38,15 +38,16 @@ pub const HOOK_EVENTS: &[(&str, u64)] = &[
     ("SubagentStop", 10),
 ];
 
-/// Marker that identifies a Coucou entry inside settings.json.
-const MARKER: &str = "coucou-hook";
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HookStatus {
     pub installed: bool,
-    /// Coucou's status line relay (plan usage) is the one in settings.json.
+    /// Hooks written by Coucou, ARIA's former name: they run the old relay.
+    pub legacy: bool,
+    /// ARIA's status line relay (plan usage) is the one in settings.json.
     pub plan_relay_installed: bool,
+    /// That status line still runs Coucou's relay.
+    pub plan_relay_legacy: bool,
     pub settings_path: String,
     pub hook_path: String,
     pub hook_ready: bool,
@@ -91,20 +92,20 @@ fn entry_is_ours(entry: &Value) -> bool {
             hooks.iter().any(|h| {
                 h.get("command")
                     .and_then(Value::as_str)
-                    .map(|c| c.contains(MARKER))
+                    .map(agents::runs_relay)
                     .unwrap_or(false)
             })
         })
         .unwrap_or(false)
 }
 
-/// The status line in settings.json is Coucou's relay (old installs wrote
-/// `coucou-hook StatusLine`, new ones `coucou-hook --statusline`; both match).
+/// The status line in settings.json is ARIA's relay (old installs wrote
+/// `aria-hook StatusLine`, new ones `aria-hook --statusline`; both match).
 fn status_line_is_ours(v: &Value) -> bool {
-    v.get("command").and_then(Value::as_str).is_some_and(|c| c.contains(MARKER))
+    v.get("command").and_then(Value::as_str).is_some_and(agents::runs_relay)
 }
 
-/// Settings with Coucou's hooks added; everything else is left untouched. A
+/// Settings with ARIA's hooks added; everything else is left untouched. A
 /// `hooks` (or one of its events) that is not what Claude Code documents is
 /// refused rather than replaced.
 fn merged(existing: &Value) -> Result<Value, String> {
@@ -140,7 +141,7 @@ fn unexpected(what: &str) -> String {
     crate::i18n::tf("settings.json: {what} has an unexpected type — ARIA has not touched it.", &[("what", what)])
 }
 
-/// Settings with every Coucou entry removed, and nothing else changed.
+/// Settings with every ARIA entry removed, and nothing else changed.
 fn without_ours(existing: &Value) -> Result<Value, String> {
     let mut root = existing.as_object().cloned().unwrap_or_default();
     let hooks = match root.get("hooks") {
@@ -196,9 +197,12 @@ pub fn status() -> HookStatus {
         })
         .unwrap_or(false);
     let hook_path = settings::hook_exe_path();
+    let old = |v: &Value| v.to_string().contains(agents::LEGACY_MARKER);
     HookStatus {
         installed,
+        legacy: current.get("hooks").is_some_and(old),
         plan_relay_installed: plan_relay_installed(&current),
+        plan_relay_legacy: current.get("statusLine").is_some_and(old),
         settings_path: settings_path().to_string_lossy().to_string(),
         hook_ready: hook_path.exists(),
         hook_path: hook_path.to_string_lossy().to_string(),
@@ -230,7 +234,7 @@ pub fn write(install: bool, fingerprint: &str) -> Result<String, String> {
 
 // ── Status line (plan usage) ──────────────────────────────────────────────────
 //
-// Claude Code runs one `statusLine` command and hands it the plan limits. Coucou
+// Claude Code runs one `statusLine` command and hands it the plan limits. ARIA
 // puts its relay there; a status line the user already had is kept in
 // statusline-previous.json beside the relay, and the relay still runs it, so it
 // keeps working. Installing and removing it is separate from the hooks, and
@@ -247,7 +251,7 @@ fn read_status_line_previous() -> Option<Value> {
     serde_json::from_slice::<Value>(&bytes).ok().filter(Value::is_object)
 }
 
-/// True when the `statusLine` in settings.json is Coucou's relay.
+/// True when the `statusLine` in settings.json is ARIA's relay.
 pub fn plan_relay_installed(settings: &Value) -> bool {
     settings.get("statusLine").is_some_and(status_line_is_ours)
 }
@@ -338,7 +342,7 @@ fn save_status_line_previous(status_line: &Value) -> std::io::Result<()> {
     config_file::write_like(&path, &path, config_file::pretty(status_line).as_bytes())
 }
 
-/// Copies the relay (coucou-hook.exe / coucou-hook) into the local data dir's
+/// Copies the relay (aria-hook.exe / aria-hook) into the local data dir's
 /// bin/ on launch. In a bundled install it comes from the app resources; in
 /// `tauri dev` it sits next to the app binary in the workspace target directory.
 ///
@@ -543,7 +547,7 @@ mod tests {
     /// the home directory at a temp directory, and that is process-wide.
     #[test]
     fn writing_backs_up_preserves_and_refuses_a_changed_file() {
-        let tmp = std::env::temp_dir().join(format!("coucou-hooks-{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!("aria-hooks-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(tmp.join(".claude")).unwrap();
         std::env::set_var(platform::HOME_VAR, &tmp);
@@ -559,7 +563,7 @@ mod tests {
 
         // Install.
         let plan = preview(true).expect("a BOM must not stop the preview");
-        assert!(plan.diff.contains("coucou-hook"), "the diff must show what changes");
+        assert!(plan.diff.contains("aria-hook"), "the diff must show what changes");
         let backup = write(true, &plan.fingerprint).expect("install should succeed");
 
         // The backup holds the original bytes, BOM and all.

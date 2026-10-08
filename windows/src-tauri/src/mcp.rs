@@ -6,7 +6,7 @@
 // child process per server) and over Streamable HTTP. It does what the
 // assistant needs — initialize, tools/list, tools/call — and nothing else.
 //
-// Servers live in %APPDATA%\Coucou\mcp.json, in the same shape as Cursor's
+// Servers live in %APPDATA%\ARIA\mcp.json, in the same shape as Cursor's
 // ~/.cursor/mcp.json. Secret values (API keys in env or headers) never stay in
 // that file: they move to the Credential Manager and the file keeps a
 // `${secret:…}` placeholder. Each server tool reaches the model as
@@ -313,7 +313,7 @@ impl Conn {
         let params = json!({
             "protocolVersion": PROTOCOL_VERSION,
             "capabilities": {},
-            "clientInfo": { "name": "coucou", "version": env!("CARGO_PKG_VERSION") },
+            "clientInfo": { "name": "aria", "version": env!("CARGO_PKG_VERSION") },
         });
         self.request("initialize", params, INIT_TIMEOUT).await?;
         self.notify("notifications/initialized").await;
@@ -771,8 +771,8 @@ mod tests {
 
     #[test]
     fn placeholders_resolve_env_and_home() {
-        std::env::set_var("COUCOU_TEST_VAR", "42");
-        assert_eq!(resolve("a ${env:COUCOU_TEST_VAR} b"), "a 42 b");
+        std::env::set_var("ARIA_TEST_VAR", "42");
+        assert_eq!(resolve("a ${env:ARIA_TEST_VAR} b"), "a 42 b");
         assert!(!resolve("${userHome}").contains("${"));
         assert_eq!(resolve("no ${unknown} change"), "no ${unknown} change");
     }
