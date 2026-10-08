@@ -17,7 +17,6 @@ import { saveSettingsMerged } from "../core/savesettings";
 import { BotLive } from "../core/botlive";
 import { registerBotEvents } from "./botevents";
 import { APPROVAL_ANSWER, CURSOR_WRITE, callCmd } from "../core/botcmds";
-import { registerCursorVoice } from "./cursorvoice";
 import { ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { Greeting } from "../mochi/greeting";
@@ -154,7 +153,6 @@ export class Island {
     this.wireInput();
     // Steps, files, meetings… pushed by Rust: listened from launch, folded or not.
     registerBotEvents();
-    registerCursorVoice();
     State.subscribe(() => this.watchBots());
     this.engine.onDizzy = () => this.handleDizzy();
     this.greeting.onComplete = () => this.fsm.greetComplete();

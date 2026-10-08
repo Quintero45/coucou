@@ -281,12 +281,6 @@ export interface Settings {
   showCursorAgent: boolean;
   /** The owner's Grok Bots. */
   grokBots: GrokBot[];
-  /** Voice per Grok Bot: bot id → voice id (`piper:es_MX-claude-high`…). Written by Rust (set_bot_voice). */
-  voices: Record<string, string>;
-  /** Read the Cursor agent's notices aloud (finished, question, approval). */
-  speakCursor: boolean;
-  /** Read the Grok Bots' answers aloud as they arrive (front only until settings.rs adds read_replies). */
-  readReplies: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -310,9 +304,6 @@ export const DEFAULT_SETTINGS: Settings = {
   showAgents: false,
   showCursorAgent: true,
   grokBots: [],
-  voices: {},
-  speakCursor: true,
-  readReplies: true,
 };
 
 type Listener = () => void;

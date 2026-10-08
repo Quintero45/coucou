@@ -2344,7 +2344,7 @@ input[type="range"]::-webkit-slider-thumb {
   }
 }
 
-/* ── Grok Bots, second batch: live steps, files back, voice, meeting, screen ──
+/* ── Grok Bots, second batch: live steps, files back, dictation, meeting, screen ──
    Live step line, file cards, the conversation's tools, the answer toast and
    the notch's meeting / screen-share marks. */
 
@@ -2381,26 +2381,6 @@ input[type="range"]::-webkit-slider-thumb {
   display: flex;
   align-items: center;
   gap: 4px;
-}
-
-.bot-speak {
-  width: 16px;
-  height: 16px;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  color: var(--dim-3);
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-}
-
-.bot-speak:hover,
-.bot-speak.on {
-  color: var(--bot);
-  background: color-mix(in srgb, var(--bot) 18%, transparent);
 }
 
 /* Live step: dots + the latest step, grey, at the end of the timeline. */
@@ -2594,171 +2574,6 @@ input[type="range"]::-webkit-slider-thumb {
   border-color: #22c55e;
   background: rgba(34, 197, 94, 0.18);
   color: #fff;
-}
-
-/* Voice call: who is in, who speaks, the last lines, mute and hang up. */
-.bot-call {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 2px 0 6px;
-  padding: 7px 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  background: rgba(34, 197, 94, 0.08);
-}
-
-.bot-call-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.bot-call-phase {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font: 600 10px var(--font);
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bot-call-phase i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-  background: #22c55e;
-  animation: notch-pulse 1.6s ease-in-out infinite;
-}
-
-.bot-call-phase.hearing i,
-.bot-call-phase.thinking i {
-  background: #f5b942;
-}
-
-.bot-call-phase.speaking i {
-  background: #60a5fa;
-}
-
-.bot-call-phase.muted i {
-  background: var(--dim-3);
-  animation: none;
-}
-
-.bot-call-btn {
-  width: 22px;
-  height: 22px;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--dim-2);
-  cursor: pointer;
-  flex: 0 0 auto;
-  transition: color 0.15s, background 0.15s;
-}
-
-.bot-call-btn:hover,
-.bot-call-btn.on {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.bot-call-btn.hang {
-  color: #fff;
-  background: #f4505e;
-}
-
-.bot-call-btn.hang svg {
-  transform: rotate(135deg);
-}
-
-.bot-call-people {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.bot-call-who {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 18px;
-  padding: 0 7px;
-  border: 1px dashed rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--dim-3);
-  font: 600 9.5px var(--font);
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
-}
-
-.bot-call-who i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--who);
-  opacity: 0.45;
-}
-
-.bot-call-who.on {
-  border-style: solid;
-  border-color: color-mix(in srgb, var(--who) 55%, transparent);
-  background: color-mix(in srgb, var(--who) 16%, transparent);
-  color: var(--ink);
-}
-
-.bot-call-who.on i {
-  opacity: 1;
-}
-
-.bot-call-who.live i {
-  animation: notch-pulse 0.9s ease-in-out infinite;
-}
-
-.bot-call-who.all:disabled {
-  display: none;
-}
-
-.bot-call-error {
-  font: 400 9.5px var(--font);
-  color: #fca5a5;
-}
-
-.bot-call-error:empty {
-  display: none;
-}
-
-.bot-call-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.bot-call-line {
-  font: 400 10px/1.35 var(--font);
-  color: var(--dim-2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.bot-call-line b {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.bot-call-line.me b {
-  color: #86efac;
 }
 
 .bot-chip.note {
@@ -2976,7 +2791,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* ── R11: avatar moods, «Recibido», sounds, island polish ─────────────────────
    data-bot-state (BotLive.avatarState) on a pill, the conversation's mascot
-   and a Bot card: reposo · pensando · hablando · recibido · pregunta · listo ·
+   and a Bot card: reposo · pensando · recibido · pregunta · listo ·
    error. Only the avatar's frame (.mini / the colour dot) moves; the canvas
    itself is the mascot's (mochi/*). Looping moods run only while the island is
    expanded, and nothing moves with prefers-reduced-motion. */
@@ -3017,12 +2832,6 @@ input[type="range"]::-webkit-slider-thumb {
 #island[data-mode="expanded"] .pill[data-bot-state="pensando"] .mini::after,
 #island[data-mode="expanded"] .bot-detail-mascot[data-bot-state="pensando"]::after {
   animation: mood-dots 1.2s steps(3, end) infinite;
-}
-
-/* hablando: a little bounce while it reads aloud. */
-#island[data-mode="expanded"] [data-bot-state="hablando"] .mini,
-#island[data-mode="expanded"] .bot-detail-mascot[data-bot-state="hablando"] {
-  animation: mood-talk 0.42s ease-in-out infinite alternate;
 }
 
 /* recibido: one hop and a green glow. */
@@ -3112,11 +2921,6 @@ input[type="range"]::-webkit-slider-thumb {
   0% { box-shadow: -4px 0 0 currentColor, 4px 0 0 transparent; background: transparent; }
   33% { box-shadow: -4px 0 0 currentColor, 4px 0 0 transparent; background: currentColor; }
   66%, 100% { box-shadow: -4px 0 0 currentColor, 4px 0 0 currentColor; background: currentColor; }
-}
-
-@keyframes mood-talk {
-  from { transform: translateY(0) scale(1, 1); }
-  to { transform: translateY(-1.5px) scale(1.03, 0.97); }
 }
 
 @keyframes mood-hop {

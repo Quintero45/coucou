@@ -122,11 +122,6 @@ pub fn play_sound(shared: State<Shared>, name: String, volume: Option<f32>) -> R
         resolve_gain(s.sound_enabled, s.sound_volume, volume)
     };
     let Some(gain) = gain else { return Ok(()) };
-    // Don't chime over a voice call. (meeting.rs has no public "active" yet,
-    // so meetings and dictation are not checked here.)
-    if crate::call::active() {
-        return Ok(());
-    }
     if !lock(&RECENT).allow(sound, Instant::now()) {
         return Ok(());
     }

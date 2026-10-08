@@ -312,26 +312,3 @@ select option {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
-/* Ajustes → Voz: model download progress. */
-.voice-progress {
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-  margin: 4px 0 8px;
-}
-
-.voice-progress i {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: #22c55e;
-  transition: width 0.3s ease-out;
-}
-
-.voice-bots .row > label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}

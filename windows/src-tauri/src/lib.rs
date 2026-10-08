@@ -3,7 +3,6 @@
 mod agent;
 mod appwatch;
 mod botcards;
-mod call;
 mod claude;
 mod context;
 mod cursor;
@@ -651,15 +650,6 @@ pub fn run() {
             open_n8n,
             open_settings_window,
             set_paused,
-            voice::speak,
-            voice::stop_speaking,
-            voice::list_voices,
-            voice::set_bot_voice,
-            voice::bot_voices,
-            voice::preview_voice,
-            voice::install_voice,
-            voice::set_tts_key,
-            voice::tts_key_status,
             meeting::start_dictation,
             meeting::stop_dictation,
             meeting::start_meeting,
@@ -667,10 +657,6 @@ pub fn run() {
             cursorlink::cursor_send,
             cursorlink::cursor_order_now,
             cursorlink::cursor_order_cancel,
-            call::start_call,
-            call::stop_call,
-            call::call_mute,
-            call::call_cursor_status,
             sounds::play_sound,
         ])
         .setup(move |app| {

@@ -42,18 +42,6 @@ pub struct Settings {
     pub show_cursor_agent: bool,
     /// The owner's Grok Bots, reached through their routines' webhooks.
     pub grok_bots: Vec<crate::grokbot::GrokBot>,
-    /// Voice per Grok Bot: bot id -> voice id (`piper:es_MX-claude-high`…), see voice.rs.
-    pub voices: BTreeMap<String, String>,
-    /// Read the Cursor agent's events aloud (the island calls speak(text, "cursor")).
-    #[serde(default = "default_true")]
-    pub speak_cursor: bool,
-    /// Read Grok bot replies aloud (frontend toggle "Leer respuestas en voz alta").
-    #[serde(default = "default_true")]
-    pub read_replies: bool,
-}
-
-fn default_true() -> bool {
-    true
 }
 
 fn default_model() -> String {
@@ -110,9 +98,6 @@ impl Default for Settings {
             show_agents: false,
             show_cursor_agent: true,
             grok_bots: Vec::new(),
-            voices: BTreeMap::new(),
-            speak_cursor: true,
-            read_replies: true,
         }
     }
 }

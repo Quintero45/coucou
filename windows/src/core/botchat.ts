@@ -7,7 +7,7 @@
 import { Bridge } from "./bridge";
 import { Outbox, botErrorText, toWire, type PendingAttachment } from "./attachments";
 import type { BotDecision } from "./botlog";
-import { CMD, callCmd, playSound, readRepliesEnabled, speak } from "./botcmds";
+import { CMD, callCmd, playSound } from "./botcmds";
 import { BotLive } from "./botlive";
 import { BOT_PREFIX, CURSOR_AGENT_ID, State } from "./state";
 
@@ -116,11 +116,6 @@ export const BotChat = {
     if (list.length > LIMIT) list.splice(0, list.length - LIMIT);
     save(slug);
     State.notify();
-    // "Leer respuestas en voz alta" (Ajustes → Voz). Cursor's notices are read by cursorvoice.ts.
-    if (full.kind === "bot" && full.status !== "working" && slug !== CURSOR_CHAT) {
-      if (!readRepliesEnabled(State.settings.readReplies)) void Bridge.log(`speak bot=${slug} skip=readRepliesOff`);
-      else speak(full.text, slug).catch((err) => void Bridge.log(`speak bot=${slug} failed: ${String(err)}`));
-    }
     return full;
   },
 

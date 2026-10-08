@@ -465,10 +465,7 @@ pub struct DictationResult {
 }
 
 #[tauri::command]
-pub async fn start_dictation(app: AppHandle, bot: Option<String>) -> Result<(), String> {
-    if let Some(b) = bot.as_deref().filter(|b| !b.trim().is_empty()) {
-        voice::set_current_bot(&voice::resolve_bot(&app, b));
-    }
+pub async fn start_dictation(app: AppHandle) -> Result<(), String> {
     if dictation().lock().unwrap().is_some() {
         return Ok(());
     }
@@ -667,7 +664,6 @@ pub async fn start_meeting(
         return Err("meeting_active".into());
     }
     let bot = voice::resolve_bot(&app, &bot);
-    voice::set_current_bot(&bot);
     let (exe, model) = ensure_whisper(&app).await?;
     let capture = Arc::new(Mutex::new(Capture::start(mic, system)?));
 

@@ -6,31 +6,17 @@ import { Bridge, onEvent } from "../core/bridge";
 import { BotChat, cursorOrderEvent } from "../core/botchat";
 import { BotLive, resolveBot } from "../core/botlive";
 import {
-  CMD, EVT, callCmd,
-  type BotAttachEvent, type BotStepEvent, type CallLineEvent, type CallStateEvent, type MeetingChunkEvent,
+  EVT,
+  type BotAttachEvent, type BotStepEvent, type MeetingChunkEvent,
   type MeetingStateEvent, type ScreenShareEvent, type VoiceEngineEvent,
 } from "../core/botcmds";
-import { BOT_PREFIX, CURSOR_AGENT_ID, State } from "../core/state";
-
-/** Lines of the call kept on screen. */
-const CALL_LINES = 6;
-
-/** What the Cursor agent is doing, in a sentence or two, for its answers in a call. */
-function cursorStatus(): string {
-  const t = State.tasks.find((x) => x.id === CURSOR_AGENT_ID);
-  if (!t) return "";
-  const steps = t.steps.slice(-3).join("; ");
-  const said = (t.lastMessage ?? "").replace(/\s+/g, " ").slice(0, 300);
-  return [`estado: ${t.state}`, steps && `últimos pasos: ${steps}`, said && `lo último que dijiste: ${said}`]
-    .filter(Boolean).join(". ");
-}
+import { BOT_PREFIX, State } from "../core/state";
 
 /** The Bot of an event: its `bot` field, else the pill id in `agent`. */
 const botOf = (p: { bot?: string; agent?: string } | null | undefined) =>
   resolveBot(p?.bot) ?? resolveBot(p?.agent?.startsWith(BOT_PREFIX) ? p.agent.slice(BOT_PREFIX.length) : null);
 
 let registered = false;
-let lastCursorStatus = "";
 
 export function registerBotEvents() {
   if (registered) return;
@@ -92,35 +78,7 @@ export function registerBotEvents() {
     State.notify();
   });
 
-  void onEvent<CallStateEvent>(EVT.callState, (p) => {
-    const wasActive = !!BotLive.call;
-    BotLive.call = p?.active ? p : null;
-    if (BotLive.call && !wasActive) {
-      BotLive.callLines = [];
-      lastCursorStatus = "";
-    }
-    if (p?.error) BotLive.callError = p.error;
-    else if (BotLive.call && !wasActive) BotLive.callError = null;
-    if (wasActive !== !!BotLive.call) void Bridge.log(`call active=${!!BotLive.call}`);
-    State.notify();
-  });
-
-  void onEvent<CallLineEvent>(EVT.callLine, (p) => {
-    if (!p?.text) return;
-    BotLive.callLines = [...BotLive.callLines, p].slice(-CALL_LINES);
-    State.notify();
-  });
-
   void onEvent<{ id: string; state: string }>(EVT.cursorOrder, (p) => {
     if (p?.id) cursorOrderEvent(p);
-  });
-
-  // The Cursor agent in a call answers from what the island knows it is doing.
-  State.subscribe(() => {
-    if (!BotLive.inCall("cursor")) return;
-    const status = cursorStatus();
-    if (status === lastCursorStatus) return;
-    lastCursorStatus = status;
-    callCmd(CMD.callCursorStatus, { text: status }).catch(() => {});
   });
 }

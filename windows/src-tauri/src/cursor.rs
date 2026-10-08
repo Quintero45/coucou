@@ -19,8 +19,7 @@ use std::hash::{BuildHasher, Hasher};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -224,7 +223,6 @@ async fn bridge() -> Result<(String, String), String> {
     }
     // A new bridge knows none of the old agents.
     reset();
-    end_call_sessions();
     if !exe().is_file() {
         return Err("Falta el motor de Cursor. Instálalo en Ajustes → Asistente → «Instalar motor».".into());
     }
@@ -582,21 +580,6 @@ pub async fn chat(
         let _ = app.emit_to(WINDOW_LABEL, "chat-delta", t);
     };
     converse(&SESSION, ep, system, specs, query, context, cancel, &mut emit).await
-}
-
-/// Voice-call conversations, one per participant, apart from Mochi's chat.
-static CALL_SESSIONS: LazyLock<Mutex<HashMap<String, Arc<Mutex<Option<Session>>>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
-/// One spoken turn for `who` in a voice call: no tools, nothing streamed to the island.
-pub async fn call_turn(who: &str, ep: &Endpoint, system: &str, query: &str, cancel: &AtomicBool) -> Result<String, String> {
-    let slot = CALL_SESSIONS.lock().unwrap().entry(who.to_string()).or_default().clone();
-    converse(&slot, ep, system, &[], query, None, cancel, &mut |_| {}).await
-}
-
-/// The call is over: its agents are forgotten.
-pub fn end_call_sessions() {
-    CALL_SESSIONS.lock().unwrap().clear();
 }
 
 #[allow(clippy::too_many_arguments)]
