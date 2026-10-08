@@ -1,4 +1,4 @@
-// The local speech engine's plumbing, shared by dictation and meetings
+﻿// The local speech engine's plumbing, shared by dictation and meetings
 // (meeting.rs, Whisper): its folder (%LOCALAPPDATA%\Coucou\voice\), resumable
 // downloads with progress on the `voice-engine` event, and unzipping.
 
@@ -88,7 +88,7 @@ pub struct EngineEvent {
     pub downloading: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pct: Option<f64>,
-    /// What is being downloaded (`piper`, `es_MX-claude-high`, `whisper`, `ggml-small.bin`…).
+    /// What is being downloaded (`whisper`, `ggml-small.bin`…).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

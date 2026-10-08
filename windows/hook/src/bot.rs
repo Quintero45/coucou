@@ -29,7 +29,7 @@ use std::sync::mpsc;
 use serde_json::json;
 
 use super::{talk, DECISION_BUDGET, FIRE_AND_FORGET_BUDGET};
-use crate::normalize;
+use crate::choices;
 
 /// The pill id the app gives a Bot of this name: same rule as grokbot.rs.
 pub fn slug(name: &str) -> String {
@@ -79,7 +79,7 @@ struct BotArgs {
 }
 
 /// `--options "A|B::description|C"`: `|` separates options, `::` a label from
-/// its description, `\|` is a literal `|`. Limits in normalize::clean_options.
+/// its description, `\|` is a literal `|`. Limits in choices::clean_options.
 fn parse_options(raw: &str) -> Result<Vec<serde_json::Value>, String> {
     if raw.trim().is_empty() {
         return Err("--options necesita al menos una opción: --options \"Sí|No\"".into());
@@ -105,7 +105,7 @@ fn parse_options(raw: &str) -> Result<Vec<serde_json::Value>, String> {
             None => (p.clone(), String::new()),
         })
         .collect();
-    normalize::clean_options(&pairs).map_err(|e| format!("--options: {e}"))
+    choices::clean_options(&pairs).map_err(|e| format!("--options: {e}"))
 }
 
 fn parse(args: &[String]) -> Option<Result<BotArgs, String>> {
@@ -182,7 +182,7 @@ fn status_payload(bot: &BotArgs) -> serde_json::Value {
 /// The island's reply to `--status ask` → what is printed and the exit code.
 /// A pick from the options (or the typed text) is printed as is, exit 0.
 fn verdict(raw: &str) -> (String, i32) {
-    match normalize::parse_reply(raw) {
+    match choices::parse_reply(raw) {
         Some(r) if r.decision == "allow" || r.decision == "always" => {
             (r.answer().map(str::to_string).unwrap_or_else(|| "allow".into()), 0)
         }

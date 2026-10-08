@@ -258,7 +258,7 @@ mod win {
             }
             let enabled = app
                 .try_state::<Shared>()
-                .map(|s| s.settings.lock().unwrap().shortcuts_enabled)
+                .map(|s| s.settings.lock().unwrap().space_hold)
                 .unwrap_or(false);
             if !enabled {
                 continue;

@@ -20,7 +20,7 @@ let timeout: number | null = null;
 
 export function registerAssistantHandlers(island: Island) {
   void onEvent<AssistantApproval>("assistant-approval", (req) => {
-    if (State.paused || State.pendingApproval || State.pendingQuestion) {
+    if (State.paused || State.pendingApproval) {
       void Bridge.approvalDecline(req.requestId);
       return;
     }
@@ -29,7 +29,7 @@ export function registerAssistantHandlers(island: Island) {
       sessionId: "",
       tool: req.tool,
       command: req.command,
-      agentId: ASSISTANT_ID,
+      pillId: ASSISTANT_ID,
       allowAlways: req.allowAlways,
       detail: req.detail,
     };

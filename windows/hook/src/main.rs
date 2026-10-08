@@ -1,34 +1,43 @@
-//! coucou-hook — the relay Claude Code runs on every hook event.
+//! coucou-hook — the relay Claude Code (and every other agent) runs on each hook
+//! event.
 //!
-//! Reads the hook JSON on stdin, adds a little terminal context, and hands it to
+//! Reads the hook JSON on stdin, maps the agent's event and field names onto
+//! Claude Code's (normalize.rs), adds a little terminal context, and hands it to
 //! Coucou over the named pipe `\\.\pipe\coucou-<sid>` (Windows) or the Unix
 //! socket `$XDG_RUNTIME_DIR/coucou.sock` (Linux).
 //!
-//! Hard rule (docs/CLAUDE.md): **never block Claude Code.**
-//! * If the pipe does not exist — Coucou is closed — we exit 0 immediately with
-//!   nothing on stdout, and the session carries on untouched.
+//! Hard rule (docs/CLAUDE.md): **never block the agent.**
+//! * If the pipe does not exist — Coucou is closed — we exit 0 immediately, with
+//!   only the "no opinion" reply the agent expects (reply.rs), and the session
+//!   carries on untouched.
 //! * Every step runs under a deadline enforced by the main thread, so a pipe that
 //!   accepts the connection and then stops reading cannot wedge the session
 //!   either: we abandon the worker and exit.
-//! * Only `PermissionRequest` and the question tools (Claude Code's
-//!   AskUserQuestion, Cursor's AskQuestion) wait for an answer, because
-//!   answering from the island is the whole point. No answer means empty
-//!   stdout, and the agent asks in its own UI exactly as if Coucou were not
-//!   installed (Cursor gets an explicit `ask`, or `allow` for its questions).
+//! * Only `PermissionRequest` waits for an answer, because approving from the
+//!   island is the whole point. No answer means no decision, and the agent asks
+//!   in its terminal exactly as if Coucou were not installed.
 //!
-//! Usage: `coucou-hook [--agent <name>] [--approve] [--ask] [<EventName>]`
-//! (the event name is also read from the JSON). See normalize.rs for the
-//! per-agent dialects, bot.rs for `--bot`, which Grok Bots use, and tool.rs for
-//! `coucou-hook tool …`, through which they call Mochi's tools.
+//! Usage: `coucou-hook [--agent <name>] [--approve] [--ask] [<EventName>]` (the
+//! event name is also read from the JSON; `--agent` is absent for Claude Code;
+//! `--approve` and `--ask` are Cursor's gates and question hook, cursor.rs), or
+//! `coucou-hook --statusline` as Claude Code's status line command (plan usage,
+//! see statusline.rs): it passes the plan limits on and runs the status line the
+//! user had before, so that keeps working. bot.rs covers `--bot`, which Grok
+//! Bots use, and tool.rs `coucou-hook tool …`, through which they call Mochi's
+//! tools.
 
 use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::time::Duration;
 
+use serde_json::{Map, Value};
+
 mod bot;
+mod choices;
+mod cursor;
 mod normalize;
+mod reply;
 mod tool;
-use normalize::{Context, Kind};
 
 /// Budget for getting a pipe connection. Beyond this the agent wins, always.
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
@@ -36,20 +45,30 @@ const CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
 const FIRE_AND_FORGET_BUDGET: Duration = Duration::from_secs(2);
 /// How long a permission prompt may stay on screen before the terminal takes over.
 const DECISION_BUDGET: Duration = Duration::from_secs(110);
-/// AskUserQuestion is installed with a 130 s timeout; answer a little before.
+/// Cursor's question hook is installed with a 130 s timeout; answer a little before.
 const ASK_BUDGET: Duration = Duration::from_secs(125);
 /// Cursor's stop: Coucou answers at once with queued orders, or not at all.
 const FOLLOWUP_BUDGET: Duration = Duration::from_secs(2);
 
 /// Fields that are pointless to forward and can be enormous (a whole file read,
 /// a full command output). The island never shows them.
-const DROPPED_FIELDS: &[&str] = &["tool_response", "transcript_path"];
+const DROPPED_FIELDS: &[&str] = &["tool_response", "tool_output", "transcript_path"];
 /// Longest string forwarded for any single field; the island truncates to far
 /// less than this anyway.
 const MAX_FIELD_LEN: usize = 2_000;
-/// Edit payloads feed the live diff, so they get far more room.
-const DIFF_FIELDS: &[&str] = &["content", "old_string", "new_string", "edits"];
-const MAX_DIFF_LEN: usize = 120_000;
+
+mod statusline;
+
+/// The live diff needs the whole text of a file edit, once it has happened:
+/// PostToolUse of these tools keeps its edit strings far longer than the rest.
+const DIFF_TOOLS: &[&str] = &["Edit", "MultiEdit", "Write"];
+/// The `tool_input` keys holding the text being replaced or written.
+const DIFF_FIELDS: &[&str] = &["old_string", "new_string", "content"];
+/// Per edit string. The island stops diffing at 200 KB anyway (DiffEngine).
+const MAX_DIFF_FIELD_LEN: usize = 256 * 1024;
+/// For all edit strings of one event together, so the line stays well under the
+/// 1 MiB the app reads from the pipe even once JSON-escaped.
+const MAX_DIFF_TOTAL: usize = 512 * 1024;
 
 #[cfg(windows)]
 mod win;
@@ -61,7 +80,47 @@ mod unix;
 #[cfg(target_os = "linux")]
 use unix::connect;
 
+/// What the command line says: `--agent <name>`, Cursor's `--approve` and
+/// `--ask`, and the event name.
+#[derive(Default)]
+struct Args {
+    agent: String,
+    event: String,
+    approve: bool,
+    ask: bool,
+}
+
+fn args() -> Args {
+    let mut out = Args::default();
+    let mut it = std::env::args().skip(1);
+    while let Some(arg) = it.next() {
+        match arg.as_str() {
+            "--agent" => out.agent = it.next().unwrap_or_default(),
+            "--approve" => out.approve = true,
+            "--ask" => out.ask = true,
+            _ if out.event.is_empty() => out.event = arg,
+            _ => {}
+        }
+    }
+    out
+}
+
+/// One event, ready to forward.
+struct Event {
+    /// The payload as one line of JSON.
+    line: String,
+    /// The canonical event name.
+    name: String,
+    /// For Claude Code's AskUserQuestion, the question as it was asked.
+    question: Option<Value>,
+    /// For Cursor: what it waits for and the questions it asked (cursor.rs).
+    cursor: Option<(cursor::Wait, cursor::Context)>,
+}
+
 fn main() {
+    if std::env::args().skip(1).any(|a| a == "--statusline") {
+        statusline::run();
+    }
     // A Grok Bot calling one of Mochi's tools. Checked before --bot, which a
     // tool call also carries.
     if let Some(code) = tool::run() {
@@ -71,113 +130,132 @@ fn main() {
     if let Some(code) = bot::run() {
         std::process::exit(code);
     }
-    let Some(ev) = read_event() else { std::process::exit(0) };
+    let args = args();
+    let mut raw = Vec::new();
+    let _ = std::io::stdin().read_to_end(&mut raw);
+    let env = |key: &str| std::env::var(key).ok();
+    let cwd = std::env::current_dir().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
 
-    let budget = match ev.kind {
-        Kind::Permission => DECISION_BUDGET,
-        Kind::Ask => ASK_BUDGET,
-        Kind::Followup => FOLLOWUP_BUDGET,
-        Kind::Fire => FIRE_AND_FORGET_BUDGET,
+    let Some(event) = prepare(&raw, &args, &env, &cwd) else {
+        // Nothing we could forward. An agent that needs JSON still gets its
+        // "no opinion" — Copilot is fail-closed and would deny without it.
+        if args.agent == "cursor" {
+            let wait = if args.approve { cursor::Wait::Decision } else { cursor::Wait::Nothing };
+            print(cursor::stdout(wait, None, &cursor::Context::default()));
+        } else {
+            let name = normalize::event(&args.event);
+            print(reply::stdout(&args.agent, name, None, None));
+        }
+        std::process::exit(0);
     };
-    let waits = ev.kind != Kind::Fire;
+
+    // Only an agent whose decisions the island can give waits for one; any other
+    // would be held for nothing, its decision being thrown away (reply.rs).
+    let (waits_for_answer, budget) = match &event.cursor {
+        Some((cursor::Wait::Nothing, _)) => (false, FIRE_AND_FORGET_BUDGET),
+        Some((cursor::Wait::Decision, _)) => (true, DECISION_BUDGET),
+        Some((cursor::Wait::Ask, _)) => (true, ASK_BUDGET),
+        Some((cursor::Wait::Followup, _)) => (true, FOLLOWUP_BUDGET),
+        None if event.name == "PermissionRequest" && reply::takes_decisions(&args.agent) => (true, DECISION_BUDGET),
+        None => (false, FIRE_AND_FORGET_BUDGET),
+    };
 
     // The worker owns every blocking call. If it overruns the budget we simply
     // stop listening and exit: the process dying takes the pipe handle with it.
     // (No catch_unwind here — the release profile is panic = "abort", so it would
     // be dead code. `talk` is written to have nothing to panic on instead.)
     let (tx, rx) = mpsc::channel::<Option<String>>();
-    let line = ev.line.clone();
+    let line = event.line.clone();
     std::thread::spawn(move || {
-        let _ = tx.send(talk(&line, waits));
+        let _ = tx.send(talk(&line, waits_for_answer));
     });
 
-    let raw = rx.recv_timeout(budget).ok().flatten();
-    let reply = raw.as_deref().and_then(normalize::parse_reply);
-    if let Some(json) = normalize::output(&ev.agent, ev.kind, reply.as_ref(), &ev.ctx) {
-        let mut out = std::io::stdout();
-        // Cursor reads this back through the same wrapper: ASCII-only JSON.
-        let json = if ev.agent == "cursor" { normalize::ascii_json(&json) } else { json };
-        let _ = writeln!(out, "{json}");
-        let _ = out.flush();
+    let decision = rx.recv_timeout(budget).ok().flatten();
+    match &event.cursor {
+        Some((wait, ctx)) => print(cursor::stdout(*wait, decision.as_deref(), ctx)),
+        None => print(reply::stdout(&args.agent, &event.name, decision.as_deref(), event.question.as_ref())),
     }
-    // Nothing printed: the agent asks in its own UI, as if we were not here.
     std::process::exit(0);
 }
 
-/// One hook invocation, ready to forward.
-struct Event {
-    line: String,
-    agent: String,
-    kind: Kind,
-    ctx: Context,
+fn print(line: Option<String>) {
+    if let Some(line) = line {
+        let mut out = std::io::stdout();
+        let _ = writeln!(out, "{line}");
+        let _ = out.flush();
+    }
 }
 
-/// Reads stdin and returns the payload to forward plus what to do with it.
-fn read_event() -> Option<Event> {
-    let mut raw = Vec::new();
-    if std::io::stdin().read_to_end(&mut raw).is_err() || raw.is_empty() {
-        return None;
-    }
+/// The payload to forward, from the raw stdin bytes. `env` reads an environment
+/// variable and `cwd` is the working directory, so tests stay pure.
+fn prepare(raw: &[u8], args: &Args, env: &dyn Fn(&str) -> Option<String>, cwd: &str) -> Option<Event> {
     // Some shells hand us a UTF-8 BOM; serde_json would choke on it.
-    if raw.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        raw.drain(..3);
-    }
-
-    let mut payload = serde_json::from_slice::<serde_json::Value>(&raw).ok()?;
+    let raw = raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(raw);
+    let mut payload = serde_json::from_slice::<Value>(raw).ok()?;
     let map = payload.as_object_mut()?;
 
-    // Parse argv: "coucou-hook.exe [--agent <name>] [--approve] [--ask] [<EventName>]"
-    // --agent tags the payload with coucou_agent so the app routes to the right pill.
-    // Absent or invalid names are validated and discarded by the app, not here.
-    let mut agent = String::new();
-    let mut arg_event = String::new();
-    let mut approve = false;
-    let mut ask = false;
-    {
-        let mut it = std::env::args().skip(1);
-        while let Some(arg) = it.next() {
-            match arg.as_str() {
-                "--agent" => agent = it.next().unwrap_or_default(),
-                "--approve" => approve = true,
-                "--ask" => ask = true,
-                _ if arg_event.is_empty() => arg_event = arg,
-                _ => {}
-            }
+    // Which agent this hook was installed for, so the app routes it to the right
+    // pill. Absent means Claude Code, so existing hook commands keep working
+    // unchanged; invalid names are discarded by the app, not here. A Claude Code
+    // session started from the Claude desktop app is tagged `claude-desktop`.
+    if let Some(tag) = agent_tag(&args.agent, env) {
+        map.insert("coucou_agent".into(), Value::String(tag));
+    }
+    // Claude Code in Cursor's terminal goes on the Cursor pill (Mac #120).
+    if !map.contains_key("term_editor") {
+        if let Some(editor) = term_editor(env) {
+            map.insert("term_editor".into(), Value::String(editor.into()));
         }
     }
-    // Which agent this hook was installed for. Absent means Claude Code,
-    // so existing hook commands keep working unchanged.
-    if !agent.is_empty() {
-        map.insert("coucou_agent".into(), serde_json::Value::String(agent.clone()));
+
+    // Cursor on Windows hands us its text read as ANSI (cursor.rs, repair_mojibake).
+    if args.agent == "cursor" {
+        map.values_mut().for_each(cursor::repair_mojibake_in);
     }
-    // Cursor on Windows hands us its text read as ANSI (normalize.rs, repair_mojibake).
-    if agent == "cursor" {
-        map.values_mut().for_each(normalize::repair_mojibake_in);
-    }
-    let kind = normalize::normalize(map, &agent, &arg_event, approve, ask);
-    // Captured before truncation: the answer has to echo these back verbatim.
-    let ctx = Context::from(map);
+
+    let raw_event = map
+        .get("hook_event_name")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| args.event.clone());
+    normalize::fields(map, env);
+    let (name, cursor) = if args.agent == "cursor" {
+        let (name, wait) = cursor::normalize(map, &raw_event, args.approve, args.ask);
+        (name, Some((wait, cursor::Context::from(map))))
+    } else {
+        (normalize::refine(normalize::event(&raw_event), map), None)
+    };
+    map.insert("hook_event_name".into(), Value::String(name.clone()));
 
     for field in DROPPED_FIELDS {
         map.remove(*field);
     }
 
-    let cwd_missing = map
-        .get("cwd")
-        .and_then(|v| v.as_str())
-        .map(str::is_empty)
-        .unwrap_or(true);
-    if cwd_missing {
-        if let Ok(cwd) = std::env::current_dir() {
-            map.insert(
-                "cwd".into(),
-                serde_json::Value::String(cwd.to_string_lossy().to_string()),
-            );
-        }
+    if map.get("cwd").and_then(Value::as_str).map(str::is_empty).unwrap_or(true) && !cwd.is_empty() {
+        map.insert("cwd".into(), Value::String(cwd.to_string()));
     }
 
-    // Which terminal the session runs in. Unlike macOS, Coucou here accepts
-    // events from every terminal, so this is context only — never a filter.
+    add_terminal_context(map, env);
+
+    // Kept whole: what goes back to Claude Code must be its own input, not the
+    // shortened copy the island is shown.
+    let question = (map.get("tool_name").and_then(Value::as_str) == Some("AskUserQuestion"))
+        .then(|| map.get("tool_input").cloned())
+        .flatten();
+
+    // Every string is capped, except the edit text of a finished Edit /
+    // MultiEdit / Write, which the live diff needs whole (within its own limits).
+    truncate_payload(&mut payload, &name);
+
+    let mut line = payload.to_string();
+    line.push('\n');
+    Some(Event { line, name, question, cursor })
+}
+
+/// Which terminal the session runs in. Unlike macOS, Coucou here accepts events
+/// from every terminal, so this is context only — never a filter.
+fn add_terminal_context(map: &mut Map<String, Value>, env: &dyn Fn(&str) -> Option<String>) {
     for (key, var) in [
         ("term_program", "TERM_PROGRAM"),
         ("wt_session", "WT_SESSION"),
@@ -186,46 +264,121 @@ fn read_event() -> Option<Event> {
         ("session_pid", "CLAUDE_CODE_SSE_PORT"),
     ] {
         if !map.contains_key(key) {
-            let value = std::env::var(var).unwrap_or_default();
-            map.insert(key.into(), serde_json::Value::String(value));
+            map.insert(key.into(), Value::String(env(var).unwrap_or_default()));
         }
     }
-
-    truncate_strings(&mut payload);
-
-    let mut line = payload.to_string();
-    line.push('\n');
-    Some(Event { line, agent, kind, ctx })
 }
 
-/// Caps every string in the payload. A single Write can carry a whole file, so
-/// even the diff fields have a ceiling — just a much higher one.
-fn truncate_strings(value: &mut serde_json::Value) {
-    truncate_with(value, MAX_FIELD_LEN);
+/// The `coucou_agent` tag: `--agent` when given, otherwise `claude-desktop` for
+/// a Claude Code session started from the Claude desktop app, which says so in
+/// CLAUDE_CODE_ENTRYPOINT — the same rule as the Mac's relay (#191). Nothing
+/// for a plain Claude Code session.
+fn agent_tag(arg: &str, env: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+    if !arg.is_empty() {
+        return Some(arg.to_string());
+    }
+    (env("CLAUDE_CODE_ENTRYPOINT").as_deref() == Some("claude-desktop"))
+        .then(|| "claude-desktop".to_string())
 }
 
-fn truncate_with(value: &mut serde_json::Value, limit: usize) {
-    match value {
-        serde_json::Value::String(s) => {
-            if s.len() > limit {
-                // Cut on a char boundary; a lone byte index can split UTF-8.
-                let mut end = limit;
-                while end > 0 && !s.is_char_boundary(end) {
-                    end -= 1;
-                }
-                s.truncate(end);
-                s.push('…');
+/// `cursor` when the session runs in Cursor's integrated terminal. Cursor sets
+/// TERM_PROGRAM=vscode like VS Code does, so it is told apart by its own trace
+/// variable, or by its executable behind VS Code's git helper.
+fn term_editor(env: &dyn Fn(&str) -> Option<String>) -> Option<&'static str> {
+    if env("CURSOR_TRACE_ID").is_some_and(|v| !v.is_empty()) {
+        return Some("cursor");
+    }
+    let helper = env("VSCODE_GIT_ASKPASS_NODE").unwrap_or_default();
+    let exe = helper.rsplit(['/', '\\']).next().unwrap_or_default().to_ascii_lowercase();
+    exe.starts_with("cursor").then_some("cursor")
+}
+
+/// Caps the strings of a payload: every field to MAX_FIELD_LEN, except the edit
+/// strings of a finished Edit / MultiEdit / Write, which the live diff needs
+/// whole. If even those had to be cut, `coucou_diff_truncated` tells the island
+/// not to show counts it cannot trust.
+fn truncate_payload(payload: &mut serde_json::Value, event: &str) {
+    let keeps_diff = event == "PostToolUse"
+        && payload
+            .get("tool_name")
+            .and_then(|v| v.as_str())
+            .is_some_and(|tool| DIFF_TOOLS.contains(&tool));
+    let input = if keeps_diff {
+        payload.as_object_mut().and_then(|map| map.remove("tool_input"))
+    } else {
+        None
+    };
+
+    truncate_strings(payload);
+
+    if let Some(mut input) = input {
+        let mut budget = MAX_DIFF_TOTAL;
+        let mut cut_any = false;
+        cap_diff_strings(&mut input, &mut budget, &mut cut_any);
+        if let Some(map) = payload.as_object_mut() {
+            map.insert("tool_input".into(), input);
+            if cut_any {
+                map.insert("coucou_diff_truncated".into(), serde_json::Value::Bool(true));
             }
         }
-        serde_json::Value::Array(items) => items.iter_mut().for_each(|v| truncate_with(v, limit)),
+    }
+}
+
+/// `tool_input` of a diff tool: edit strings share MAX_DIFF_TOTAL, each capped at
+/// MAX_DIFF_FIELD_LEN; any other string gets the ordinary cap.
+fn cap_diff_strings(value: &mut serde_json::Value, budget: &mut usize, cut_any: &mut bool) {
+    match value {
         serde_json::Value::Object(map) => {
-            for (k, v) in map.iter_mut() {
-                let l = if DIFF_FIELDS.contains(&k.as_str()) { MAX_DIFF_LEN.max(limit) } else { limit };
-                truncate_with(v, l);
+            for (key, v) in map.iter_mut() {
+                match v {
+                    serde_json::Value::String(s) if DIFF_FIELDS.contains(&key.as_str()) => {
+                        let limit = MAX_DIFF_FIELD_LEN.min(*budget);
+                        if cut(s, limit) {
+                            *cut_any = true;
+                        }
+                        *budget = budget.saturating_sub(s.len());
+                    }
+                    _ => cap_diff_strings(v, budget, cut_any),
+                }
             }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                cap_diff_strings(item, budget, cut_any);
+            }
+        }
+        serde_json::Value::String(s) => {
+            cut(s, MAX_FIELD_LEN);
         }
         _ => {}
     }
+}
+
+/// Caps every string in the payload. A single Write can carry a whole file.
+fn truncate_strings(value: &mut Value) {
+    match value {
+        Value::String(s) => {
+            cut(s, MAX_FIELD_LEN);
+        }
+        Value::Array(items) => items.iter_mut().for_each(truncate_strings),
+        Value::Object(map) => map.values_mut().for_each(truncate_strings),
+        _ => {}
+    }
+}
+
+/// Shortens `s` to at most `max` bytes plus an ellipsis; true if it was cut.
+fn cut(s: &mut String, max: usize) -> bool {
+    if s.len() <= max {
+        return false;
+    }
+    // Cut on a char boundary; a lone byte index can split UTF-8.
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    s.truncate(end);
+    s.push('…');
+    true
 }
 
 /// Connect, send, and — for a permission request — wait for the island's word.
@@ -263,29 +416,178 @@ fn talk(payload: &str, waits_for_answer: bool) -> Option<String> {
 mod tests {
     use super::*;
 
+    fn run(raw: &str, agent: &str, event: &str) -> (Value, Event) {
+        let args = Args { agent: agent.into(), event: event.into(), ..Default::default() };
+        let ev = prepare(raw.as_bytes(), &args, &|_| None, "/home/me/here").expect("forwarded");
+        let v = serde_json::from_str(ev.line.trim_end()).unwrap();
+        (v, ev)
+    }
+
+    fn env_of(vars: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
+        move |name| vars.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string())
+    }
+
     #[test]
-    fn anything_unrecognised_prints_nothing() {
-        let ctx = Context::default();
-        for raw in ["", "maybe", r#"{"permissionDecision":"allow"}"#] {
-            let reply = normalize::parse_reply(raw);
-            assert!(normalize::output("", Kind::Permission, reply.as_ref(), &ctx).is_none(), "{raw}");
-        }
+    fn claude_desktop_sessions_are_tagged_and_an_explicit_agent_wins() {
+        let desktop = env_of(&[("CLAUDE_CODE_ENTRYPOINT", "claude-desktop")]);
+        assert_eq!(agent_tag("", &desktop).as_deref(), Some("claude-desktop"));
+        assert_eq!(agent_tag("gemini", &desktop).as_deref(), Some("gemini"));
+        assert_eq!(agent_tag("", &env_of(&[("CLAUDE_CODE_ENTRYPOINT", "cli")])), None);
+        assert_eq!(agent_tag("", &env_of(&[])), None);
+    }
+
+    #[test]
+    fn cursor_is_told_apart_from_vs_code() {
+        assert_eq!(term_editor(&env_of(&[("CURSOR_TRACE_ID", "abc")])), Some("cursor"));
+        assert_eq!(
+            term_editor(&env_of(&[(
+                "VSCODE_GIT_ASKPASS_NODE",
+                r"C:\Users\me\AppData\Local\Programs\cursor\Cursor.exe"
+            )])),
+            Some("cursor")
+        );
+        assert_eq!(
+            term_editor(&env_of(&[(
+                "VSCODE_GIT_ASKPASS_NODE",
+                r"C:\Users\me\AppData\Local\Programs\Microsoft VS Code\Code.exe"
+            )])),
+            None
+        );
+        assert_eq!(term_editor(&env_of(&[("CURSOR_TRACE_ID", "")])), None);
+        assert_eq!(term_editor(&env_of(&[("TERM_PROGRAM", "vscode")])), None);
     }
 
     #[test]
     fn long_strings_are_cut_on_a_char_boundary() {
-        let mut v = serde_json::json!({ "tool_input": { "command": "é".repeat(4000) } });
+        let mut v = serde_json::json!({ "tool_input": { "content": "é".repeat(4000) } });
         truncate_strings(&mut v);
-        let s = v["tool_input"]["command"].as_str().unwrap();
+        let s = v["tool_input"]["content"].as_str().unwrap();
         assert!(s.len() <= MAX_FIELD_LEN + 4);
         assert!(s.ends_with('…'));
     }
 
     #[test]
-    fn diff_fields_keep_far_more_than_other_fields() {
-        let mut v = serde_json::json!({ "tool_input": { "content": "a".repeat(10_000), "command": "b".repeat(10_000) } });
-        truncate_strings(&mut v);
-        assert_eq!(v["tool_input"]["content"].as_str().unwrap().len(), 10_000);
-        assert!(v["tool_input"]["command"].as_str().unwrap().len() <= MAX_FIELD_LEN + 4);
+    fn claude_code_payloads_are_forwarded_as_they_are() {
+        let (v, ev) = run(r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/p"}"#, "", "PreToolUse");
+        assert_eq!(ev.name, "PreToolUse");
+        assert!(v.get("coucou_agent").is_none());
+        assert_eq!(v["cwd"], "/p");
+        assert_eq!(v["tool_name"], "Bash");
+    }
+
+    #[test]
+    fn an_agents_event_is_tagged_and_renamed() {
+        // Gemini CLI: its own name in the payload, ours on the command line.
+        let (v, ev) = run(r#"{"hook_event_name":"BeforeTool","toolCall":{"name":"shell","args":{"CommandLine":"ls"}}}"#, "gemini", "PreToolUse");
+        assert_eq!(ev.name, "PreToolUse");
+        assert_eq!(v["hook_event_name"], "PreToolUse");
+        assert_eq!(v["coucou_agent"], "gemini");
+        assert_eq!(v["tool_input"]["command"], "ls");
+        assert_eq!(v["cwd"], "/home/me/here");
+
+        // Copilot CLI sends no event name: the command line's camelCase one is used.
+        let (_, ev) = run(r#"{"toolName":"bash"}"#, "copilot", "permissionRequest");
+        assert_eq!(ev.name, "PermissionRequest");
+
+        // Cursor: a stop that failed, and its tool output left behind.
+        let (v, ev) = run(r#"{"hook_event_name":"stop","status":"error","tool_output":"huge"}"#, "cursor", "");
+        assert_eq!(ev.name, "StopFailure");
+        assert!(v.get("tool_output").is_none());
+    }
+
+    #[test]
+    fn a_question_is_kept_whole_and_only_for_ask_user_question() {
+        let long = "x".repeat(3000);
+        let raw = format!(r#"{{"hook_event_name":"PermissionRequest","tool_name":"AskUserQuestion","tool_input":{{"questions":[{{"question":"{long}"}}]}}}}"#);
+        let (v, ev) = run(&raw, "", "");
+        assert_eq!(ev.question.unwrap()["questions"][0]["question"].as_str().unwrap().len(), 3000);
+        assert!(v["tool_input"]["questions"][0]["question"].as_str().unwrap().ends_with('…'));
+        let (_, ev) = run(r#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"ls"}}"#, "", "");
+        assert!(ev.question.is_none());
+    }
+
+    #[test]
+    fn what_cannot_be_read_is_not_forwarded() {
+        let args = Args { agent: "copilot".into(), event: "preToolUse".into(), ..Default::default() };
+        for raw in ["", "not json", "[1,2]"] {
+            assert!(prepare(raw.as_bytes(), &args, &|_| None, "/").is_none());
+        }
+        // A BOM is not a reason to drop the event.
+        let mut bom = vec![0xEF, 0xBB, 0xBF];
+        bom.extend_from_slice(br#"{"hook_event_name":"Stop"}"#);
+        assert!(prepare(&bom, &args, &|_| None, "/").is_some());
+    }
+
+    #[test]
+    fn the_live_diff_rule_holds_through_the_normalised_relay() {
+        let big = "z".repeat(10_000);
+        // Claude Code's finished Edit: kept whole.
+        let raw = format!(r#"{{"hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{{"old_string":"{big}","new_string":"a"}}}}"#);
+        let (v, _) = run(&raw, "", "");
+        assert_eq!(v["tool_input"]["old_string"].as_str().unwrap().len(), big.len());
+        // The same edit before it happens, or an agent's event renamed onto
+        // PreToolUse: the ordinary cap.
+        let raw = format!(r#"{{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{{"old_string":"{big}"}}}}"#);
+        let (v, _) = run(&raw, "", "");
+        assert!(v["tool_input"]["old_string"].as_str().unwrap().len() <= MAX_FIELD_LEN + 4);
+        let raw = format!(r#"{{"hook_event_name":"BeforeTool","tool_name":"Edit","tool_input":{{"content":"{big}"}}}}"#);
+        let (v, ev) = run(&raw, "gemini", "");
+        assert_eq!(ev.name, "PreToolUse");
+        assert!(v["tool_input"]["content"].as_str().unwrap().len() <= MAX_FIELD_LEN + 4);
+    }
+
+    #[test]
+    fn a_finished_edit_keeps_its_text_whole_for_the_live_diff() {
+        let big = "line\n".repeat(4_000); // 20 KB, well past MAX_FIELD_LEN
+        let mut v = serde_json::json!({
+            "tool_name": "Edit",
+            "tool_input": { "file_path": "/p/a.ts", "old_string": big, "new_string": big },
+            "cwd": "x".repeat(4_000),
+        });
+        truncate_payload(&mut v, "PostToolUse");
+        assert_eq!(v["tool_input"]["old_string"].as_str().unwrap().len(), big.len());
+        assert_eq!(v["tool_input"]["new_string"].as_str().unwrap().len(), big.len());
+        // Everything else keeps the ordinary cap, and nothing says "cut".
+        assert!(v["cwd"].as_str().unwrap().len() <= MAX_FIELD_LEN + 4);
+        assert!(v.get("coucou_diff_truncated").is_none());
+
+        let mut multi = serde_json::json!({
+            "tool_name": "MultiEdit",
+            "tool_input": { "edits": [{ "old_string": big, "new_string": "x" }] },
+        });
+        truncate_payload(&mut multi, "PostToolUse");
+        assert_eq!(multi["tool_input"]["edits"][0]["old_string"].as_str().unwrap().len(), big.len());
+    }
+
+    #[test]
+    fn edits_are_still_capped_before_they_happen_and_for_other_tools() {
+        let big = "é".repeat(4_000);
+        for (event, tool) in [("PreToolUse", "Edit"), ("PermissionRequest", "Write"), ("PostToolUse", "Bash")] {
+            let mut v = serde_json::json!({ "tool_name": tool, "tool_input": { "content": big } });
+            truncate_payload(&mut v, event);
+            assert!(v["tool_input"]["content"].as_str().unwrap().len() <= MAX_FIELD_LEN + 4, "{event} {tool}");
+        }
+    }
+
+    #[test]
+    fn an_edit_beyond_the_budget_is_cut_and_flagged() {
+        let huge = "x".repeat(MAX_DIFF_FIELD_LEN + 10);
+        let mut v = serde_json::json!({
+            "tool_name": "Write",
+            "tool_input": { "file_path": "/p/big.txt", "content": huge },
+        });
+        truncate_payload(&mut v, "PostToolUse");
+        assert!(v["tool_input"]["content"].as_str().unwrap().len() <= MAX_DIFF_FIELD_LEN + 4);
+        assert_eq!(v["coucou_diff_truncated"], serde_json::Value::Bool(true));
+
+        // Together, the edit strings never pass the shared budget.
+        let half = "y".repeat(MAX_DIFF_FIELD_LEN - 1);
+        let edits: Vec<_> = (0..4)
+            .map(|_| serde_json::json!({ "old_string": half, "new_string": half }))
+            .collect();
+        let mut multi = serde_json::json!({ "tool_name": "MultiEdit", "tool_input": { "edits": edits } });
+        truncate_payload(&mut multi, "PostToolUse");
+        assert!(multi.to_string().len() < MAX_DIFF_TOTAL + 64 * 1024);
+        assert_eq!(multi["coucou_diff_truncated"], serde_json::Value::Bool(true));
     }
 }

@@ -692,7 +692,7 @@ dependencies = [
 
 [[package]]
 name = "coucou"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "cpal",
  "gtk",
@@ -708,12 +708,14 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-single-instance",
  "tokio",
+ "webview2-com",
  "windows 0.61.3",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
 name = "coucou-hook"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "libc",
  "serde_json",

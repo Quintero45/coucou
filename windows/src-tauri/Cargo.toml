@@ -28,13 +28,20 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 cpal = "0.15"
 rodio = { version = "0.20", default-features = false, features = ["wav"] }
 keyring = { version = "3", features = ["windows-native"] }
+# The island's file drop reads paths straight from WebView2 (webview_drop.rs).
+# Same versions as wry, so nothing new is compiled.
+webview2-com = "0.39"
+wv2_core = { package = "windows-core", version = "0.62" }
 windows = { version = "0.61", features = [
   "Win32_Foundation",
   "Win32_Security",
   "Win32_Security_Authorization",
   "Win32_System_Com",
   "Win32_System_JobObjects",
+  # "Open terminal": the relay's process tree leads to the session's window.
+  "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Ole",
+  "Win32_System_Pipes",
   "Win32_System_SystemInformation",
   "Win32_System_Threading",
   "Win32_System_Variant",

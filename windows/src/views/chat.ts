@@ -11,6 +11,7 @@ import { parseTodos, sendToAll, sendToBot as sendToGrokBot } from "../core/botch
 import { Sound } from "../core/sound";
 import { State, aiProvider, type ChatMessage } from "../core/state";
 import type { ViewHost } from "./views";
+import { t, tl } from "../i18n/i18n";
 
 let nextId = 1;
 
@@ -32,7 +33,11 @@ function bubble(message: ChatMessage): HTMLElement {
     );
   }
   const reply = h("div", { class: "reply" }, steps(message));
-  if (message.content) reply.append(renderMarkdown(message.content));
+  if (message.content) {
+    const text = h("div");
+    renderMarkdown(text, message.content);
+    reply.append(text);
+  }
   return h("div", { class: "chat-row" }, reply);
 }
 
@@ -57,10 +62,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   const input = h("input", {
     type: "text",
     class: "chat-input",
-    placeholder: "Pregúntame lo que quieras…",
+    placeholder: t("Ask me anything…"),
     spellcheck: "false",
   }) as HTMLInputElement;
-  const send = h("button", { class: "send-btn", title: "Enviar" }, svg(ICONS.arrowUp, 11));
+  const send = h("button", { class: "send-btn", title: tl("Send") }, svg(ICONS.arrowUp, 11));
   const bar = h("div", { class: "chat-bar" }, input, send);
 
   const el = h(
@@ -114,7 +119,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   function setSendMode(stop: boolean) {
     clear(send);
     send.append(stop ? h("i", { class: "stop-square" }) : svg(ICONS.arrowUp, 11));
-    send.title = stop ? "Detener" : "Enviar";
+    send.title = stop ? t("Stop") : t("Send");
     send.classList.toggle("stop", stop);
   }
 
@@ -266,10 +271,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       }
       const bots = State.settings.grokBots;
       input.placeholder = State.chatHistory.length > 0
-        ? "Sigue…"
+        ? t("Continue…")
         : bots.length > 0
-          ? `Pregunta a ${provider.name}… o «@${bots[0].name} tarea»`
-          : `Pregunta a ${provider.name}…`;
+          ? t("Ask {provider}… or “@{bot} task”", { provider: provider.name, bot: bots[0].name })
+          : t("Ask {provider}…", { provider: provider.name });
       input.disabled = sending;
     },
     focus() {

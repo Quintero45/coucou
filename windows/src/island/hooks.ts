@@ -1,33 +1,67 @@
-// Agent hook events → island state.
+// Hook events from Claude Code and every other agent → island state.
 // Port of HookServer.processEvent / processPermissionRequest from the macOS app.
 // Difference from macOS: no terminal filter. On Windows the hook fires from any
 // terminal (Windows Terminal, VS Code, PowerShell…) and all of them are handled.
-// Cursor, Codex, Gemini CLI and Antigravity arrive already normalised by the
-// relay (windows/hook/src/normalize.rs) and are told apart by `coucou_agent`.
+// The relay has already mapped every agent's events and fields onto Claude
+// Code's (hook/src/normalize.rs, hook/src/cursor.rs), so one handler serves
+// them all; Grok Bots report through `coucou-hook --bot` (hook/src/bot.rs).
 
 import { Bridge, onEvent } from "../core/bridge";
 import { BotChat, CURSOR_CHAT } from "../core/botchat";
 import { CURSOR_WRITE, parseChoices, playSound } from "../core/botcmds";
 import { recordBotApproval, type BotDecision } from "../core/botlog";
-import { buildFileDiff } from "../core/diff";
-import { setApprovalDetail, setQuestionHeight } from "../core/layout";
+import { buildFileDiff, fileName, makeDiffStep, toOneLine } from "../core/diff";
+import { setApprovalDetail } from "../core/layout";
 import { Sound } from "../core/sound";
-import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPillId, catalogAgent, isHiddenAgent, type AgentTask, type QuestionItem } from "../core/state";
+import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPillId, isHiddenAgent, type AskedQuestion } from "../core/state";
+import { pillDefinition } from "../core/pills";
 import { botDetail } from "../views/views";
 import { botReplyBusy } from "../views/integrations";
+import { APPROVAL_AGENTS, agentColor, agentName, validateAgent } from "./agents";
 import type { Island } from "./island";
+import { parseClaudePlan, restorePlanUsage } from "../core/plan";
+import { setClaudePlanUsage, storedClaudePlanUsage } from "../views/usage";
+import { N_, t } from "../i18n/i18n";
 
 const CLAUDE_ID = "integration_claude";
+const CURSOR_ID = CURSOR_AGENT_ID;
 
-/** Agents whose permission requests get an approval card; Grok Bots too. */
-const APPROVING_AGENTS = new Set([CLAUDE_ID, "agent_cursor", "agent_codex"]);
-
-function approves(agentId: string): boolean {
-  return APPROVING_AGENTS.has(agentId) || agentId.startsWith(BOT_PREFIX);
+/**
+ * Whether a tagged agent's permission requests get a card. Besides the agents
+ * the relay answers for (APPROVAL_AGENTS), Cursor (hook/src/cursor.rs) and the
+ * Grok Bots (hook/src/bot.rs) wait for the island's decision too.
+ */
+function approves(validAgent: string): boolean {
+  return APPROVAL_AGENTS.has(validAgent) || validAgent === "cursor" || validAgent.startsWith("bot-");
 }
 
-/** Clears the approval / question card if no decision was made before the hook gave up. */
+/** Clears the approval card if no decision was made before the hook gave up. */
 let pendingTimeout: number | null = null;
+
+/** Takes the approval or question card down and gives the island back. */
+function dropPendingCard(island: Island): void {
+  if (!State.pendingApproval) return;
+  State.endApproval();
+  island.dropPin();
+  if (State.view === "approval" || State.view === "question") {
+    island.setView(State.defaultView());
+  }
+  State.notify();
+}
+
+/** The return to idle that Stop arms, per pill, so the next turn can cancel it. */
+const stopTimers = new Map<string, number>();
+
+function cancelStopTimer(id: string): boolean {
+  const timer = stopTimers.get(id);
+  if (timer == null) return false;
+  window.clearTimeout(timer);
+  stopTimers.delete(id);
+  return true;
+}
+
+/** Events after which a pending permission request of the same session is moot. */
+const TURN_OVER = new Set(["Stop", "StopFailure", "UserPromptSubmit", "SessionEnd", "Interrupt"]);
 
 interface HookPayload {
   hook_event_name?: string;
@@ -37,36 +71,25 @@ interface HookPayload {
   message?: string;
   /** UserPromptSubmit carries `prompt`; `message` belongs to Notification/Stop. */
   prompt?: string;
+  /** Stop: the turn's final answer (Markdown) — Claude Code's, Hermes's, Codex's. */
+  last_assistant_message?: string;
   tool_name?: string;
   tool_input?: Record<string, unknown>;
+  /** Set by the relay when an edit was too big to forward whole (> 256 KB). */
+  coucou_diff_truncated?: boolean;
   /** Optional agent tag: lowercase, digits and hyphens, ≤ 24 chars. */
   coucou_agent?: string;
-  /** `ask_user_question` for Claude Code's AskUserQuestion. */
-  coucou_kind?: string;
   /** Claude Code's suggested rules for "Always". */
   permission_suggestions?: unknown[];
-  /** Claude Code's final answer, on Stop. */
-  last_assistant_message?: string;
   /** `coucou-hook --bot`: the Bot's display name and what it reports. */
   coucou_bot?: string;
   bot_status?: "working" | "done" | "needs" | "error";
-}
-
-/** Same rule as HookServer.validateAgent on macOS. "claude" is reserved. */
-function validateAgent(raw: string | undefined): string | null {
-  if (!raw || raw.length > 24 || raw === "claude") return null;
-  if (!/^[a-z0-9-]+$/.test(raw)) return null;
-  return raw;
-}
-
-const FALLBACK_COLORS = ["#22C55E", "#EAB308", "#60A5FA", "#E879F9"];
-
-function agentColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) {
-    h = (Math.imul(31, h) + name.charCodeAt(i)) | 0;
-  }
-  return FALLBACK_COLORS[Math.abs(h) % FALLBACK_COLORS.length];
+  /** Hermes: where the session runs (telegram, discord…; "cli" in a terminal). */
+  platform?: string;
+  /** "cursor" when Claude Code runs in Cursor's terminal (set by the relay). */
+  term_editor?: string;
+  /** StatusLine (the plan usage relay): Claude Code's 5-hour and weekly limits. */
+  rate_limits?: unknown;
 }
 
 const PROJECT_ALIASES: Record<string, string> = {
@@ -85,36 +108,46 @@ function lastPathComponent(p: string): string {
   return idx >= 0 ? cleaned.slice(idx + 1) : cleaned;
 }
 
-/** Step labels for each agent's tools. */
+/**
+ * localizedStep() — same labels as the macOS app, in English and shown in the
+ * interface language (src/i18n) when the step is recorded.
+ */
 const TOOL_LABELS: Record<string, string> = {
-  Bash: "Ejecuta",
-  Read: "Lee",
-  Write: "Escribe",
-  Edit: "Modifica",
-  Glob: "Busca",
-  Grep: "Busca en",
-  WebSearch: "Búsqueda web",
-  WebFetch: "Descarga",
-  TodoWrite: "Tareas",
-  Task: "Agente",
-  LS: "Lista",
-  MultiEdit: "Modifica",
-  NotebookEdit: "Notebook",
-  PowerShell: "Ejecuta",
-  // Cursor
-  Shell: "Ejecuta",
-  StrReplace: "Modifica",
-  Delete: "Elimina",
-  SemanticSearch: "Busca",
-  ReadLints: "Lints",
-  // Codex
-  apply_patch: "Modifica",
-  update_plan: "Plan",
-  spawn_agent: "Agente",
+  Bash: N_("Runs"),
+  Read: N_("Reads"),
+  Write: N_("Writes"),
+  Edit: N_("Edits"),
+  Glob: N_("Searches"),
+  Grep: N_("Searches"),
+  WebSearch: N_("Searches the web"),
+  WebFetch: N_("Fetches"),
+  TodoWrite: N_("Tasks"),
+  Task: N_("Agent"),
+  LS: N_("Lists"),
+  MultiEdit: N_("Edits"),
+  NotebookEdit: N_("Notebook"),
+  PowerShell: N_("Runs"),
+  // Antigravity's tools (#298).
+  run_command: N_("Runs"),
+  view_file: N_("Reads"),
+  write_to_file: N_("Writes"),
+  replace_file_content: N_("Edits"),
+  read_url_content: N_("Fetches"),
+  search_web: N_("Searches the web"),
+  // Cursor's.
+  Shell: N_("Runs"),
+  StrReplace: N_("Edits"),
+  Delete: N_("Deletes"),
+  SemanticSearch: N_("Searches"),
+  ReadLints: N_("Lints"),
+  // Codex's.
+  apply_patch: N_("Edits"),
+  update_plan: N_("Plan"),
+  spawn_agent: N_("Agent"),
 };
 
 function stepLabel(tool: string, input: Record<string, unknown>): string {
-  const label = tool.startsWith("MCP: ") ? `MCP · ${tool.slice(5)}` : TOOL_LABELS[tool] ?? tool;
+  const label = tool.startsWith("MCP: ") ? `MCP · ${tool.slice(5)}` : TOOL_LABELS[tool] ? t(TOOL_LABELS[tool]) : tool;
   const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string) : null);
   const cmd = str("command");
   if (cmd) return `${label} · ${cmd.slice(0, 40)}`;
@@ -209,49 +242,85 @@ function logBotDecline(payload: HookPayload, decision: BotDecision) {
   });
 }
 
-/** AskUserQuestion's tool_input.questions, validated. At most four, as on macOS. */
-function parseQuestions(input: Record<string, unknown>): QuestionItem[] {
-  const raw = Array.isArray(input.questions) ? (input.questions as Record<string, unknown>[]) : [];
-  const out: QuestionItem[] = [];
-  for (const q of raw.slice(0, 4)) {
-    const question = typeof q.question === "string" ? q.question : "";
-    const options = Array.isArray(q.options)
-      ? (q.options as Record<string, unknown>[])
-          .map((o) => ({
-            label: typeof o.label === "string" ? o.label : "",
-            description: typeof o.description === "string" ? o.description : undefined,
-          }))
-          .filter((o) => o.label)
-      : [];
-    if (!question || options.length === 0) continue;
-    out.push({
-      question,
-      header: typeof q.header === "string" ? q.header : undefined,
-      options,
-      multiSelect: q.multiSelect === true,
-    });
+/** A long text's first non-empty line, for a card's one-line target. */
+function firstLine(text: string, max = 90): string {
+  const line = text.split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? "";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+/**
+ * The questions of an AskUserQuestion call, if the island can show all of them
+ * as options to pick from. Anything it cannot is left to the terminal.
+ */
+function askedQuestions(tool: string, input: Record<string, unknown>): AskedQuestion[] | null {
+  if (tool !== "AskUserQuestion" || !Array.isArray(input.questions)) return null;
+  const out: AskedQuestion[] = [];
+  for (const raw of input.questions as Record<string, unknown>[]) {
+    const question = typeof raw?.question === "string" ? raw.question : "";
+    const options = (Array.isArray(raw?.options) ? (raw.options as Record<string, unknown>[]) : [])
+      .filter((o) => typeof o?.label === "string" && o.label)
+      .map((o) => ({
+        label: o.label as string,
+        description: typeof o.description === "string" ? o.description : "",
+      }));
+    // A question cut short by the relay would be answered under the wrong text.
+    if (!question || question.endsWith("…") || options.length < 2) return null;
+    out.push({ question, options, multiSelect: raw.multiSelect === true });
   }
-  return out;
+  return out.length > 0 ? out : null;
 }
 
-function upsert(projectName: string, cwd: string) {
-  const t = State.tasks.find((x) => x.id === CLAUDE_ID);
-  if (!t) return;
-  t.name = projectName;
-  if (cwd) t.sessionCwd = cwd;
+/** The Claude Code session's pill, named after its project for the session. */
+function upsert(id: string, projectName: string, cwd: string, sessionId: string) {
+  const t = State.upsertWorkspacePill(id, projectName, cwd);
+  if (t && sessionId) t.sessionId = sessionId;
 }
 
-function clearSession() {
-  const t = State.tasks.find((x) => x.id === CLAUDE_ID);
+/** The session is over: the pill goes back as it was, or away if it was only there for it. */
+function clearSession(id: string) {
+  const t = State.tasks.find((x) => x.id === id);
   if (!t) return;
+  if (!State.isKept(id)) {
+    State.removeTask(id);
+    return;
+  }
+  t.state = "idle";
   t.steps = [];
   t.stepIndex = 0;
-  t.name = "VS Code";
+  delete t.stepSeq;
+  t.name = pillDefinition(id)?.name ?? t.name;
   t.pillBadge = null;
+  t.sessionId = null;
+  t.finalLine = null;
   t.lastMessage = null;
 }
 
+/** The final message stays on the card until the next turn starts. */
+function clearFinalLine(id: string) {
+  const t = State.tasks.find((x) => x.id === id);
+  if (t) t.finalLine = null;
+}
+
+/**
+ * PostToolUse of Edit / MultiEdit / Write → a diff stored for the pill and a
+ * ticker step with its +N −M counts. Nothing is kept for a pill that does not
+ * exist, so a stray event cannot grow memory. An edit the relay had to cut
+ * would give wrong counts: the PreToolUse step ("Edits · file") stands alone.
+ * Returns the step's plain text, for the Cursor conversation.
+ */
+function recordDiff(agentId: string, payload: HookPayload): string | null {
+  if (payload.coucou_diff_truncated) return null;
+  if (!State.tasks.some((t) => t.id === agentId)) return null;
+  const diff = buildFileDiff(payload.tool_name ?? "", payload.tool_input ?? {});
+  if (!diff) return null;
+  const id = State.appendSessionDiff(agentId, diff);
+  State.appendStep(agentId, makeDiffStep(fileName(diff.path), diff.added, diff.removed, id));
+  return `${t("Edits")} · ${fileName(diff.path)} +${diff.added} −${diff.removed}`;
+}
+
 export function registerHookHandlers(island: Island) {
+  // The last plan numbers seen survive a restart, as on the Mac.
+  State.planUsage ??= restorePlanUsage(storedClaudePlanUsage());
   void onEvent<HookPayload>("hook", (payload) => handleHook(island, payload));
   // Cursor was opened (Rust's appwatch): it fires no hook of its own until the
   // first agent chat, so this stands in for its SessionStart.
@@ -260,25 +329,15 @@ export function registerHookHandlers(island: Island) {
   });
 }
 
-/** The card stopped waiting: put the pill and the view back. */
-/** A long text's first non-empty line, for a card's one-line target. */
-function firstLine(text: string, max = 90): string {
-  const line = text.split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? "";
-  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
-}
-
-function releaseCard(island: Island, agentId: string, next: AgentTask["state"] = "working") {
-  State.pendingApproval = null;
-  State.pendingQuestion = null;
-  State.isPinned = false;
-  island.dropPin();
-  State.updateTask(agentId, next);
-  State.setPillBadge(agentId, null);
-  if (State.view === "approval" || State.view === "question") island.setView(State.defaultView());
-  State.notify();
-}
-
 function handleHook(island: Island, payload: HookPayload) {
+  // Account-wide numbers from the status line relay, not part of any session:
+  // keep the latest, nothing else (no reveal, no sound), paused or not.
+  if (payload.hook_event_name === "StatusLine") {
+    const usage = parseClaudePlan(payload.rate_limits);
+    if (usage) setClaudePlanUsage(usage);
+    return;
+  }
+
   if (State.paused) {
     // Silence here used to cost Claude Code nearly two minutes: the relay waited
     // for a decision from an island that had already decided not to look. Say so,
@@ -291,15 +350,18 @@ function handleHook(island: Island, payload: HookPayload) {
   const name = payload.hook_event_name ?? "";
   const cwd = payload.cwd ?? "";
   const raw = lastPathComponent(cwd);
-  const projectName = aliasProjectName(raw || "Sesión");
+  const projectName = aliasProjectName(raw || t("Session"));
 
   // Route to the right pill. Valid coucou_agent → "agent_<name>" pill, with the
   // catalog's name and colour when it is a known agent (Cursor, Codex…), or the
   // owner's Grok Bot for "bot-<id>". "claude" is reserved; absent or invalid →
-  // Claude Code pill unchanged.
+  // Claude Code's own pill: Cursor's when it runs in Cursor's terminal (Mac
+  // #120), VS Code's otherwise.
   const validAgent = validateAgent(payload.coucou_agent);
-  const agentId = validAgent ? `agent_${validAgent}` : CLAUDE_ID;
+  const workspaceId = payload.term_editor === "cursor" ? CURSOR_ID : CLAUDE_ID;
+  const agentId = validAgent ? `agent_${validAgent}` : workspaceId;
   const isExternalAgent = validAgent !== null;
+  const sessionId = payload.session_id ?? "";
 
   // Coding agents are hidden unless the owner turned them back on: hand any
   // question straight back so the agent asks in its own UI.
@@ -307,18 +369,6 @@ function handleHook(island: Island, payload: HookPayload) {
     if (payload.request_id) void Bridge.approvalDecline(payload.request_id);
     return;
   }
-
-  const focused = State.focusId === agentId;
-
-  /** Only the focused agent's finish, error or question opens its card. A
-   *  coding agent that starts working takes the focus, unless the one holding
-   *  it is busy itself, so Cursor or Codex open their card like Claude Code. */
-  const claimFocus = () => {
-    if (focused || !isExternalAgent || agentId.startsWith(BOT_PREFIX)) return;
-    const current = State.tasks.find((t) => t.id === State.focusId);
-    const busy = !!current && ["working", "thinking", "searching", "approval", "question"].includes(current.state);
-    if (!busy) State.setFocus(agentId);
-  };
 
   /** Alerts force the island open; work events only reveal the compact island. */
   const surface = (view: Parameters<Island["alert"]>[0], isAlert: boolean) => {
@@ -335,20 +385,30 @@ function handleHook(island: Island, payload: HookPayload) {
   const ensurePill = () => {
     if (isExternalAgent) {
       const bot = State.settings.grokBots.find((b) => botPillId(b) === agentId);
-      const known = catalogAgent(validAgent!);
-      const label = bot?.name ?? known?.name ?? (payload.coucou_bot?.trim().slice(0, 40) || validAgent!);
-      State.upsertExternalAgent(agentId, label, bot?.color ?? known?.color ?? agentColor(validAgent!));
+      const sent = isBotPill ? payload.coucou_bot?.trim().slice(0, 40) : "";
+      const label = bot?.name ?? (sent || agentName(validAgent!));
+      State.upsertExternalAgent(agentId, label, bot?.color ?? agentColor(validAgent!));
       const t = State.tasks.find((x) => x.id === agentId);
       if (t && cwd) t.sessionCwd = cwd;
+      if (t && sessionId) t.sessionId = sessionId;
     } else {
-      upsert(projectName, cwd);
+      upsert(agentId, projectName, cwd, sessionId);
     }
   };
 
   const task = () => State.tasks.find((x) => x.id === agentId);
 
+  /**
+   * Called where a handler is about to replace `finished` with a newer state:
+   * the timer Stop armed would otherwise put the pill back to idle over it. The
+   * badge that timer was going to clear goes now.
+   */
+  const supersedeStop = () => {
+    if (cancelStopTimer(agentId)) State.setPillBadge(agentId, null);
+  };
+
   // The Cursor agent's conversation in the island (its pill opens it like a Bot's).
-  const isCursor = agentId === CURSOR_AGENT_ID;
+  const isCursor = validAgent === "cursor";
   const cursorSaid = (text: string, status: "done" | "error" = "done") => {
     const clean = text.trim().slice(0, 4000);
     const last = [...BotChat.list(CURSOR_CHAT)].reverse().find((e) => e.kind === "bot");
@@ -362,37 +422,45 @@ function handleHook(island: Island, payload: HookPayload) {
   const inChat = isBotPill && botDetail.id === agentId && State.view === "overview" && State.mode === "expanded";
   const cursorInChat = isCursor && botDetail.id === agentId && State.view === "overview" && State.mode === "expanded";
 
-  // AskUserQuestion from Claude Code: an interactive card, answered from here.
-  if (payload.coucou_kind === "ask_user_question") {
-    const requestId = payload.request_id ?? "";
-    const questions = parseQuestions(payload.tool_input ?? {});
-    if (!requestId || questions.length === 0 || State.pendingApproval || State.pendingQuestion) {
-      if (requestId) void Bridge.approvalDecline(requestId);
-      return;
-    }
-    ensurePill();
+  // The turn that asked for a permission is over — answered in the terminal,
+  // interrupted, or a new prompt — so the card would be lying. It goes, and the
+  // relay is released without a decision. Same rule as the Mac.
+  const pending = State.pendingApproval;
+  if (
+    pending &&
+    TURN_OVER.has(name) &&
+    pending.pillId === agentId &&
+    pending.sessionId === (payload.session_id ?? "")
+  ) {
     if (pendingTimeout != null) window.clearTimeout(pendingTimeout);
-    // Sized before the alert so the island opens straight to the right height.
-    setQuestionHeight(118 + questions[0].options.length * 30 + 44);
-    State.pendingQuestion = { requestId, agentId, questions };
-    void Bridge.approvalAck(requestId);
-    State.updateTask(agentId, "question");
-    State.isPinned = true;
-    playSound("pregunta", State.settings);
-    State.setFocus(agentId);
-    island.alert("question");
-    pendingTimeout = window.setTimeout(() => {
-      pendingTimeout = null;
-      if (State.pendingQuestion?.requestId === requestId) releaseCard(island, agentId);
-    }, 125_000);
-    State.notify();
-    return;
+    pendingTimeout = null;
+    if (pending.requestId) void Bridge.approvalDecline(pending.requestId);
+    dropPendingCard(island);
   }
+
+  // Read after the card above is dropped: its pill may have handed the front
+  // back to the pill you were on.
+  const focused = State.focusId === agentId;
+
+  /** Only the focused agent's finish, error or question opens its card. A
+   *  coding agent that starts working takes the focus, unless the one holding
+   *  it is busy itself, so Cursor or Codex open their card like Claude Code. */
+  const claimFocus = () => {
+    if (focused || !isExternalAgent || isBotPill) return;
+    const current = State.tasks.find((t) => t.id === State.focusId);
+    const busy = !!current && ["working", "thinking", "searching", "approval", "question"].includes(current.state);
+    if (!busy) State.setFocus(agentId);
+  };
 
   switch (name) {
     case "SessionStart":
       ensurePill();
       claimFocus();
+      clearFinalLine(agentId);
+      // Hermes through its gateway says where the session comes from.
+      if (validAgent === "hermes" && payload.platform && payload.platform !== "cli") {
+        State.appendStep(agentId, payload.platform.charAt(0).toUpperCase() + payload.platform.slice(1));
+      }
       surface("overview", false);
       Sound.play("work");
       break;
@@ -400,6 +468,8 @@ function handleHook(island: Island, payload: HookPayload) {
     case "UserPromptSubmit": {
       ensurePill();
       claimFocus();
+      supersedeStop();
+      clearFinalLine(agentId);
       State.updateTask(agentId, "thinking");
       // The field is `prompt`; reading `message` meant this step was always blank.
       const asked = payload.prompt ?? payload.message;
@@ -421,33 +491,43 @@ function handleHook(island: Island, payload: HookPayload) {
     case "PreToolUse": {
       ensurePill();
       claimFocus();
+      supersedeStop();
+      clearFinalLine(agentId);
       State.updateTask(agentId, "working");
       const tool = payload.tool_name ?? "Tool";
       if (tool === "AskUserQuestion") break; // the --ask hook owns this one
-      State.appendStep(agentId, stepLabel(tool, payload.tool_input ?? {}));
-      if (isBotPill) BotChat.add(botSlug, { kind: "step", text: stepLabel(tool, payload.tool_input ?? {}) });
-      if (isCursor) BotChat.addStep(CURSOR_CHAT, stepLabel(tool, payload.tool_input ?? {}));
+      const step = stepLabel(tool, payload.tool_input ?? {});
+      State.appendStep(agentId, step);
+      if (isBotPill) BotChat.add(botSlug, { kind: "step", text: step });
+      if (isCursor) BotChat.addStep(CURSOR_CHAT, step);
       surface("overview", false);
       break;
     }
 
     case "PostToolUse": {
-      ensurePill();
-      State.updateTask(agentId, "working");
-      const tool = payload.tool_name ?? "";
-      const diff = buildFileDiff(tool, payload.tool_input ?? {});
-      const t = task();
-      if (diff && t) {
-        t.lastDiff = diff;
-        State.appendStep(agentId, `Modifica · ${diff.file} +${diff.added} −${diff.removed}`);
-        if (isCursor) BotChat.addStep(CURSOR_CHAT, `Modifica · ${diff.file} +${diff.added} −${diff.removed}`);
+      // Cursor's afterFileEdit comes with no PreToolUse before it.
+      if (isCursor) ensurePill();
+      supersedeStop();
+      // The question was answered in the terminal: the card would be lying.
+      if (
+        payload.tool_name === "AskUserQuestion" &&
+        State.pendingApproval?.questions &&
+        State.pendingApproval.sessionId === (payload.session_id ?? "")
+      ) {
+        if (pendingTimeout != null) window.clearTimeout(pendingTimeout);
+        pendingTimeout = null;
+        dropPendingCard(island);
       }
+      State.updateTask(agentId, "working");
+      const edited = recordDiff(agentId, payload);
+      if (edited && isCursor) BotChat.addStep(CURSOR_CHAT, edited);
       break;
     }
 
     case "PostToolUseFailure":
+      supersedeStop();
       State.updateTask(agentId, "working");
-      State.appendStep(agentId, "⚠ falló");
+      State.appendStep(agentId, t("⚠ failed"));
       break;
 
     case "AgentResponse": {
@@ -462,9 +542,11 @@ function handleHook(island: Island, payload: HookPayload) {
       const message = payload.message ?? "";
       const lower = message.toLowerCase();
       if (lower.includes("rate limit") || lower.includes("limite d")) {
+        supersedeStop();
         State.updateTask(agentId, "ratelimit");
         Sound.play("rate");
       } else if (message.endsWith("?")) {
+        supersedeStop();
         State.updateTask(agentId, "question");
         State.appendStep(agentId, message);
       }
@@ -474,63 +556,86 @@ function handleHook(island: Island, payload: HookPayload) {
     case "Stop": {
       ensurePill();
       State.updateTask(agentId, "finished");
+      // Claude Code puts the turn's answer in the Stop payload itself, so there is
+      // no transcript to read (the relay does not even forward its path). Other
+      // agents report their last words the same way (Hermes, Codex) or as
+      // `message`; Cursor said it earlier, in afterAgentResponse.
       const final = payload.last_assistant_message ?? payload.message ?? task()?.lastMessage ?? "";
-      if (final) State.appendStep(agentId, final.replace(/\s+/g, " ").slice(0, 80));
+      const finalText = toOneLine(final);
+      if (finalText) {
+        State.appendStep(agentId, finalText);
+        const t = task();
+        if (t) t.finalLine = finalText;
+      }
       if (isCursor && final) cursorSaid(final);
       playSound("listo", State.settings);
+      // A card waiting for an answer is never covered by another alert; a
+      // conversation on screen already shows it.
       if (cursorInChat) {
         // Already on screen, in its conversation.
-      } else if (focused) surface("finished", true);
+      } else if (focused && !State.pendingApproval) surface("finished", true);
       else State.setPillBadge(agentId, "finished");
-      window.setTimeout(() => {
-        const t = task();
-        if (!t || t.state !== "finished") return;
-        if (isExternalAgent && botDetail.id !== agentId) {
-          State.endSession(agentId);
-        } else {
-          State.updateTask(agentId, "idle");
-          State.setPillBadge(agentId, null);
-        }
-      }, 5200);
+      cancelStopTimer(agentId);
+      stopTimers.set(
+        agentId,
+        window.setTimeout(() => {
+          stopTimers.delete(agentId);
+          if (task()?.state !== "finished") return;
+          if (isExternalAgent && botDetail.id !== agentId) {
+            State.removeTask(agentId);
+          } else {
+            State.updateTask(agentId, "idle");
+            State.setPillBadge(agentId, null);
+          }
+        }, 5200),
+      );
       break;
     }
 
+    case "Interrupt":
+      // Codex: the user stopped the turn. Back to idle, nothing to celebrate.
+      supersedeStop();
+      State.updateTask(agentId, "idle");
+      State.setPillBadge(agentId, null);
+      break;
+
     case "StopFailure":
       ensurePill();
+      supersedeStop();
       State.updateTask(agentId, "error");
-      if (isCursor) cursorSaid(payload.message || "La sesión falló.", "error");
+      if (isCursor) cursorSaid(payload.message || t("The session failed."), "error");
       playSound("error", State.settings);
       if (cursorInChat) break;
-      if (focused) surface("error", true);
+      if (focused && !State.pendingApproval) surface("error", true);
       else State.setPillBadge(agentId, "error");
       break;
 
-    case "Interrupt":
-      State.updateTask(agentId, "idle");
-      break;
-
     case "SessionEnd":
+      // Nothing left for the timer to do, and it must not outlive the session: a
+      // pill recreated within 5.2 s would be removed by it.
+      cancelStopTimer(agentId);
+      State.clearSessionDiffs(agentId);
       if (cursorInChat) {
         State.updateTask(agentId, "idle");
       } else if (isExternalAgent) {
-        State.endSession(agentId);
+        State.removeTask(agentId);
       } else {
         State.updateTask(agentId, "idle");
-        clearSession();
+        clearSession(agentId);
       }
       break;
 
     case "SubagentStart":
-      State.appendStep(agentId, "+ subagente");
+      State.appendStep(agentId, t("+ subagent"));
       break;
 
     case "SubagentStop":
-      State.appendStep(agentId, "• subagente listo");
+      State.appendStep(agentId, t("• subagent done"));
       break;
 
     // A Grok Bot reporting through `coucou-hook --bot`.
     case "BotUpdate": {
-      if (!agentId.startsWith(BOT_PREFIX)) break;
+      if (!isBotPill) break;
       ensurePill();
       const message = (payload.message ?? "").trim();
       const t = task();
@@ -549,11 +654,11 @@ function handleHook(island: Island, payload: HookPayload) {
         case "done":
           State.updateTask(agentId, "finished");
           if (t && message) t.lastMessage = message;
-          if (message) State.appendStep(agentId, message.replace(/\s+/g, " ").slice(0, 80));
+          if (message) State.appendStep(agentId, toOneLine(message, 80));
           playSound("listo", State.settings);
           if (inChat) {
             // Already on screen, in the conversation.
-          } else if (focused) surface("finished", true);
+          } else if (focused && !State.pendingApproval) surface("finished", true);
           else {
             State.setPillBadge(agentId, "finished");
             island.reveal();
@@ -563,7 +668,7 @@ function handleHook(island: Island, payload: HookPayload) {
             const settle = () => {
               if (task()?.state !== "finished") return;
               if (botReplyBusy(agentId)) window.setTimeout(settle, 2000);
-              else State.endSession(agentId);
+              else State.removeTask(agentId);
             };
             window.setTimeout(settle, 8000);
           }
@@ -574,8 +679,10 @@ function handleHook(island: Island, payload: HookPayload) {
           if (message) State.appendStep(agentId, message.slice(0, 80));
           playSound("pregunta", State.settings);
           State.setPillBadge(agentId, "approval");
-          State.setFocus(agentId);
-          surface("overview", true);
+          if (!State.pendingApproval) {
+            State.setFocus(agentId);
+            surface("overview", true);
+          }
           break;
         case "error":
           State.updateTask(agentId, "error");
@@ -583,7 +690,7 @@ function handleHook(island: Island, payload: HookPayload) {
           if (message) State.appendStep(agentId, `⚠ ${message.slice(0, 78)}`);
           playSound("error", State.settings);
           if (inChat) break;
-          if (focused) surface("error", true);
+          if (focused && !State.pendingApproval) surface("error", true);
           else State.setPillBadge(agentId, "error");
           break;
         default:
@@ -597,32 +704,38 @@ function handleHook(island: Island, payload: HookPayload) {
 
     case "PermissionRequest": {
       const requestId = payload.request_id ?? "";
-      // Only Claude Code, Cursor, Codex and Grok Bots get a card. Anything else
-      // is handed straight back so the agent asks in its own UI.
-      if (!approves(agentId)) {
+      // Claude Code, the agents the relay answers for (Codex, Copilot CLI, Muse
+      // Code — same as the Mac), Cursor and the Grok Bots get a card. Anyone
+      // else's request is declined at once, so the agent asks in its own UI.
+      if (isExternalAgent && !approves(validAgent!)) {
         if (requestId) void Bridge.approvalDecline(requestId);
         break;
       }
       // One card, one request. A second one must never quietly replace the first
       // — that would leave a human staring at request B while request A waits for
       // a decision nobody can give. Hand it straight back to the terminal.
-      if (State.pendingQuestion || (State.pendingApproval && State.pendingApproval.requestId !== requestId)) {
+      if (State.pendingApproval && State.pendingApproval.requestId !== requestId) {
         if (requestId) void Bridge.approvalDecline(requestId);
         logBotDecline(payload, "busy");
         break;
       }
       ensurePill();
+      supersedeStop();
       if (pendingTimeout != null) window.clearTimeout(pendingTimeout);
       const tool = payload.tool_name ?? "Tool";
       const input = payload.tool_input ?? {};
+      // An agent asking questions (Claude Code's AskUserQuestion, Cursor's
+      // AskQuestion with several questions) is not a permission to grant: the
+      // island shows the options and sends back the ones that were picked.
+      const questions = !isExternalAgent || isCursor ? askedQuestions(tool, input) : null;
+      const view = questions ? "question" : "approval";
       const suggestions = Array.isArray(payload.permission_suggestions) ? payload.permission_suggestions : [];
       // A Grok Bot: the same card, generic on tool_name / tool_input, whether
       // it came from `--status ask` or from a tool call. A question reads as
       // prose; a tool shows its arguments in full under the target line.
-      const isBot = agentId.startsWith(BOT_PREFIX);
       const asked = typeof input.command === "string" ? input.command : (payload.message ?? "");
-      // "Pregunta": a Bot's --status ask, or Cursor's AskQuestion (normalize.rs);
-      // the question is in tool_input.command.
+      // "Pregunta": a Bot's --status ask, or Cursor's single AskQuestion
+      // (hook/src/cursor.rs); the question is in tool_input.command.
       const isQuestion = tool === BOT_QUESTION_TOOL;
       // "Escribir en Cursor" (cursorlink.rs): the whole order under review,
       // wrapped and scrollable; the target line is its first line.
@@ -631,59 +744,53 @@ function handleHook(island: Island, payload: HookPayload) {
       let detail: string | null = null;
       if (isQuestion) detail = asked.length > 70 ? asked.slice(0, ARGS_MAX) : null;
       else if (isCursorWrite) detail = order.trim() ? order : null;
-      else if (isBot) detail = botArgs(input);
+      else if (isBotPill) detail = botArgs(input);
       // Choices (botcmds.ts QUESTION_OPTIONS): one button each, on the taller
       // card — only on a question card, never on a tool approval.
       const choices = isQuestion ? parseChoices(payload as unknown as Record<string, unknown>) : null;
       setApprovalDetail(!!detail || !!choices);
-      State.pendingApproval = {
+      // The card always comes up, even over another pill or an island that is
+      // already open: its pill comes to the front, and the one you were on
+      // comes back once you answer (Mac #117, #120).
+      State.beginApproval({
         requestId,
-        sessionId: payload.session_id ?? "",
+        sessionId,
+        pillId: agentId,
         tool,
         command: isQuestion
           ? asked.replace(/\s+/g, " ").trim()
           : isCursorWrite && order.trim()
             ? firstLine(order)
             : approvalTarget(tool, input),
-        agentId,
-        allowAlways: agentId === CLAUDE_ID && suggestions.length > 0,
-        detail,
-        detailWrap: isBot || isQuestion || isCursorWrite,
-        toolInput: isBot ? input : null,
-        options: choices?.options ?? null,
-        allowCustom: choices?.allowCustom ?? false,
-      };
+        ...(questions ? { questions } : {}),
+        ...(agentId === CLAUDE_ID && suggestions.length > 0 ? { allowAlways: true } : {}),
+        ...(detail ? { detail } : {}),
+        ...(isBotPill || isQuestion || isCursorWrite ? { detailWrap: true } : {}),
+        ...(isBotPill ? { toolInput: input } : {}),
+        ...(choices ? { options: choices.options, allowCustom: choices.allowCustom } : {}),
+      });
       // The relay's short ack window closes in 800 ms; everything below this
       // line is synchronous, so the card really is up by the time it lands.
       if (requestId) void Bridge.approvalAck(requestId);
-      State.updateTask(agentId, "approval");
-      State.isPinned = true;
+      State.updateTask(agentId, view);
       playSound("pregunta", State.settings);
-      if (inChat) {
-        // Answered right in the conversation (Permitir / Denegar inline).
-      } else if (focused) {
-        island.alert("approval");
-      } else {
-        // Another agent holds the view, so the card would yank it away. The badge
-        // is the signal instead — but it has to be on screen for that to mean
-        // anything, hence the reveal. We just told the relay a human can act.
-        State.setPillBadge(agentId, "approval");
-        island.reveal();
-      }
+      // A Bot's conversation on screen answers it inline (Permitir / Denegar).
+      if (!inChat) island.alert(view);
       // Coucou answers within 108 s or not at all; after that the terminal has
       // taken over and the card would be lying.
       pendingTimeout = window.setTimeout(() => {
         pendingTimeout = null;
         const req = State.pendingApproval;
         if (req?.requestId !== requestId) return;
-        if (isBot) {
+        if (isBotPill) {
           recordBotApproval({
-            bot: agentId.slice(BOT_PREFIX.length), name: botName(agentId), tool: req.tool,
-            decision: "timeout", target: req.command, input: req.toolInput,
+            bot: botSlug, name: botName(agentId), tool: req.tool,
+            decision: "timeout", target: req.command, input: req.toolInput ?? null,
           });
         }
+        dropPendingCard(island);
         // A Cursor order nobody approved never left: Cursor isn't working on it.
-        releaseCard(island, agentId, req.tool === CURSOR_WRITE.tool ? "idle" : "working");
+        if (req.tool === CURSOR_WRITE.tool) State.updateTask(agentId, "idle");
       }, 110_000);
       break;
     }
