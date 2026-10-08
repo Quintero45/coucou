@@ -61,27 +61,28 @@ pub fn is_protected_rel(rel: &str) -> bool {
     })
 }
 
-/// Files Mochi's write_file must leave alone: its own source (changed only
+/// Files ARIA's write_file must leave alone: its own source (changed only
 /// through evolve), its installed binaries, its own config, and the agents'
 /// hook configs (changed only through the diff-and-confirm installers).
 fn forbidden_dirs() -> Vec<(String, &'static str)> {
     let home = crate::platform::home_dir();
     let config = crate::settings::config_dir();
     let mut out = vec![
-        (norm(&repo_root().join("windows")), "Mochi's own source — use the evolve tools, which show the owner a diff"),
+        (norm(&repo_root().join("windows")), "ARIA's own source — use the evolve tools, which show the owner a diff"),
         (norm(&repo_root().join("CLAUDE.md")), "part of the protected core"),
         (norm(&super::evolve::worktree_dir()), "the evolution worktree — use evolve_edit"),
         (norm(&crate::settings::local_dir().join("bin")), "the agent relay"),
-        (norm(&config.join("settings.json")), "Mochi's settings — the owner changes them in Settings"),
-        (norm(&config.join("mcp.json")), "Mochi's connections — the owner changes them in Settings → Connections"),
+        (norm(&config.join("settings.json")), "ARIA's settings — the owner changes them in Settings"),
+        (norm(&config.join("mcp.json")), "ARIA's connections — the owner changes them in Settings → Connections"),
         (norm(&config.join("skills")), "installed skills — use create_skill, which the owner approves"),
         (norm(&home.join(".claude").join("settings.json")), "Claude Code's hooks — changed only through Settings"),
         (norm(&home.join(".cursor").join("hooks.json")), "Cursor's hooks — changed only through Settings"),
+        (norm(&home.join(".cursor").join("mcp.json")), "Cursor's MCP servers — changed only through Settings"),
         (norm(&home.join(".codex").join("hooks.json")), "Codex's hooks — changed only through Settings"),
         (norm(&home.join(".gemini").join("settings.json")), "Gemini CLI's hooks — changed only through Settings"),
     ];
     if let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)) {
-        out.push((norm(&dir), "Mochi's installed program"));
+        out.push((norm(&dir), "ARIA's installed program"));
     }
     out
 }

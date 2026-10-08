@@ -131,7 +131,7 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Option<Outcome> {
     let out = match call.name.as_str() {
         "evolve_start" => {
             let task = arg(&call.input, "task");
-            if policy::approve(app, "evolve_start", &format!("Start changing Mochi's own code: {task}")).await {
+            if policy::approve(app, "evolve_start", &format!("Start changing ARIA's own code: {task}")).await {
                 start(task).await
             } else {
                 Outcome::err("The owner declined. Do not change your code for this.")
@@ -359,17 +359,17 @@ async fn apply(app: &AppHandle, summary: &str) -> Outcome {
     };
     let _ = edited;
 
-    let target = format!("Apply evolution to Mochi's own code: {summary}\n({} file(s): {})", changed.len(), changed.join(", "));
+    let target = format!("Apply evolution to ARIA's own code: {summary}\n({} file(s): {})", changed.len(), changed.join(", "));
     let review: String = full_diff.chars().take(100_000).collect();
     if !policy::approve_with_detail(app, "evolve_apply", &target, Some(&review)).await {
         return Outcome::err("The owner declined the change. The worktree is kept; adjust it or evolve_discard.");
     }
 
     let Some(root) = git_root() else { return Outcome::err("no repository") };
-    let message = format!("Mochi: {summary}\n\nTask: {task}");
+    let message = format!("ARIA: {summary}\n\nTask: {task}");
     let tag = format!("mochi-pre-{}", stamp());
     let run = async {
-        git(&wt, &["-c", "user.name=Mochi", "-c", "user.email=mochi@coucou.local", "commit", "-m", &message], 60).await?;
+        git(&wt, &["-c", "user.name=ARIA", "-c", "user.email=mochi@coucou.local", "commit", "-m", &message], 60).await?;
         git(&root, &["tag", &tag], 30).await?;
         // Fast-forward only: if the owner's branch moved meanwhile, nothing is merged.
         git(&root, &["merge", "--ff-only", &branch], 120).await
@@ -417,7 +417,7 @@ async fn rebuild(app: &AppHandle) -> Outcome {
     let built = root.join("windows").join("target").join("release").join("coucou.exe");
     let prev = exe.with_file_name("coucou.prev.exe");
 
-    let target = format!("Rebuild Mochi from {} and restart into it (previous version kept as {})", root.display(), prev.display());
+    let target = format!("Rebuild ARIA from {} and restart into it (previous version kept as {})", root.display(), prev.display());
     if !policy::approve(app, "evolve_rebuild", &target).await {
         return Outcome::err("The owner declined the rebuild.");
     }

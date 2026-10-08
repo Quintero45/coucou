@@ -287,7 +287,7 @@ fn run_card(card: Card) -> i32 {
         return 0;
     }
     let Some(answer) = answer else {
-        eprintln!("coucou-hook: Coucou no respondió (¿está abierto?)");
+        eprintln!("coucou-hook: ARIA no respondió (¿está abierta?)");
         return 2;
     };
     let v: serde_json::Value = serde_json::from_str(answer.trim()).unwrap_or_default();
@@ -295,7 +295,7 @@ fn run_card(card: Card) -> i32 {
         println!("ok");
         0
     } else {
-        eprintln!("coucou-hook: {}", v["error"].as_str().unwrap_or("Coucou rechazó el archivo"));
+        eprintln!("coucou-hook: {}", v["error"].as_str().unwrap_or("ARIA rechazó el archivo"));
         1
     }
 }

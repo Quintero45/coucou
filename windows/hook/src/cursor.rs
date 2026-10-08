@@ -331,8 +331,8 @@ pub fn stdout(wait: Wait, decision: Option<&str>, ctx: &Context) -> Option<Strin
             Some("allow" | "always") => json!({ "permission": "allow" }),
             Some("deny") => json!({
                 "permission": "deny",
-                "user_message": "Denied from Coucou",
-                "agent_message": "The user denied this action from Coucou.",
+                "user_message": "Denied from ARIA",
+                "agent_message": "The user denied this action from ARIA.",
             }),
             _ => json!({ "permission": "ask" }),
         },
@@ -380,8 +380,8 @@ fn answer(reply: Option<&Reply>, ctx: &Context) -> Value {
         return match reply.and_then(Reply::answer) {
             _ if stay => json!({
                 "permission": "deny",
-                "user_message": "Seguir en el modo actual (desde Coucou)",
-                "agent_message": "The user chose, in Coucou (the island at the top of their screen), to stay in the current mode. \
+                "user_message": "Seguir en el modo actual (desde ARIA)",
+                "agent_message": "The user chose, in ARIA (the island at the top of their screen), to stay in the current mode. \
 Do not switch modes; carry on in this one.",
             }),
             Some(_) => json!({ "permission": "allow" }),
@@ -396,9 +396,9 @@ Do not switch modes; carry on in this one.",
     let short: Vec<&str> = answers.iter().map(|(_, a)| a.as_str()).collect();
     json!({
         "permission": "deny",
-        "user_message": format!("Respondido desde Coucou: {}", short.join(" · ")),
+        "user_message": format!("Respondido desde ARIA: {}", short.join(" · ")),
         "agent_message": format!(
-            "The user already answered in Coucou (the island at the top of their screen). \
+            "The user already answered in ARIA (the island at the top of their screen). \
 Do not ask again; continue with these answers:\n{}",
             lines.join("\n")
         ),

@@ -73,10 +73,10 @@ impl Fail {
         let (error, message) = match self {
             Fail::Usage(m) => ("usage", m.clone()),
             Fail::InvalidJson(m) => ("invalid_json", m.clone()),
-            Fail::AppNotRunning => ("app_not_running", "Coucou is not running (no relay pipe)".to_string()),
+            Fail::AppNotRunning => ("app_not_running", "ARIA is not running (no relay pipe)".to_string()),
             Fail::Timeout => (
                 "timeout",
-                "no answer from Coucou in time; if it was already approved, the action may still have run".to_string(),
+                "no answer from ARIA in time; if it was already approved, the action may still have run".to_string(),
             ),
             Fail::App { error, message } => (error.as_str(), message.clone()),
         };
@@ -179,7 +179,7 @@ pub fn request_line(cmd: &Cmd) -> String {
 pub fn parse_answer(raw: &str) -> Result<Value, Fail> {
     let v: Value = serde_json::from_str(raw.trim()).map_err(|_| Fail::App {
         error: "bad_answer".into(),
-        message: "Coucou answered something unreadable (older app without `tool` support?)".into(),
+        message: "ARIA answered something unreadable (older app without `tool` support?)".into(),
     })?;
     if v.get("ok").and_then(Value::as_bool) == Some(true) {
         return Ok(v);
@@ -251,7 +251,7 @@ fn call(cmd: &Cmd) -> Result<Value, Fail> {
         // The app hung up without a word (old build, crash): not a timeout.
         Ok(Talk::Silent) => Err(Fail::App {
             error: "no_answer".into(),
-            message: "Coucou closed the connection without answering (older app without `tool` support?)".into(),
+            message: "ARIA closed the connection without answering (older app without `tool` support?)".into(),
         }),
         Err(_) => Err(Fail::Timeout),
     }

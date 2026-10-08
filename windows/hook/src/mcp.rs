@@ -23,12 +23,12 @@ use crate::cursor::{self, ASK_TOOL};
 /// Asked for when the client names none.
 const PROTOCOL_VERSION: &str = "2025-06-18";
 
-const INSTRUCTIONS: &str = "Coucou is the island at the top of the user's screen. \
+const INSTRUCTIONS: &str = "ARIA is the island at the top of the user's screen. \
 Whenever you would ask the user a question with options (one or several questions, single or multiple choice), \
 call island_ask instead of your built-in AskQuestion tool: the user answers there. \
 If it says nobody answered, ask with your own tool instead.";
 
-const DESCRIPTION: &str = "Ask the user one or more questions with options in Coucou, the island at the top of \
+const DESCRIPTION: &str = "Ask the user one or more questions with options in ARIA, the island at the top of \
 their screen, and wait for the answers (up to two minutes). Use this INSTEAD of the built-in AskQuestion tool \
 whenever you need the user to choose. A single single-choice question also lets them type their own answer. \
 If nobody answers, the result says so: then ask with your own AskQuestion tool.";
@@ -188,7 +188,7 @@ fn result_for(reply: Option<&str>, ctx: &cursor::Context) -> Value {
         return text_result("The user dismissed the question in the island without answering.", false);
     }
     text_result(
-        "Nobody answered in the island (Coucou closed, another card on screen, or no answer in time). \
+        "Nobody answered in the island (ARIA closed, another card on screen, or no answer in time). \
 Ask the user with your own AskQuestion tool instead.",
         true,
     )
