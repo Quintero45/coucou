@@ -36,6 +36,9 @@ pub struct Settings {
     pub provider_urls: BTreeMap<String, String>,
     /// Let the assistant use tools (files, PowerShell, apps, MCP…).
     pub assistant_tools: bool,
+    /// The assistant acts without waiting for a click and the island says what
+    /// she did; anything naming the protected core still asks (policy.rs).
+    pub assistant_autonomous: bool,
     /// Claude Code (VS Code), Codex and Gemini CLI: pills, hooks and settings.
     pub show_agents: bool,
     /// The Cursor IDE agent: its pill, questions and hooks.
@@ -135,6 +138,7 @@ impl Default for Settings {
             provider_models: BTreeMap::new(),
             provider_urls: BTreeMap::new(),
             assistant_tools: true,
+            assistant_autonomous: false,
             show_agents: false,
             show_cursor_agent: true,
             grok_bots: Vec::new(),
@@ -422,6 +426,7 @@ mod tests {
   "providerModels": { "ollama": "llama3.2", "openai": "gpt-x" },
   "providerUrls": { "ollama": "http://127.0.0.1:11434" },
   "assistantTools": false,
+  "assistantAutonomous": true,
   "showAgents": true,
   "showCursorAgent": false,
   "grokBots": [{ "id": "ana", "name": "Ana", "color": "#38BDF8", "url": "https://api.x.ai/hook/1" }],
@@ -825,6 +830,7 @@ mod tests {
                 "providerModels",
                 "providerUrls",
                 "assistantTools",
+                "assistantAutonomous",
                 "showAgents",
                 "showCursorAgent",
                 "grokBots",

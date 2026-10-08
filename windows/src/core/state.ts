@@ -253,6 +253,8 @@ export interface Settings {
   providerUrls: Record<string, string>;
   /** Let the assistant use tools (files, PowerShell, apps, MCP…). */
   assistantTools: boolean;
+  /** ARIA acts without waiting for a click; the island says what she did (policy.rs). */
+  assistantAutonomous: boolean;
   /** Claude Code (VS Code), Codex, Gemini CLI and the other agents: pills and settings. */
   showAgents: boolean;
   /** The Cursor IDE agent: pill, questions and hooks. */
@@ -302,6 +304,7 @@ export const DEFAULT_SETTINGS: Settings = {
   providerModels: {},
   providerUrls: {},
   assistantTools: true,
+  assistantAutonomous: false,
   showAgents: false,
   showCursorAgent: true,
   grokBots: [],

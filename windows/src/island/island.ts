@@ -18,7 +18,7 @@ import { saveSettingsMerged } from "../core/savesettings";
 import { BotLive } from "../core/botlive";
 import { registerBotEvents } from "./botevents";
 import { APPROVAL_ANSWER, CURSOR_WRITE, callCmd } from "../core/botcmds";
-import { ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
+import { ARIA_TASK, ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
 import { BotEngine, hexToRGB } from "../aria/engine";
 import { Greeting } from "../aria/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../aria/minibots";
@@ -925,6 +925,11 @@ export class Island {
   }
 
   private toastFor: string | null = null;
+
+  /** A line from ARIA herself (an action taken without asking): the Bots' toast. */
+  announce(text: string) {
+    this.showToast({ id: null, color: ARIA_TASK.color, name: ARIA_TASK.name, text });
+  }
 
   private showToast(n: { id: string | null; color: string; name: string; text: string }) {
     this.toastFor = n.id;

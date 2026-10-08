@@ -55,7 +55,7 @@ impl Drop for BusyGuard<'_> {
     }
 }
 
-fn system_prompt(ep: &Endpoint, with_tools: bool) -> String {
+fn system_prompt(ep: &Endpoint, with_tools: bool, autonomous: bool) -> String {
     let t = crate::platform::local_time();
     let home = crate::platform::home_dir();
     let mut prompt = format!(
@@ -73,14 +73,22 @@ Local time: {y:04}-{mo:02}-{d:02} {h:02}:{mi:02}. Home folder: {home}.",
         home = home.display(),
     );
     if with_tools {
-        prompt.push_str(
+        prompt.push_str(if autonomous {
+            "\n\nYou can act on this computer through your tools. Look before you act: read files and \
+list folders freely. The owner turned on autonomy: running commands, writing files, opening apps or pages \
+and sending anything happen without asking, and the island tells the owner each one. Act, then say \
+plainly what you did. Anything that names your protected core still shows an approval card. \
+Prefer one clear command over many small ones. "
+        } else {
             "\n\nYou can act on this computer through your tools. Look before you act: read files and \
 list folders freely. Running commands, writing files, opening apps or pages and sending anything \
 show the owner an approval card — say briefly what you are about to do, then call the tool. \
-If the owner declines, stop and ask. Prefer one clear command over many small ones. \
-Tools named mcp__<server>__<tool> come from the owner's MCP connections; skill__<name> tools are \
+If the owner declines, stop and ask. Prefer one clear command over many small ones. "
+        });
+        prompt.push_str(
+            "Tools named mcp__<server>__<tool> come from the owner's MCP connections; skill__<name> tools are \
 skills you or the owner installed. If a task would be easier with a reusable skill, you may propose one \
-with create_skill. To change your own app, use the evolve_* tools — the owner reviews the diff first. \
+with create_skill. To change your own app, use the evolve_* tools: they never touch the protected core. \
 Long or multi-step work in the cloud (research, browsing, documents, Gmail, Slack, Notion…) can go to the \
 owner's Grok Bots with send_to_grok_bot when they have any: they report back in the island.",
         );
@@ -114,7 +122,7 @@ pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -
     if ep.provider == Provider::Cursor {
         ep.model = crate::cursor::model(&ep).await?;
         let tool_specs = if settings.assistant_tools { tools::specs(&app) } else { Vec::new() };
-        let system = system_prompt(&ep, !tool_specs.is_empty());
+        let system = system_prompt(&ep, !tool_specs.is_empty(), settings.assistant_autonomous);
         let text = crate::cursor::chat(&app, &ep, &system, &tool_specs, &query, context.as_ref(), &assistant.cancel).await?;
         let text = if text.trim().is_empty() { "Listo.".to_string() } else { text };
         memory::record(ep.provider.id(), &ep.model, &query, &text);
@@ -133,7 +141,7 @@ pub async fn send(app: AppHandle, query: String, context: Option<ChatContext>) -
     msgs.push(Msg::User(parts));
 
     let tool_specs = if settings.assistant_tools { tools::specs(&app) } else { Vec::new() };
-    let system = system_prompt(&ep, !tool_specs.is_empty());
+    let system = system_prompt(&ep, !tool_specs.is_empty(), settings.assistant_autonomous);
 
     let mut full = String::new();
     let mut result: Result<(), String> = Ok(());

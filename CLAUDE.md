@@ -25,7 +25,7 @@ npx tsc --noEmit              # from windows/
 - No telemetry. Network calls only to services the user configured.
 - Never block an agent: if the app doesn't answer, the hook exits immediately and the agent asks in its own UI.
 - Never overwrite an agent's config (`~/.claude/settings.json`, `~/.cursor/hooks.json`, `~/.codex/hooks.json`, `~/.gemini/settings.json`): dated backup, merge, show the diff, write only after the user confirms.
-- Nothing with side effects happens without an explicit click: sending an email, approving an agent's permission, running a command, writing a file, opening an app, installing a skill, applying a change to ARIA's own code.
+- Nothing with side effects happens without an explicit click: sending an email, approving an agent's permission, running a command, writing a file, opening an app, installing a skill, applying a change to ARIA's own code. The one exception is the owner's switch Settings → Assistant → "Without asking" (`assistantAutonomous`, off by default): ARIA's own tools then act without the click, the island announces each action and `aria.log` records it. Anything naming the protected core still asks, and Bots and other agents' permissions never get autonomy.
 - The protected core cannot be changed by ARIA herself: `windows/core-directive.md`, `policy.rs`, `secrets.rs`, `pipe.rs`, `migrate.rs`, `selfmod/`, `hook/`, `tauri.conf.json`, `capabilities/`, this file. Only a human edits them.
 - Every tool call the assistant makes is written to the audit log (`aria.log`).
 - Performance: 0 % CPU when the island is hidden.

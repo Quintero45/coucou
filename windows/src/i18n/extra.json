@@ -5199,6 +5199,39 @@
    "pt-BR": "Abre o desinstalador do próprio Coucou. A ARIA mantém tudo o que copiou.",
    "ru": "Открывает собственный деинсталлятор Coucou. ARIA сохраняет всё, что скопировала.",
    "id": "Membuka pencopot pemasangan milik Coucou. ARIA menyimpan semua yang sudah disalinnya."
+  },
+  "Without asking": {
+   "zh-Hans": "无需询问",
+   "hi": "बिना पूछे",
+   "es": "Sin preguntar",
+   "ar": "دون سؤال",
+   "fr": "Sans demander",
+   "bn": "জিজ্ঞেস না করে",
+   "pt-BR": "Sem perguntar",
+   "ru": "Без вопросов",
+   "id": "Tanpa bertanya"
+  },
+  "ARIA acts without waiting for your click: commands, files, apps, emails, skills and changes to her own code. The island tells you each action and aria.log keeps them. Anything that names her protected core still asks.": {
+   "zh-Hans": "ARIA 无需等你点击就会行动：命令、文件、应用、邮件、技能以及对她自身代码的修改。灵动岛会告诉你每一个操作，aria.log 会记录下来。凡是涉及她受保护核心的操作仍会询问你。",
+   "hi": "ARIA आपके क्लिक का इंतज़ार किए बिना काम करती है: कमांड, फ़ाइलें, ऐप, ईमेल, स्किल और उसके अपने कोड में बदलाव। आइलैंड आपको हर कार्य बताता है और aria.log उन्हें सहेजता है। जो कुछ भी उसके संरक्षित कोर का नाम लेता है, उसके लिए वह अब भी पूछती है।",
+   "es": "ARIA actúa sin esperar tu clic: comandos, archivos, apps, emails, skills y cambios en su propio código. La isla te avisa de cada acción y aria.log las guarda. Lo que nombre su núcleo protegido sigue preguntando.",
+   "ar": "تتصرف ARIA دون انتظار نقرتك: الأوامر والملفات والتطبيقات والرسائل الإلكترونية والمهارات والتغييرات في شيفرتها الخاصة. تخبرك الجزيرة بكل إجراء ويحتفظ بها aria.log. أي شيء يذكر نواتها المحمية لا يزال يطلب الإذن.",
+   "fr": "ARIA agit sans attendre votre clic : commandes, fichiers, applis, e-mails, skills et modifications de son propre code. L'île vous signale chaque action et aria.log les garde. Tout ce qui nomme son noyau protégé demande toujours.",
+   "bn": "ARIA আপনার ক্লিকের অপেক্ষা না করেই কাজ করে: কমান্ড, ফাইল, অ্যাপ, ইমেল, স্কিল এবং তার নিজের কোডে পরিবর্তন। আইল্যান্ড প্রতিটি কাজ আপনাকে জানায় এবং aria.log সেগুলো রাখে। তার সুরক্ষিত কোরের নাম থাকা যেকোনো কিছুতে সে এখনও জিজ্ঞেস করে।",
+   "pt-BR": "A ARIA age sem esperar seu clique: comandos, arquivos, apps, e-mails, skills e mudanças no próprio código. A ilha avisa cada ação e o aria.log guarda todas. O que mencionar o núcleo protegido dela continua pedindo.",
+   "ru": "ARIA действует, не дожидаясь вашего клика: команды, файлы, приложения, письма, навыки и изменения собственного кода. Остров сообщает о каждом действии, а aria.log их сохраняет. Всё, что касается её защищённого ядра, по-прежнему требует подтверждения.",
+   "id": "ARIA bertindak tanpa menunggu klik Anda: perintah, file, aplikasi, email, skill, dan perubahan pada kodenya sendiri. Pulau memberi tahu setiap tindakan dan aria.log menyimpannya. Apa pun yang menyebut inti terlindunginya tetap meminta izin."
+  },
+  "Done without asking: {tool} · {target}": {
+   "zh-Hans": "已直接执行：{tool} · {target}",
+   "hi": "बिना पूछे किया: {tool} · {target}",
+   "es": "Hecho sin preguntar: {tool} · {target}",
+   "ar": "تم دون سؤال: {tool} · {target}",
+   "fr": "Fait sans demander : {tool} · {target}",
+   "bn": "জিজ্ঞেস না করে করা হয়েছে: {tool} · {target}",
+   "pt-BR": "Feito sem perguntar: {tool} · {target}",
+   "ru": "Сделано без вопроса: {tool} · {target}",
+   "id": "Dilakukan tanpa bertanya: {tool} · {target}"
   }
  }
 }

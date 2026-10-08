@@ -409,6 +409,39 @@ pub fn redact(text: &str) -> String {
     s.into_iter().collect()
 }
 
+// ── Autonomy ──────────────────────────────────────────────────────────────────
+// The owner's switch in Settings (`assistantAutonomous`, off by default): ARIA
+// acts without waiting for a click and the island tells the owner what she did.
+// Only the protected core stays behind a click. The guard already refuses
+// ARIA's own writes and evolutions there, but a shell or an MCP server never
+// goes through it: so any call whose target names a core file asks, whatever
+// the switch says. Bots never get autonomy (they do not come through here).
+
+/// Names of the protected core as they would appear in a command or a path:
+/// the last component of each entry ("policy.rs", "selfmod", "hook"…).
+fn core_names() -> impl Iterator<Item = String> {
+    crate::selfmod::guard::PROTECTED
+        .iter()
+        .filter_map(|rel| rel.rsplit('/').next())
+        .map(|name| name.to_ascii_lowercase())
+}
+
+/// Whether a target (a command, a path, a tool's arguments) names a protected
+/// core file or folder. Words are split on anything a path or a command
+/// separates with, so `windows\hook\src` names `hook` but `aria-hook.exe` doesn't.
+pub fn names_core(target: &str) -> bool {
+    let lower = target.to_ascii_lowercase();
+    let words: Vec<&str> = lower
+        .split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')))
+        .filter(|w| !w.is_empty())
+        .collect();
+    core_names().any(|name| words.contains(&name.as_str()))
+}
+
+fn autonomous(app: &AppHandle) -> bool {
+    app.try_state::<crate::Shared>().is_some_and(|s| s.settings.lock().unwrap().assistant_autonomous)
+}
+
 /// Waits for the owner's click. `target` is exactly what the card shows: the
 /// command, the path, the URL — what the click authorises.
 pub async fn approve(app: &AppHandle, tool: &str, target: &str) -> bool {
@@ -418,6 +451,11 @@ pub async fn approve(app: &AppHandle, tool: &str, target: &str) -> bool {
 /// Same, with the full text under review (a skill's code, a diff) shown in a
 /// scrollable box on the card. "Always" is never offered for these.
 pub async fn approve_with_detail(app: &AppHandle, tool: &str, target: &str, detail: Option<&str>) -> bool {
+    if autonomous(app) && !names_core(target) {
+        audit(tool, "allowed (autonomous)", target);
+        let _ = app.emit_to(WINDOW_LABEL, "assistant-acted", json!({ "tool": tool, "target": redact(target) }));
+        return true;
+    }
     if detail.is_none() && allowed_by_rule(ARIA, tool, target) {
         audit(tool, "allowed (rule)", target);
         return true;
@@ -491,6 +529,18 @@ mod tests {
         assert!(rule_for("bot-a", "Shell", "ls", None).is_none());
         let forged = AllowRule { who: ARIA.into(), tool: "run_powershell".into(), scope: RuleScope::Tool, expires: None };
         assert!(!rule_covers(&forged, ARIA, "run_powershell", "x", Instant::now()));
+    }
+
+    #[test]
+    fn autonomy_still_asks_for_anything_naming_the_core() {
+        assert!(names_core(r"Set-Content C:\Users\Dell\coucou\windows\src-tauri\src\policy.rs 'x'"));
+        assert!(names_core("Remove-Item -Recurse windows/hook"));
+        assert!(names_core("cd src-tauri; rm -r capabilities"));
+        assert!(names_core(r#"{"path":"C:\\Users\\Dell\\coucou\\CLAUDE.md"}"#));
+        assert!(names_core("notepad core-directive.md"));
+        assert!(!names_core(r"C:\Users\Dell\AppData\Local\ARIA\bin\aria-hook.exe --agent cursor"));
+        assert!(!names_core("Get-ChildItem C:\\Users\\Dell\\Documents"));
+        assert!(!names_core("send an email to someone about the policy"));
     }
 
     #[test]

@@ -6,6 +6,7 @@ import { Bridge, onEvent } from "../core/bridge";
 import { setApprovalDetail } from "../core/layout";
 import { Sound } from "../core/sound";
 import { ASSISTANT_ID, State } from "../core/state";
+import { t } from "../i18n/i18n";
 import type { Island } from "./island";
 
 interface AssistantApproval {
@@ -16,9 +17,20 @@ interface AssistantApproval {
   allowAlways: boolean;
 }
 
+/** Something ARIA did on her own (Settings → Without asking). */
+interface AssistantActed {
+  tool: string;
+  target: string;
+}
+
 let timeout: number | null = null;
 
 export function registerAssistantHandlers(island: Island) {
+  void onEvent<AssistantActed>("assistant-acted", (act) => {
+    const target = act.target.split("\n").find((l) => l.trim()) ?? "";
+    island.announce(t("Done without asking: {tool} · {target}", { tool: act.tool, target }));
+  });
+
   void onEvent<AssistantApproval>("assistant-approval", (req) => {
     if (State.paused || State.pendingApproval) {
       void Bridge.approvalDecline(req.requestId);

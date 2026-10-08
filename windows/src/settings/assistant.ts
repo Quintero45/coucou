@@ -230,6 +230,21 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
       ),
     );
 
+    const autonomous = h("button", { class: s.assistantAutonomous ? "switch on" : "switch" });
+    autonomous.addEventListener("click", () => {
+      const next = !autonomous.classList.contains("on");
+      autonomous.classList.toggle("on", next);
+      ctx.get().assistantAutonomous = next;
+      void ctx.save();
+    });
+    body.append(
+      h("div", { class: "row" },
+        h("label", { text: t("Without asking") }),
+        autonomous,
+        h("span", { class: "hint", text: t("ARIA acts without waiting for your click: commands, files, apps, emails, skills and changes to her own code. The island tells you each action and aria.log keeps them. Anything that names her protected core still asks.") }),
+      ),
+    );
+
     const braveFeedback = h("div", {});
     body.append(
       keyRow("Brave Search", "brave-api-key", "BSA…", bravePresent, braveFeedback),
