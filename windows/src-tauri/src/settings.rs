@@ -47,6 +47,9 @@ pub struct Settings {
     /// Read the Cursor agent's events aloud (the island calls speak(text, "cursor")).
     #[serde(default = "default_true")]
     pub speak_cursor: bool,
+    /// Read Grok bot replies aloud (frontend toggle "Leer respuestas en voz alta").
+    #[serde(default = "default_true")]
+    pub read_replies: bool,
 }
 
 fn default_true() -> bool {
@@ -109,6 +112,7 @@ impl Default for Settings {
             grok_bots: Vec::new(),
             voices: BTreeMap::new(),
             speak_cursor: true,
+            read_replies: true,
         }
     }
 }

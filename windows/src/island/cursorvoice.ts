@@ -5,8 +5,9 @@
 
 import { Bridge, onEvent } from "../core/bridge";
 import { redactText } from "../core/botlog";
-import { CMD, callCmd, speakCursorEnabled } from "../core/botcmds";
+import { CMD, callCmd, parseChoices, speakCursorEnabled } from "../core/botcmds";
 import { State } from "../core/state";
+import { BotLive } from "../core/botlive";
 
 interface CursorHook {
   hook_event_name?: string;
@@ -51,8 +52,22 @@ function noticeFor(p: CursorHook): { kind: string; text: string } | null {
       if (msg.trim().endsWith("?")) return { kind: "question", text: `Tengo una pregunta: ${firstLine(msg)}` };
       return null;
     }
-    case "PermissionRequest":
+    case "PermissionRequest": {
+      // A question card (tool "Pregunta", or any request with choices): asked, not approved.
+      const choices = parseChoices(p as unknown as Record<string, unknown>);
+      if (p.tool_name === "Pregunta" || choices) {
+        const command = p.tool_input?.command;
+        const asked = typeof command === "string" ? command : p.message;
+        const q = firstLine(asked);
+        // Up to three short choices are read out; longer lists aren't.
+        const opts = choices?.options.map((o) => o.label) ?? [];
+        const tail = opts.length >= 2 && opts.length <= 3 && opts.every((o) => o.length <= 20)
+          ? ` ¿${opts.slice(0, -1).join(", ")} o ${opts.at(-1)}?`
+          : "";
+        return { kind: "question", text: (q ? `Tengo una pregunta: ${q}` : "Tengo una pregunta.") + tail };
+      }
       return { kind: "approval", text: `Necesito tu aprobación para ${target(p.tool_name ?? "una acción", p.tool_input ?? {})}` };
+    }
     default:
       return null;
   }
@@ -65,16 +80,22 @@ export function registerCursorVoice() {
   registered = true;
   void onEvent<CursorHook>("hook", (p) => {
     if (!p || (p.coucou_agent ?? "").trim().toLowerCase() !== "cursor") return;
-    if (State.paused || !State.settings.showCursorAgent) return;
-    if (!speakCursorEnabled(State.settings.speakCursor)) return;
     const n = noticeFor(p);
     if (!n) return;
+    // Every notice that stays silent says why in coucou.log.
+    const skip = (why: string) => void Bridge.log(`speak cursor skip=${why} kind=${n.kind}`);
+    if (State.paused) return skip("paused");
+    if (!State.settings.showCursorAgent) return skip("hidden");
+    if (!speakCursorEnabled(State.settings.speakCursor)) return skip("speakCursorOff");
     const key = `${n.kind}|${n.text}`;
     const now = Date.now();
-    if (key === last.key && now - last.at < REPEAT_MS) return;
+    if (key === last.key && now - last.at < REPEAT_MS) return skip("dup");
     last = { key, at: now };
     void Bridge.log(`speak cursor kind=${n.kind}`);
     // The notice still shows on the island if the voice fails.
-    callCmd(CMD.speak, { text: n.text, bot: "cursor" }).catch((err) => void Bridge.log(`speak cursor failed: ${String(err)}`));
+    const said = callCmd(CMD.speak, { text: n.text, bot: "cursor" });
+    // «Hablando» on Cursor's avatar while it reads (estimated length).
+    BotLive.markSpeaking("cursor", n.text.length, said);
+    said.catch((err) => void Bridge.log(`speak cursor failed: ${String(err)}`));
   });
 }

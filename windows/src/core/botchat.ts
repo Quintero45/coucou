@@ -7,7 +7,8 @@
 import { Bridge } from "./bridge";
 import { Outbox, botErrorText, toWire, type PendingAttachment } from "./attachments";
 import type { BotDecision } from "./botlog";
-import { readRepliesEnabled, speak } from "./botcmds";
+import { CMD, callCmd, playSound, readRepliesEnabled, speak } from "./botcmds";
+import { BotLive } from "./botlive";
 import { BOT_PREFIX, CURSOR_AGENT_ID, State } from "./state";
 
 /** The Cursor agent's conversation: its prompts, steps and answers, read from its hooks. */
@@ -29,12 +30,22 @@ export type BotChatEntry =
       kind: "me";
       at: number;
       text: string;
-      status: "sending" | "sent" | "error";
+      /** "queued": an order waiting for Cursor to finish its turn (cursorlink.rs). */
+      status: "sending" | "sent" | "error" | "queued";
       note?: string;
       /** What went with it: name and size only, never the bytes. */
       files?: { name: string; size: number }[];
+      /** An order to Cursor that carried a screenshot. */
+      screen?: boolean;
+      /** Sent from the island to Cursor (cursor_send); set to "seen" once its prompt came back through the hooks. */
+      origin?: "island" | "seen";
     }
-  | { id: string; kind: "bot"; at: number; text: string; status: "working" | "done" | "needs" | "error" }
+  | {
+      id: string; kind: "bot"; at: number; text: string; status: "working" | "done" | "needs" | "error";
+      /** A question with choices (botcmds.ts QUESTION_OPTIONS), answered as a normal message. */
+      options?: { label: string; description?: string }[];
+      allowCustom?: boolean;
+    }
   | { id: string; kind: "step"; at: number; text: string }
   /** A file the Bot sent back (bot-attach) or a meeting transcript. Path only, opened by Rust. */
   | { id: string; kind: "file"; at: number; path: string; name: string; mime: string; size: number; source?: "bot" | "meeting"; caption?: string }
@@ -106,8 +117,9 @@ export const BotChat = {
     save(slug);
     State.notify();
     // "Leer respuestas en voz alta" (Ajustes → Voz). Cursor's notices are read by cursorvoice.ts.
-    if (full.kind === "bot" && full.status !== "working" && slug !== CURSOR_CHAT && readRepliesEnabled()) {
-      speak(full.text, slug).catch((err) => void Bridge.log(`speak ${slug} failed: ${String(err)}`));
+    if (full.kind === "bot" && full.status !== "working" && slug !== CURSOR_CHAT) {
+      if (!readRepliesEnabled(State.settings.readReplies)) void Bridge.log(`speak bot=${slug} skip=readRepliesOff`);
+      else speak(full.text, slug).catch((err) => void Bridge.log(`speak bot=${slug} failed: ${String(err)}`));
     }
     return full;
   },
@@ -135,7 +147,7 @@ export const BotChat = {
   },
 
   /** Changes a message in place (its delivery status, an error note). */
-  update(slug: string, id: string, patch: { status?: "sending" | "sent" | "error"; note?: string }) {
+  update(slug: string, id: string, patch: { status?: "sending" | "sent" | "error" | "queued"; note?: string; origin?: "island" | "seen" }) {
     const e = load(slug).find((x) => x.id === id);
     if (!e || e.kind !== "me") return;
     Object.assign(e, patch);
@@ -144,28 +156,120 @@ export const BotChat = {
   },
 };
 
+const QUEUED_NOTE = "En cola: le llega a Cursor cuando termine lo que está haciendo.";
+
+/**
+ * An order for the Cursor agent (cursorlink.rs): while it works it waits for
+ * its next stop; otherwise it is typed into Cursor's chat at once.
+ */
+export async function sendToCursor(text: string, screen: boolean, busy: boolean): Promise<void> {
+  const items = [...Outbox.list(CURSOR_CHAT)];
+  if (!text && items.length === 0) return;
+  const files = items.map((a) => ({ name: a.name, size: a.size }));
+  Outbox.remove(CURSOR_CHAT, items.map((a) => a.key));
+  const entry = BotChat.add(CURSOR_CHAT, {
+    kind: "me", text, status: "sending", origin: "island", ...(files.length ? { files } : {}), ...(screen ? { screen } : {}),
+  });
+  try {
+    const how = await callCmd<string>(CMD.cursorSend, { id: entry.id, text, screen, busy, attachments: items.map(toWire) });
+    BotChat.update(CURSOR_CHAT, entry.id, how === "queued" ? { status: "queued", note: QUEUED_NOTE } : { status: "sent", note: "" });
+  } catch (err) {
+    Outbox.restore(CURSOR_CHAT, items);
+    BotChat.update(CURSOR_CHAT, entry.id, { status: "error", note: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+/** A queued order, typed into Cursor's chat now. */
+export async function cursorOrderNow(id: string): Promise<void> {
+  BotChat.update(CURSOR_CHAT, id, { status: "sending" });
+  try {
+    await callCmd(CMD.cursorOrderNow, { id });
+    BotChat.update(CURSOR_CHAT, id, { status: "sent", note: "" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // "Esa orden ya salió.": no longer queued, a stop already took it.
+    if (ORDER_GONE.test(msg)) BotChat.update(CURSOR_CHAT, id, { status: "sent", note: msg });
+    else BotChat.update(CURSOR_CHAT, id, { status: "queued", note: msg });
+  }
+}
+
+/** cursorlink.rs: the order already left for Cursor (it was sent, not lost). */
+const ORDER_GONE = /^Esa orden ya salió(?: hacia Cursor)?\.$/;
+
+export async function cursorOrderCancel(id: string): Promise<void> {
+  try {
+    await callCmd(CMD.cursorOrderCancel, { id });
+    BotChat.update(CURSOR_CHAT, id, { status: "error", note: "Quitada de la cola: no se envió." });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // "Esa orden ya salió hacia Cursor.": it was sent, say so as is.
+    if (ORDER_GONE.test(msg)) BotChat.update(CURSOR_CHAT, id, { status: "sent", note: msg });
+    // Still queued as far as we know: saying "no se envió" could be false.
+    else BotChat.update(CURSOR_CHAT, id, { status: "queued", note: `No se pudo quitar de la cola: ${msg}` });
+  }
+}
+
+/** cursor-order: a queued order reached Cursor, or Cursor stopped without taking it. */
+export function cursorOrderEvent(p: { id: string; state: string }) {
+  if (p.state === "sent") BotChat.update(CURSOR_CHAT, p.id, { status: "sent", note: "" });
+  else BotChat.update(CURSOR_CHAT, p.id, { note: "Cursor se detuvo sin recibirla. Toca «Enviar ahora» para escribírsela en su chat." });
+}
+
 /**
  * Sends a message to a Grok Bot through the existing path (grokbot_send: POST
  * to the routine's webhook from settings, with its key from the Credential
  * Manager) and records it in the conversation with its delivery status.
  */
-export async function sendToBot(
+/**
+ * What a failed message carried, so «Reintentar» can send it again as it was
+ * (in memory only: after a restart the retry goes without its attachments).
+ */
+const retryAttachments = new Map<string, readonly PendingAttachment[]>();
+
+/** grokbot_send for one «me» entry: «Enviando…» → «Recibido», or the error and «Reintentar». */
+async function deliverEntry(
   slug: string,
+  entryId: string,
   text: string,
-  attachments: readonly PendingAttachment[] = [],
+  attachments: readonly PendingAttachment[],
+  quiet: boolean,
 ): Promise<{ ok: boolean; message: string }> {
-  const files = attachments.map((a) => ({ name: a.name, size: a.size }));
-  const entry = BotChat.add(slug, { kind: "me", text, status: "sending", ...(files.length ? { files } : {}) });
   try {
     const message = await Bridge.grokbotSend(slug, text, attachments.length ? attachments.map(toWire) : undefined);
-    BotChat.update(slug, entry.id, { status: "sent" });
+    retryAttachments.delete(entryId);
+    BotChat.update(slug, entryId, { status: "sent", note: undefined });
+    // The pill says «recibido» for a moment; a ding unless it's one of many (sendToAll).
+    BotLive.markReceived(`${BOT_PREFIX}${slug}`);
+    if (!quiet) playSound("recibido", State.settings);
     return { ok: true, message };
   } catch (err) {
     // too_large, not_connected, http_N… in the owner's words, under the message.
     const message = botErrorText(err);
-    BotChat.update(slug, entry.id, { status: "error", note: message });
+    if (attachments.length) retryAttachments.set(entryId, attachments);
+    BotChat.update(slug, entryId, { status: "error", note: message });
+    if (!quiet) playSound("error", State.settings);
     return { ok: false, message };
   }
+}
+
+export async function sendToBot(
+  slug: string,
+  text: string,
+  attachments: readonly PendingAttachment[] = [],
+  quiet = false,
+): Promise<{ ok: boolean; message: string }> {
+  const files = attachments.map((a) => ({ name: a.name, size: a.size }));
+  const entry = BotChat.add(slug, { kind: "me", text, status: "sending", ...(files.length ? { files } : {}) });
+  return deliverEntry(slug, entry.id, text, attachments, quiet);
+}
+
+/** «Reintentar» under a message that didn't leave: the same entry goes again. */
+export async function retryToBot(slug: string, entryId: string): Promise<{ ok: boolean; message: string }> {
+  const entry = BotChat.list(slug).find((e) => e.id === entryId);
+  if (!entry || entry.kind !== "me" || entry.status !== "error") return { ok: false, message: "" };
+  BotChat.update(slug, entryId, { status: "sending", note: undefined });
+  void Bridge.log(`bot retry bot=${slug}`);
+  return deliverEntry(slug, entryId, entry.text, retryAttachments.get(entryId) ?? [], false);
 }
 
 /**
@@ -206,9 +310,11 @@ export async function sendToAll(
   const bots = State.settings.grokBots;
   void Bridge.log(`todos n=${bots.length} files=${attachments.length}`);
   if (bots.length === 0) return { ok: false, message: "No tienes Bots de Grok conectados", sent: 0, failed: [] };
-  const results = await Promise.all(bots.map(async (b) => ({ bot: b, r: await sendToBot(b.id, text, attachments) })));
+  const results = await Promise.all(bots.map(async (b) => ({ bot: b, r: await sendToBot(b.id, text, attachments, true) })));
   const failed = results.filter((x) => !x.r.ok).map((x) => ({ name: x.bot.name, message: x.r.message }));
   const sent = results.length - failed.length;
+  // One sound for the whole round, not one per Bot.
+  playSound(sent > 0 ? "recibido" : "error", State.settings);
   const head = `Enviado a ${sent} ${sent === 1 ? "bot" : "bots"}`;
   const message = failed.length ? `${head} · ${failed.map((f) => `${f.name}: ${f.message}`).join(" · ")}` : head;
   return { ok: sent > 0, message, sent, failed };

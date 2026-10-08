@@ -144,10 +144,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     const sent = target.bot === "*" ? await sendToAll(target.task) : await sendToGrokBot(target.bot, target.task);
     if (sent.ok) {
       message.content = `✓ ${sent.message}`;
-      Sound.play("finish");
     } else {
       message.content = `⚠ ${sent.message}`;
-      Sound.play("error");
     }
   }
 

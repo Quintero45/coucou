@@ -7,6 +7,16 @@
 //! `allow`, `deny` or `sin-respuesta` (exit codes 0, 1, 2) so the Bot knows
 //! what the owner decided. Every other status is fire-and-forget.
 //!
+//! Questions with buttons: `coucou-hook --bot <name> [--status ask]
+//! --options "A|B::description|C" [--allow-custom] "<question>"`. `|` separates
+//! options, `::` a label from its description, `\|` is a literal pipe; at most
+//! 12 options, labels cut to 60 characters, repeats dropped, an empty label is
+//! refused (exit 64). `--options` alone means `--status ask`. The owner's pick
+//! (or the text typed in "Otra respuesta", only with `--allow-custom`) is
+//! printed with exit 0; Denegar prints `deny` (exit 1); no answer prints
+//! `sin-respuesta` (exit 2). With `--status needs` the buttons are shown in the
+//! Bot's conversation and nothing is waited for.
+//!
 //! Cards on the pill:
 //! - `coucou-hook --step "<text>" --bot <name>`: a progress step (fire and
 //!   forget, exit 0). The app redacts it and keeps ~200 characters.
@@ -19,6 +29,7 @@ use std::sync::mpsc;
 use serde_json::json;
 
 use super::{talk, DECISION_BUDGET, FIRE_AND_FORGET_BUDGET};
+use crate::normalize;
 
 /// The pill id the app gives a Bot of this name: same rule as grokbot.rs.
 pub fn slug(name: &str) -> String {
@@ -62,12 +73,47 @@ struct BotArgs {
     name: String,
     status: &'static str,
     message: String,
+    /// `[{label, description?}]`, already checked; empty without `--options`.
+    options: Vec<serde_json::Value>,
+    allow_custom: bool,
+}
+
+/// `--options "A|B::description|C"`: `|` separates options, `::` a label from
+/// its description, `\|` is a literal `|`. Limits in normalize::clean_options.
+fn parse_options(raw: &str) -> Result<Vec<serde_json::Value>, String> {
+    if raw.trim().is_empty() {
+        return Err("--options necesita al menos una opción: --options \"Sí|No\"".into());
+    }
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut chars = raw.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if chars.peek() == Some(&'|') => {
+                chars.next();
+                current.push('|');
+            }
+            '|' => parts.push(std::mem::take(&mut current)),
+            c => current.push(c),
+        }
+    }
+    parts.push(current);
+    let pairs: Vec<(String, String)> = parts
+        .iter()
+        .map(|p| match p.split_once("::") {
+            Some((label, description)) => (label.to_string(), description.to_string()),
+            None => (p.clone(), String::new()),
+        })
+        .collect();
+    normalize::clean_options(&pairs).map_err(|e| format!("--options: {e}"))
 }
 
 fn parse(args: &[String]) -> Option<Result<BotArgs, String>> {
     let at = args.iter().position(|a| a == "--bot")?;
     let mut name = String::new();
     let mut raw_status = String::new();
+    let mut raw_options: Option<String> = None;
+    let mut allow_custom = false;
     let mut words = Vec::new();
     let mut it = args.iter().enumerate();
     while let Some((i, arg)) = it.next() {
@@ -75,6 +121,10 @@ fn parse(args: &[String]) -> Option<Result<BotArgs, String>> {
             name = it.next().map(|(_, v)| v.clone()).unwrap_or_default();
         } else if arg == "--status" {
             raw_status = it.next().map(|(_, v)| v.clone()).unwrap_or_default();
+        } else if arg == "--options" {
+            raw_options = Some(it.next().map(|(_, v)| v.clone()).unwrap_or_default());
+        } else if arg == "--allow-custom" {
+            allow_custom = true;
         } else {
             words.push(arg.clone());
         }
@@ -83,14 +133,62 @@ fn parse(args: &[String]) -> Option<Result<BotArgs, String>> {
     if id.is_empty() {
         return Some(Err("falta el nombre del Bot: --bot \"Nombre\"".into()));
     }
-    let Some(status) = status(&raw_status) else {
+    // Buttons are a question: --options alone means --status ask.
+    let status = if raw_options.is_some() && raw_status.trim().is_empty() { Some("ask") } else { status(&raw_status) };
+    let Some(status) = status else {
         return Some(Err(format!("estado desconocido: {raw_status} (usa working, done, needs, error o ask)")));
     };
+    let options = match raw_options.as_deref().map(parse_options) {
+        None => Vec::new(),
+        Some(Ok(o)) => o,
+        Some(Err(e)) => return Some(Err(e)),
+    };
+    if !options.is_empty() && status != "ask" && status != "needs" {
+        return Some(Err("--options solo va con --status ask (o needs)".into()));
+    }
+    if allow_custom && options.is_empty() {
+        return Some(Err("--allow-custom necesita --options".into()));
+    }
     let message: String = words.join(" ").trim().chars().take(4000).collect();
     if status == "ask" && message.is_empty() {
         return Some(Err("--status ask necesita la pregunta".into()));
     }
-    Some(Ok(BotArgs { name: name.trim().to_string(), status, message }))
+    Some(Ok(BotArgs { name: name.trim().to_string(), status, message, options, allow_custom }))
+}
+
+/// The line sent to the app for a status call.
+fn status_payload(bot: &BotArgs) -> serde_json::Value {
+    let mut payload = json!({
+        "coucou_agent": format!("bot-{}", slug(&bot.name)),
+        "coucou_bot": bot.name,
+        "message": bot.message,
+        "cwd": "",
+    });
+    if bot.status == "ask" {
+        payload["hook_event_name"] = json!("PermissionRequest");
+        payload["tool_name"] = json!("Pregunta");
+        payload["tool_input"] = json!({ "command": bot.message });
+    } else {
+        payload["hook_event_name"] = json!("BotUpdate");
+        payload["bot_status"] = json!(bot.status);
+    }
+    if !bot.options.is_empty() {
+        payload["options"] = json!(bot.options);
+        payload["allowCustom"] = json!(bot.allow_custom);
+    }
+    payload
+}
+
+/// The island's reply to `--status ask` → what is printed and the exit code.
+/// A pick from the options (or the typed text) is printed as is, exit 0.
+fn verdict(raw: &str) -> (String, i32) {
+    match normalize::parse_reply(raw) {
+        Some(r) if r.decision == "allow" || r.decision == "always" => {
+            (r.answer().map(str::to_string).unwrap_or_else(|| "allow".into()), 0)
+        }
+        Some(r) if r.decision == "deny" => ("deny".into(), 1),
+        _ => ("sin-respuesta".into(), 2),
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -120,10 +218,11 @@ fn parse_card(args: &[String]) -> Option<Result<Card, String>> {
             "--step" => step = it.next().cloned(),
             "--attach" => path = it.next().cloned(),
             "--caption" => caption = it.next().cloned(),
-            // A status means nothing on a card; do not let it leak into the text.
-            "--status" => {
+            // A status or options mean nothing on a card; keep them out of the text.
+            "--status" | "--options" => {
                 it.next();
             }
+            "--allow-custom" => {}
             _ => words.push(arg.clone()),
         }
     }
@@ -220,21 +319,7 @@ pub fn run() -> Option<i32> {
         }
     };
     let asking = bot.status == "ask";
-    let mut payload = json!({
-        "coucou_agent": format!("bot-{}", slug(&bot.name)),
-        "coucou_bot": bot.name,
-        "message": bot.message,
-        "cwd": "",
-    });
-    if asking {
-        payload["hook_event_name"] = json!("PermissionRequest");
-        payload["tool_name"] = json!("Pregunta");
-        payload["tool_input"] = json!({ "command": bot.message });
-    } else {
-        payload["hook_event_name"] = json!("BotUpdate");
-        payload["bot_status"] = json!(bot.status);
-    }
-    let mut line = payload.to_string();
+    let mut line = status_payload(&bot).to_string();
     line.push('\n');
 
     let (tx, rx) = mpsc::channel::<Option<String>>();
@@ -246,20 +331,8 @@ pub fn run() -> Option<i32> {
     if !asking {
         return Some(0);
     }
-    let code = match answer.trim() {
-        "allow" | "always" => {
-            println!("allow");
-            0
-        }
-        "deny" => {
-            println!("deny");
-            1
-        }
-        _ => {
-            println!("sin-respuesta");
-            2
-        }
-    };
+    let (printed, code) = verdict(&answer);
+    println!("{printed}");
     Some(code)
 }
 
@@ -327,6 +400,66 @@ mod tests {
         assert!(parse_card(&args(&["--bot", "V", "--step"])).unwrap().is_err(), "no text");
         assert!(parse_card(&args(&["--bot", "V", "--attach"])).unwrap().is_err(), "no path");
         assert!(parse_card(&args(&["--bot", "V", "--step", "a", "--attach", "b"])).unwrap().is_err());
+    }
+
+    #[test]
+    fn parses_options() {
+        let b = parse(&args(&["--bot", "Ventas", "--options", r"Sí::la buena|No|A\|B|sí", "--allow-custom", "¿Mando", "el", "correo?"]))
+            .unwrap()
+            .unwrap();
+        assert_eq!(b.status, "ask", "--options alone is a question");
+        assert_eq!(b.message, "¿Mando el correo?");
+        assert!(b.allow_custom);
+        assert_eq!(
+            b.options,
+            vec![json!({ "label": "Sí", "description": "la buena" }), json!({ "label": "No" }), json!({ "label": "A|B" })]
+        );
+        let v = status_payload(&b);
+        assert_eq!(v["hook_event_name"], "PermissionRequest");
+        assert_eq!(v["tool_name"], "Pregunta");
+        assert_eq!(v["tool_input"]["command"], "¿Mando el correo?");
+        assert_eq!(v["options"][2]["label"], "A|B");
+        assert_eq!(v["allowCustom"], true);
+
+        let n = parse(&args(&["--bot", "V", "--status", "needs", "--options", "x|y", "¿Cuál?"])).unwrap().unwrap();
+        let v = status_payload(&n);
+        assert_eq!(v["hook_event_name"], "BotUpdate");
+        assert_eq!(v["allowCustom"], false);
+        let plain = status_payload(&parse(&args(&["--bot", "V", "--status", "ask", "¿Sigo?"])).unwrap().unwrap());
+        assert!(plain.get("options").is_none() && plain.get("allowCustom").is_none(), "no options, same card as before");
+        let long = "x".repeat(80);
+        let l = parse(&args(&["--bot", "V", "--options", &long, "¿?"])).unwrap().unwrap();
+        assert_eq!(l.options[0]["label"].as_str().unwrap().chars().count(), 60);
+    }
+
+    #[test]
+    fn rejects_bad_options() {
+        let err = |list: &[&str]| parse(&args(list)).unwrap().is_err();
+        assert!(err(&["--bot", "V", "--options", "A||B", "¿?"]), "empty label");
+        assert!(err(&["--bot", "V", "--options", "A|", "¿?"]), "trailing pipe");
+        assert!(err(&["--bot", "V", "--options", " ", "¿?"]));
+        assert!(err(&["--bot", "V", "--options"]), "no value");
+        assert!(err(&["--bot", "V", "--options", "1|2|3|4|5|6|7|8|9|10|11|12|13", "¿?"]), "more than 12");
+        assert!(!err(&["--bot", "V", "--options", "1|2|3|4|5|6|7|8|9|10|11|12|1", "¿?"]), "12 once repeats are gone");
+        assert!(err(&["--bot", "V", "--options", "A|B"]), "a question is needed");
+        assert!(err(&["--bot", "V", "--status", "done", "--options", "A|B", "x"]));
+        assert!(err(&["--bot", "V", "--allow-custom", "--status", "ask", "¿?"]), "--allow-custom without options");
+        let c = parse_card(&args(&["--step", "Leyendo", "--bot", "V", "--options", "A|B", "--allow-custom"])).unwrap().unwrap();
+        assert_eq!(c, Card::Step { name: "V".into(), text: "Leyendo".into() });
+    }
+
+    #[test]
+    fn exit_contract() {
+        assert_eq!(verdict("allow\n"), ("allow".to_string(), 0));
+        assert_eq!(verdict("always"), ("allow".to_string(), 0));
+        assert_eq!(verdict(r#"{"decision":"allow","answer":"Opción B"}"#), ("Opción B".to_string(), 0));
+        assert_eq!(verdict(r#"{"decision":"allow","answer":"texto libre: mañana"}"#), ("texto libre: mañana".to_string(), 0));
+        assert_eq!(verdict("deny"), ("deny".to_string(), 1));
+        assert_eq!(verdict(r#"{"decision":"deny","answer":"B"}"#), ("deny".to_string(), 1));
+        // Timeout, island closed, Coucou not running: nothing came back.
+        assert_eq!(verdict(""), ("sin-respuesta".to_string(), 2));
+        assert_eq!(verdict("maybe"), ("sin-respuesta".to_string(), 2));
+        assert_eq!(verdict("{not json"), ("sin-respuesta".to_string(), 2));
     }
 
     #[test]

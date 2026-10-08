@@ -7,11 +7,12 @@
 
 import { Bridge, onEvent } from "../core/bridge";
 import { BotChat, CURSOR_CHAT } from "../core/botchat";
+import { CURSOR_WRITE, parseChoices, playSound } from "../core/botcmds";
 import { recordBotApproval, type BotDecision } from "../core/botlog";
 import { buildFileDiff } from "../core/diff";
 import { setApprovalDetail, setQuestionHeight } from "../core/layout";
 import { Sound } from "../core/sound";
-import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPillId, catalogAgent, isHiddenAgent, type QuestionItem } from "../core/state";
+import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPillId, catalogAgent, isHiddenAgent, type AgentTask, type QuestionItem } from "../core/state";
 import { botDetail } from "../views/views";
 import { botReplyBusy } from "../views/integrations";
 import type { Island } from "./island";
@@ -260,12 +261,18 @@ export function registerHookHandlers(island: Island) {
 }
 
 /** The card stopped waiting: put the pill and the view back. */
-function releaseCard(island: Island, agentId: string) {
+/** A long text's first non-empty line, for a card's one-line target. */
+function firstLine(text: string, max = 90): string {
+  const line = text.split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? "";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+function releaseCard(island: Island, agentId: string, next: AgentTask["state"] = "working") {
   State.pendingApproval = null;
   State.pendingQuestion = null;
   State.isPinned = false;
   island.dropPin();
-  State.updateTask(agentId, "working");
+  State.updateTask(agentId, next);
   State.setPillBadge(agentId, null);
   if (State.view === "approval" || State.view === "question") island.setView(State.defaultView());
   State.notify();
@@ -371,7 +378,7 @@ function handleHook(island: Island, payload: HookPayload) {
     void Bridge.approvalAck(requestId);
     State.updateTask(agentId, "question");
     State.isPinned = true;
-    Sound.play("approval");
+    playSound("pregunta", State.settings);
     State.setFocus(agentId);
     island.alert("question");
     pendingTimeout = window.setTimeout(() => {
@@ -397,7 +404,16 @@ function handleHook(island: Island, payload: HookPayload) {
       // The field is `prompt`; reading `message` meant this step was always blank.
       const asked = payload.prompt ?? payload.message;
       if (asked) State.appendStep(agentId, asked.slice(0, 60));
-      if (asked && isCursor) BotChat.add(CURSOR_CHAT, { kind: "me", text: asked.slice(0, 4000), status: "sent" });
+      if (asked && isCursor) {
+        // An order sent from the island comes back here when Cursor takes it.
+        // Only an island order not matched yet: a prompt typed in Cursor (even
+        // the same text again) must still show up as its own message.
+        const mine = [...BotChat.list(CURSOR_CHAT)].reverse().find((e) => e.kind === "me");
+        const fromIsland = mine?.kind === "me" && mine.origin === "island" && mine.status !== "error" &&
+          Date.now() - mine.at < 15 * 60_000 && asked.trim().startsWith(mine.text.trim());
+        if (fromIsland) BotChat.update(CURSOR_CHAT, mine.id, { status: "sent", note: "", origin: "seen" });
+        else BotChat.add(CURSOR_CHAT, { kind: "me", text: asked.slice(0, 4000), status: "sent" });
+      }
       surface("overview", false);
       break;
     }
@@ -461,7 +477,7 @@ function handleHook(island: Island, payload: HookPayload) {
       const final = payload.last_assistant_message ?? payload.message ?? task()?.lastMessage ?? "";
       if (final) State.appendStep(agentId, final.replace(/\s+/g, " ").slice(0, 80));
       if (isCursor && final) cursorSaid(final);
-      Sound.play("finish");
+      playSound("listo", State.settings);
       if (cursorInChat) {
         // Already on screen, in its conversation.
       } else if (focused) surface("finished", true);
@@ -483,7 +499,7 @@ function handleHook(island: Island, payload: HookPayload) {
       ensurePill();
       State.updateTask(agentId, "error");
       if (isCursor) cursorSaid(payload.message || "La sesión falló.", "error");
-      Sound.play("error");
+      playSound("error", State.settings);
       if (cursorInChat) break;
       if (focused) surface("error", true);
       else State.setPillBadge(agentId, "error");
@@ -523,14 +539,18 @@ function handleHook(island: Island, payload: HookPayload) {
       if (message) {
         const status = payload.bot_status ?? "working";
         if (status === "working") BotChat.add(botSlug, { kind: "step", text: message });
-        else BotChat.add(botSlug, { kind: "bot", text: message, status });
+        else {
+          // A question with choices but no relay request: answered as a message.
+          const choices = status === "needs" ? parseChoices(payload as unknown as Record<string, unknown>) : null;
+          BotChat.add(botSlug, { kind: "bot", text: message, status, ...(choices ? { options: choices.options, allowCustom: choices.allowCustom } : {}) });
+        }
       }
       switch (payload.bot_status) {
         case "done":
           State.updateTask(agentId, "finished");
           if (t && message) t.lastMessage = message;
           if (message) State.appendStep(agentId, message.replace(/\s+/g, " ").slice(0, 80));
-          Sound.play("finish");
+          playSound("listo", State.settings);
           if (inChat) {
             // Already on screen, in the conversation.
           } else if (focused) surface("finished", true);
@@ -552,7 +572,7 @@ function handleHook(island: Island, payload: HookPayload) {
           State.updateTask(agentId, "question");
           if (t && message) t.lastMessage = message;
           if (message) State.appendStep(agentId, message.slice(0, 80));
-          Sound.play("approval");
+          playSound("pregunta", State.settings);
           State.setPillBadge(agentId, "approval");
           State.setFocus(agentId);
           surface("overview", true);
@@ -561,7 +581,7 @@ function handleHook(island: Island, payload: HookPayload) {
           State.updateTask(agentId, "error");
           if (t && message) t.lastMessage = message;
           if (message) State.appendStep(agentId, `⚠ ${message.slice(0, 78)}`);
-          Sound.play("error");
+          playSound("error", State.settings);
           if (inChat) break;
           if (focused) surface("error", true);
           else State.setPillBadge(agentId, "error");
@@ -601,28 +621,44 @@ function handleHook(island: Island, payload: HookPayload) {
       // prose; a tool shows its arguments in full under the target line.
       const isBot = agentId.startsWith(BOT_PREFIX);
       const asked = typeof input.command === "string" ? input.command : (payload.message ?? "");
-      const isQuestion = isBot && tool === BOT_QUESTION_TOOL;
+      // "Pregunta": a Bot's --status ask, or Cursor's AskQuestion (normalize.rs);
+      // the question is in tool_input.command.
+      const isQuestion = tool === BOT_QUESTION_TOOL;
+      // "Escribir en Cursor" (cursorlink.rs): the whole order under review,
+      // wrapped and scrollable; the target line is its first line.
+      const isCursorWrite = tool === CURSOR_WRITE.tool;
+      const order = isCursorWrite && typeof input[CURSOR_WRITE.field] === "string" ? String(input[CURSOR_WRITE.field]) : "";
       let detail: string | null = null;
       if (isQuestion) detail = asked.length > 70 ? asked.slice(0, ARGS_MAX) : null;
+      else if (isCursorWrite) detail = order.trim() ? order : null;
       else if (isBot) detail = botArgs(input);
-      setApprovalDetail(!!detail);
+      // Choices (botcmds.ts QUESTION_OPTIONS): one button each, on the taller
+      // card — only on a question card, never on a tool approval.
+      const choices = isQuestion ? parseChoices(payload as unknown as Record<string, unknown>) : null;
+      setApprovalDetail(!!detail || !!choices);
       State.pendingApproval = {
         requestId,
         sessionId: payload.session_id ?? "",
         tool,
-        command: isQuestion ? asked.replace(/\s+/g, " ").trim() : approvalTarget(tool, input),
+        command: isQuestion
+          ? asked.replace(/\s+/g, " ").trim()
+          : isCursorWrite && order.trim()
+            ? firstLine(order)
+            : approvalTarget(tool, input),
         agentId,
         allowAlways: agentId === CLAUDE_ID && suggestions.length > 0,
         detail,
-        detailWrap: isBot,
+        detailWrap: isBot || isQuestion || isCursorWrite,
         toolInput: isBot ? input : null,
+        options: choices?.options ?? null,
+        allowCustom: choices?.allowCustom ?? false,
       };
       // The relay's short ack window closes in 800 ms; everything below this
       // line is synchronous, so the card really is up by the time it lands.
       if (requestId) void Bridge.approvalAck(requestId);
       State.updateTask(agentId, "approval");
       State.isPinned = true;
-      Sound.play("approval");
+      playSound("pregunta", State.settings);
       if (inChat) {
         // Answered right in the conversation (Permitir / Denegar inline).
       } else if (focused) {
@@ -646,7 +682,8 @@ function handleHook(island: Island, payload: HookPayload) {
             decision: "timeout", target: req.command, input: req.toolInput,
           });
         }
-        releaseCard(island, agentId);
+        // A Cursor order nobody approved never left: Cursor isn't working on it.
+        releaseCard(island, agentId, req.tool === CURSOR_WRITE.tool ? "idle" : "working");
       }, 110_000);
       break;
     }

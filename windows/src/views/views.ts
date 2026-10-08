@@ -17,6 +17,8 @@ import { hasChat, sendWithOutbox } from "../core/botchat";
 import { loadBotApprovals, type BotApproval } from "../core/botlog";
 import { BotLive } from "../core/botlive";
 import { renderMarkdown } from "./markdown";
+import { buildChoices } from "./options";
+import { CURSOR_WRITE } from "../core/botcmds";
 
 export interface ViewActions {
   setView(v: IslandViewName): void;
@@ -26,7 +28,8 @@ export interface ViewActions {
   /** The ↗ button: opens whatever the focused pill points at (not on Grok Bots). */
   openTarget(): void;
   openUrl(url: string): void;
-  decide(d: "allow" | "deny" | "always"): void;
+  /** `answer`: the option picked (or text typed) when the request came with choices. */
+  decide(d: "allow" | "deny" | "always", answer?: string): void;
   /** AskUserQuestion: `{ question: label }`, or null to answer in the terminal. */
   answerQuestions(answers: Record<string, string> | null): void;
   showDiff(taskId: string): void;
@@ -172,7 +175,7 @@ function buildOverview(actions: ViewActions): ViewHost {
     back: () => closeDetailAnimated(),
     send: (slug, text) => void sendWithOutbox(slug, text),
     // Exactly the approval card's decide(): audit line, botFx flash, sound.
-    decide: (d) => actions.decide(d),
+    decide: (d, answer) => actions.decide(d, answer),
   });
   const layer = h("div", { class: "bot-detail-layer" }, detail.el);
   layer.style.display = "none";
@@ -298,8 +301,8 @@ function buildOverview(actions: ViewActions): ViewHost {
       left.classList.toggle("bot-tap", isBot && !showDetail);
       if (isBot && task) left.style.setProperty("--bot", task.color);
       else left.style.removeProperty("--bot");
-      // Files dragged over this card go to the Bot (island.ts reads data-bot-drop).
-      if (isBot && task && !showDetail) left.dataset.botDrop = task.id;
+      // Files dragged over this card go to the Bot or Cursor (island.ts reads data-bot-drop).
+      if (task && hasChat(task.id) && !showDetail) left.dataset.botDrop = task.id;
       else delete left.dataset.botDrop;
 
       const replying = isBot && !showDetail && botCanReply(task);
@@ -357,7 +360,7 @@ function buildOverview(actions: ViewActions): ViewHost {
       const noBots = State.settings.grokBots.length === 0;
       // A Bot pill also redraws when its state word changes.
       const pillKey = others
-        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}`)
+        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${BotLive.avatarState(t)}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}`)
         .join("|") + (noBots ? "|+bot" : "");
       if (pillKey !== pillIds) {
         pillIds = pillKey;
@@ -395,7 +398,11 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   const canvas = createMiniBot(task, 24);
   // Grok Bots say what they are doing under their name: trabajando, pregunta,
   // listo, error. Nothing when idle.
-  const phase = task.id.startsWith(BOT_PREFIX) ? botPhase(task.state) : null;
+  const mood = BotLive.avatarState(task);
+  // «Recibido» for a moment after a message reached it (no reply yet).
+  const phase = task.id.startsWith(BOT_PREFIX)
+    ? (mood === "recibido" ? { label: "recibido", color: "#22C55E" } : botPhase(task.state))
+    : null;
   const lbl = phase
     ? h("span", { class: "lbl two" },
         h("span", { class: "lbl-name", text: label, style: `color:${task.color}` }),
@@ -414,6 +421,11 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     canvas,
     lbl,
   );
+  // The avatar's mood (style.css animates the mini-bot's frame, not its canvas).
+  pill.dataset.botState = mood;
+  // Each pill nods on its own rhythm, so a row of them never moves in step.
+  pill.style.setProperty("--nod-delay", `${(Math.random() * 6).toFixed(2)}s`);
+  pill.style.setProperty("--nod-period", `${(6 + Math.random() * 4).toFixed(2)}s`);
   // A Grok Bot pill wears its own colour (Mis Bots de Grok); the state word stays neutral.
   if (task.id.startsWith(BOT_PREFIX)) {
     pill.style.borderColor = `${task.color}99`;
@@ -423,6 +435,11 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     pill.style.setProperty("--bot", task.color);
   } else {
     pill.style.borderColor = `${task.color}24`;
+    // Files dropped on Cursor's pill go with its next order.
+    if (task.id === CURSOR_AGENT_ID) {
+      pill.dataset.botDrop = task.id;
+      pill.style.setProperty("--bot", task.color);
+    }
   }
   pill.addEventListener("mouseenter", () => {
     pill.style.background = `${task.color}2e`;
@@ -492,10 +509,19 @@ function buildApproval(actions: ViewActions): ViewHost {
   const who = h("div");
   const code = h("div", { class: "code" });
   const detail = h("pre", { class: "approval-detail" });
+  // "Escribir en Cursor": the order can be long; «Ver todo» gives it more room.
+  const more = h("button", { class: "link-btn approval-more", text: "Ver todo" });
+  more.addEventListener("click", () => {
+    const open = !detail.classList.contains("open");
+    detail.classList.toggle("open", open);
+    more.textContent = open ? "Ver menos" : "Ver todo";
+  });
   const row = h("div", { class: "actions" });
-  const el = h("div", { class: "view" }, card("amber", stack(116, 16, who, code, detail, row)));
+  const choices = h("div", { class: "approval-choices" });
+  const el = h("div", { class: "view" }, card("amber", stack(116, 16, who, code, detail, more, choices, row)));
   let rowKey = "";
   let detailFor = "";
+  let choicesFor = "";
   return {
     el,
     sync() {
@@ -511,7 +537,7 @@ function buildApproval(actions: ViewActions): ViewHost {
         who.append(agentWho(owner, req.tool === "Pregunta" ? "Bot de Grok · pregunta" : `Bot de Grok · quiere usar ${req.tool}`));
       } else {
         const owner = State.tasks.find((t) => t.id === req?.agentId) ?? State.focusTask;
-        who.append(agentWho(owner, "pide permiso"));
+        who.append(agentWho(owner, req?.tool === "Pregunta" ? "pregunta" : "pide permiso"));
       }
       // The whole point of approving here rather than in the terminal: this line
       // is the command, the file path or the URL being authorised, not just the
@@ -523,16 +549,34 @@ function buildApproval(actions: ViewActions): ViewHost {
         detail.textContent = req?.detail ?? "";
         detail.style.display = req?.detail ? "" : "none";
         detail.classList.toggle("wrap", !!req?.detailWrap);
+        const order = req?.tool === CURSOR_WRITE.tool && !!req.detail;
+        detail.classList.toggle("order", order);
+        detail.classList.remove("open");
+        more.textContent = "Ver todo";
+        more.style.display = order ? "" : "none";
         detail.scrollTop = 0;
       }
       // Built once per request shape. Rebuilding them between a mouse-down and a
       // mouse-up would swallow the click. "Always" only exists when Claude Code
       // suggested a rule to remember — Codex and Cursor have no such thing.
-      const key = req?.allowAlways ? "always" : isBot ? "bot" : "plain";
+      // Choices: one button each (the answer goes with "allow"), built once per request.
+      const hasChoices = !!req?.options?.length;
+      if (choicesFor !== (hasChoices ? req!.requestId : "")) {
+        choicesFor = hasChoices ? req!.requestId : "";
+        clear(choices);
+        if (hasChoices) {
+          choices.append(buildChoices({
+            options: req!.options!, allowCustom: !!req!.allowCustom, onPick: (a) => actions.decide("allow", a),
+          }));
+        }
+        choices.style.display = hasChoices ? "" : "none";
+      }
+      const key = hasChoices ? "choices" : req?.allowAlways ? "always" : isBot ? "bot" : "plain";
       if (rowKey === key) return;
       rowKey = key;
       clear(row);
       row.append(btn(isBot ? "Denegar" : "Rechazar", "secondary", () => actions.decide("deny"), "N"));
+      if (hasChoices) return;
       if (req?.allowAlways) row.append(btn("Siempre", "secondary", () => actions.decide("always"), "A"));
       row.append(btn("Permitir", "primary", () => actions.decide("allow"), "Y"));
     },

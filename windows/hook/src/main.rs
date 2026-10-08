@@ -38,6 +38,8 @@ const FIRE_AND_FORGET_BUDGET: Duration = Duration::from_secs(2);
 const DECISION_BUDGET: Duration = Duration::from_secs(110);
 /// AskUserQuestion is installed with a 130 s timeout; answer a little before.
 const ASK_BUDGET: Duration = Duration::from_secs(125);
+/// Cursor's stop: Coucou answers at once with queued orders, or not at all.
+const FOLLOWUP_BUDGET: Duration = Duration::from_secs(2);
 
 /// Fields that are pointless to forward and can be enormous (a whole file read,
 /// a full command output). The island never shows them.
@@ -74,6 +76,7 @@ fn main() {
     let budget = match ev.kind {
         Kind::Permission => DECISION_BUDGET,
         Kind::Ask => ASK_BUDGET,
+        Kind::Followup => FOLLOWUP_BUDGET,
         Kind::Fire => FIRE_AND_FORGET_BUDGET,
     };
     let waits = ev.kind != Kind::Fire;
@@ -92,6 +95,8 @@ fn main() {
     let reply = raw.as_deref().and_then(normalize::parse_reply);
     if let Some(json) = normalize::output(&ev.agent, ev.kind, reply.as_ref(), &ev.ctx) {
         let mut out = std::io::stdout();
+        // Cursor reads this back through the same wrapper: ASCII-only JSON.
+        let json = if ev.agent == "cursor" { normalize::ascii_json(&json) } else { json };
         let _ = writeln!(out, "{json}");
         let _ = out.flush();
     }
@@ -144,6 +149,10 @@ fn read_event() -> Option<Event> {
     // so existing hook commands keep working unchanged.
     if !agent.is_empty() {
         map.insert("coucou_agent".into(), serde_json::Value::String(agent.clone()));
+    }
+    // Cursor on Windows hands us its text read as ANSI (normalize.rs, repair_mojibake).
+    if agent == "cursor" {
+        map.values_mut().for_each(normalize::repair_mojibake_in);
     }
     let kind = normalize::normalize(map, &agent, &arg_event, approve, ask);
     // Captured before truncation: the answer has to echo these back verbatim.

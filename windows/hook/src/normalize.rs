@@ -21,6 +21,8 @@ pub enum Kind {
     Permission,
     /// Claude Code's AskUserQuestion: wait for the chosen answers.
     Ask,
+    /// Cursor's stop: the island may hand back orders as a `followup_message`.
+    Followup,
 }
 
 /// Cursor events that can carry an approval. They only become a
@@ -80,6 +82,12 @@ pub fn normalize(map: &mut Map<String, Value>, agent: &str, arg_event: &str, app
         if agent == "cursor" {
             cursor_questions_to_claude(map);
             normalize_tool_fields(map);
+            // One single-choice question: a card with one button per option
+            // and "Otra respuesta", answered through approval_decision.
+            if cursor_question_to_choices(map) {
+                map.insert("source_event".into(), json!(raw));
+                return Kind::Ask;
+            }
         }
         map.insert("coucou_kind".into(), json!("ask_user_question"));
         return Kind::Ask;
@@ -153,6 +161,10 @@ pub fn normalize(map: &mut Map<String, Value>, agent: &str, arg_event: &str, app
     normalize_tool_fields(map);
     map.insert("hook_event_name".into(), json!(event));
 
+    if agent == "cursor" && event == "Stop" {
+        map.insert("coucou_kind".into(), json!("cursor_stop"));
+        return Kind::Followup;
+    }
     if event == "PermissionRequest" { Kind::Permission } else { Kind::Fire }
 }
 
@@ -207,6 +219,86 @@ fn cursor_questions_to_claude(map: &mut Map<String, Value>) {
         })
         .unwrap_or_default();
     map.insert("tool_input".into(), json!({ "questions": questions }));
+}
+
+/// At most this many buttons on a question card.
+pub const MAX_OPTIONS: usize = 12;
+/// Longest option label, in characters.
+pub const MAX_LABEL_CHARS: usize = 60;
+const MAX_DESCRIPTION_CHARS: usize = 200;
+
+/// `(label, description)` pairs → the `options` the island reads
+/// (`[{label, description?}]`). Labels are trimmed and cut to 60 characters,
+/// descriptions to 200; a repeated label (ignoring case) is dropped. An empty
+/// label, no options at all, or more than 12 is an error.
+pub fn clean_options(raw: &[(String, String)]) -> Result<Vec<Value>, String> {
+    let mut seen: Vec<String> = Vec::new();
+    let mut out = Vec::new();
+    for (i, (label, description)) in raw.iter().enumerate() {
+        let label: String = label.trim().chars().take(MAX_LABEL_CHARS).collect();
+        let label = label.trim_end();
+        if label.is_empty() {
+            return Err(format!("la opción {} está vacía", i + 1));
+        }
+        let key = label.to_lowercase();
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        let description: String = description.trim().chars().take(MAX_DESCRIPTION_CHARS).collect();
+        let description = description.trim_end();
+        out.push(if description.is_empty() {
+            json!({ "label": label })
+        } else {
+            json!({ "label": label, "description": description })
+        });
+    }
+    if out.is_empty() {
+        return Err("no hay ninguna opción".into());
+    }
+    if out.len() > MAX_OPTIONS {
+        return Err(format!("como máximo {MAX_OPTIONS} opciones (hay {})", out.len()));
+    }
+    Ok(out)
+}
+
+/// A Cursor question already in the island's shape (`cursor_questions_to_claude`)
+/// with exactly one single-choice question becomes a question card with
+/// choices: `Pregunta` with the question in `tool_input.command`, `options` and
+/// `allowCustom: true` at the top. The questions stay in `tool_input` for the
+/// answer (`Context`). Several questions, multi-select, or options that do not
+/// fit (empty, more than 12) keep the step-by-step question card.
+fn cursor_question_to_choices(map: &mut Map<String, Value>) -> bool {
+    let Some(questions) = map.get("tool_input").and_then(|i| i.get("questions")).and_then(Value::as_array).cloned() else {
+        return false;
+    };
+    let [q] = questions.as_slice() else { return false };
+    if q.get("multiSelect").and_then(Value::as_bool) == Some(true) {
+        return false;
+    }
+    let raw: Vec<(String, String)> = q
+        .get("options")
+        .and_then(Value::as_array)
+        .map(|os| {
+            os.iter()
+                .map(|o| {
+                    let s = |k: &str| o.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+                    (s("label"), s("description"))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let Ok(options) = clean_options(&raw) else { return false };
+    let text = q.get("question").and_then(Value::as_str).filter(|s| !s.trim().is_empty());
+    let text = text.or_else(|| q.get("header").and_then(Value::as_str)).unwrap_or("¿Qué prefieres?").to_string();
+    let tool = map.get("tool_name").cloned().unwrap_or(Value::Null);
+    map.insert("source_tool".into(), tool);
+    map.insert("hook_event_name".into(), json!("PermissionRequest"));
+    map.insert("tool_name".into(), json!("Pregunta"));
+    map.insert("tool_input".into(), json!({ "command": text, "questions": questions }));
+    map.insert("options".into(), Value::Array(options));
+    map.insert("allowCustom".into(), json!(true));
+    true
 }
 
 /// Gemini / Antigravity `toolCall`, Cursor `conversation_id` and
@@ -267,11 +359,23 @@ pub fn normalize_tool_fields(map: &mut Map<String, Value>) {
 }
 
 /// The island's reply, as written on the pipe: a bare word (`allow`, `always`,
-/// `deny`) or a JSON line `{"decision":"answer","answers":{…}}`.
+/// `deny`), a JSON line `{"decision":"answer","answers":{…}}`, or, for a
+/// question card with choices, `{"decision":"allow","answer":"…"}` (kept as
+/// `answers: {"answer": …}`; read it with `Reply::answer`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reply {
     pub decision: String,
     pub answers: Value,
+}
+
+impl Reply {
+    /// The option picked (or the text typed) on a question card with choices.
+    pub fn answer(&self) -> Option<&str> {
+        if self.decision != "allow" {
+            return None;
+        }
+        self.answers.get("answer").and_then(Value::as_str).filter(|a| !a.trim().is_empty())
+    }
 }
 
 pub fn parse_reply(raw: &str) -> Option<Reply> {
@@ -282,6 +386,9 @@ pub fn parse_reply(raw: &str) -> Option<Reply> {
     if raw.starts_with('{') {
         let v: Value = serde_json::from_str(raw).ok()?;
         let decision = v.get("decision").and_then(Value::as_str)?.to_string();
+        if let Some(answer) = v.get("answer").and_then(Value::as_str) {
+            return Some(Reply { decision, answers: json!({ "answer": answer }) });
+        }
         return Some(Reply { decision, answers: v.get("answers").cloned().unwrap_or(json!({})) });
     }
     Some(Reply { decision: raw.to_string(), answers: json!({}) })
@@ -318,7 +425,17 @@ pub fn output(agent: &str, kind: Kind, reply: Option<&Reply>, ctx: &Context) -> 
             "gemini" | "antigravity" | "cursor" => Some("{}".into()),
             _ => None,
         },
-        Kind::Ask if agent == "cursor" => Some(cursor_answer(reply).to_string()),
+        Kind::Followup => {
+            let message = reply
+                .filter(|r| r.decision == "followup")
+                .and_then(|r| r.answers.get("message").and_then(Value::as_str))
+                .filter(|m| !m.trim().is_empty());
+            Some(match message {
+                Some(m) => json!({ "followup_message": m }).to_string(),
+                None => "{}".into(),
+            })
+        }
+        Kind::Ask if agent == "cursor" => Some(cursor_answer(reply, ctx).to_string()),
         Kind::Ask => {
             let r = reply?;
             if r.decision != "answer" {
@@ -376,18 +493,26 @@ pub fn output(agent: &str, kind: Kind, reply: Option<&Reply>, ctx: &Context) -> 
 
 /// Cursor's preToolUse can't fill in a question's answers, only allow or deny
 /// the tool. Answered in the island: deny the card and hand the agent the
-/// answers. Anything else: allow, and Cursor shows its own card — an empty
-/// reply would block the tool instead.
-fn cursor_answer(reply: Option<&Reply>) -> Value {
-    let answers: Vec<(String, String)> = reply
-        .filter(|r| r.decision == "answer")
-        .and_then(|r| r.answers.as_object())
-        .map(|a| {
-            a.iter()
-                .map(|(q, v)| (q.clone(), v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())))
-                .collect()
-        })
-        .unwrap_or_default();
+/// answers (Cursor's hook output has no answer field: `agent_message` is the
+/// only text that reaches the model). Anything else — including Rechazar on a
+/// card with choices — allow, and Cursor shows its own card; an empty reply
+/// would block the tool instead.
+fn cursor_answer(reply: Option<&Reply>, ctx: &Context) -> Value {
+    let picked = reply.and_then(Reply::answer).map(|a| {
+        let question = ctx.questions.get(0).and_then(|q| q.get("question")).and_then(Value::as_str).unwrap_or("Pregunta");
+        vec![(question.to_string(), a.to_string())]
+    });
+    let answers: Vec<(String, String)> = picked.unwrap_or_else(|| {
+        reply
+            .filter(|r| r.decision == "answer")
+            .and_then(|r| r.answers.as_object())
+            .map(|a| {
+                a.iter()
+                    .map(|(q, v)| (q.clone(), v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())))
+                    .collect()
+            })
+            .unwrap_or_default()
+    });
     if answers.is_empty() {
         return json!({ "permission": "allow" });
     }
@@ -402,6 +527,75 @@ Do not ask again; continue with these answers:\n{}",
             lines.join("\n")
         ),
     })
+}
+
+// ── Cursor's text, read as ANSI on Windows ────────────────────────────────────
+// Cursor runs a hook through a PowerShell 5.1 wrapper that reads the payload
+// file without `-Encoding`, so as the ANSI code page (Windows-1252 here), and
+// writes it to our stdin as UTF-8: "í" (c3 ad) arrives as "Ã\u{ad}". By then
+// stdin is valid UTF-8, so the text can only be repaired. Conservatively: a
+// string goes back to its 1252 bytes only when it carries the telltale pairs
+// (a UTF-8 lead byte, then a continuation byte) and those bytes are valid
+// UTF-8. Anything else is left exactly as it came.
+
+/// Windows-1252 0x80..=0x9F; the five holes are what .NET decodes them to.
+const CP1252_HIGH: [char; 32] = [
+    '\u{20ac}', '\u{81}', '\u{201a}', '\u{192}', '\u{201e}', '\u{2026}', '\u{2020}', '\u{2021}',
+    '\u{2c6}', '\u{2030}', '\u{160}', '\u{2039}', '\u{152}', '\u{8d}', '\u{17d}', '\u{8f}',
+    '\u{90}', '\u{2018}', '\u{2019}', '\u{201c}', '\u{201d}', '\u{2022}', '\u{2013}', '\u{2014}',
+    '\u{2dc}', '\u{2122}', '\u{161}', '\u{203a}', '\u{153}', '\u{9d}', '\u{17e}', '\u{178}',
+];
+
+fn cp1252_byte(c: char) -> Option<u8> {
+    match c as u32 {
+        0..=0x7F | 0xA0..=0xFF => Some(c as u8),
+        _ => CP1252_HIGH.iter().position(|&h| h == c).map(|i| 0x80 + i as u8),
+    }
+}
+
+/// The original text of a string garbled as above, or None to leave it alone.
+pub fn repair_mojibake(s: &str) -> Option<String> {
+    let chars: Vec<char> = s.chars().collect();
+    let telltale = chars
+        .windows(2)
+        .any(|w| matches!(cp1252_byte(w[0]), Some(0xC2..=0xF4)) && matches!(cp1252_byte(w[1]), Some(0x80..=0xBF)));
+    if !telltale {
+        return None;
+    }
+    let bytes = chars.iter().map(|&c| cp1252_byte(c)).collect::<Option<Vec<u8>>>()?;
+    let fixed = String::from_utf8(bytes).ok()?;
+    (fixed != s).then_some(fixed)
+}
+
+/// `repair_mojibake` on every string in a payload.
+pub fn repair_mojibake_in(value: &mut Value) {
+    match value {
+        Value::String(s) => {
+            if let Some(fixed) = repair_mojibake(s) {
+                *s = fixed;
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(repair_mojibake_in),
+        Value::Object(map) => map.values_mut().for_each(repair_mojibake_in),
+        _ => {}
+    }
+}
+
+/// The same JSON with every non-ASCII character as `\uXXXX`: no code page on
+/// the way back to Cursor (the same wrapper reads our stdout) can garble it.
+pub fn ascii_json(json: &str) -> String {
+    let mut out = String::with_capacity(json.len());
+    for c in json.chars() {
+        if c.is_ascii() {
+            out.push(c);
+        } else {
+            let mut buf = [0u16; 2];
+            for u in c.encode_utf16(&mut buf) {
+                out.push_str(&format!("\\u{u:04x}"));
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -469,11 +663,21 @@ mod tests {
     #[test]
     fn cursor_stop_with_error_is_a_failure() {
         let mut m = obj(json!({ "hook_event_name": "stop", "status": "error" }));
-        normalize(&mut m, "cursor", "", false, false);
+        assert_eq!(normalize(&mut m, "cursor", "", false, false), Kind::Fire);
         assert_eq!(m["hook_event_name"], "StopFailure");
         let mut ok = obj(json!({ "hook_event_name": "stop", "status": "completed" }));
-        normalize(&mut ok, "cursor", "", false, false);
+        assert_eq!(normalize(&mut ok, "cursor", "", false, false), Kind::Followup);
         assert_eq!(ok["hook_event_name"], "Stop");
+        assert_eq!(ok["coucou_kind"], "cursor_stop");
+    }
+
+    #[test]
+    fn cursor_stop_hands_back_queued_orders() {
+        let ctx = Context::default();
+        let orders = parse_reply(r#"{"decision":"followup","answers":{"message":"run the tests"}}"#);
+        let out: Value = serde_json::from_str(&output("cursor", Kind::Followup, orders.as_ref(), &ctx).unwrap()).unwrap();
+        assert_eq!(out["followup_message"], "run the tests");
+        assert_eq!(output("cursor", Kind::Followup, None, &ctx).unwrap(), "{}");
     }
 
     #[test]
@@ -534,6 +738,79 @@ mod tests {
 
         let mut shell = obj(json!({ "hook_event_name": "preToolUse", "tool_name": "Shell" }));
         assert_eq!(normalize(&mut shell, "cursor", "preToolUse", false, true), Kind::Fire);
+    }
+
+    #[test]
+    fn options_are_trimmed_capped_and_deduped() {
+        let p = |items: &[(&str, &str)]| {
+            clean_options(&items.iter().map(|(l, d)| (l.to_string(), d.to_string())).collect::<Vec<_>>())
+        };
+        let out = p(&[(" Sí ", " la buena "), ("No", ""), ("sí", "repetida")]).unwrap();
+        assert_eq!(out, vec![json!({ "label": "Sí", "description": "la buena" }), json!({ "label": "No" })]);
+        let long = "x".repeat(100);
+        assert_eq!(p(&[(long.as_str(), "")]).unwrap()[0]["label"].as_str().unwrap().chars().count(), MAX_LABEL_CHARS);
+        assert!(p(&[("A", ""), ("  ", "")]).is_err(), "empty label");
+        assert!(p(&[]).is_err());
+        let thirteen: Vec<(String, String)> = (0..13).map(|i| (format!("o{i}"), String::new())).collect();
+        assert!(clean_options(&thirteen).is_err());
+        assert_eq!(clean_options(&thirteen[..12]).unwrap().len(), 12);
+    }
+
+    #[test]
+    fn a_single_cursor_question_becomes_a_card_with_choices() {
+        let mut q = obj(json!({
+            "hook_event_name": "preToolUse",
+            "tool_name": "AskQuestion",
+            "tool_input": { "title": "Motor", "questions": [{
+                "prompt": "¿Qué motor?",
+                "options": [{ "id": "a", "label": "Grok", "description": "rápido" }, { "id": "b", "label": "Claude" }],
+            }] },
+        }));
+        assert_eq!(normalize(&mut q, "cursor", "preToolUse", false, true), Kind::Ask);
+        assert_eq!(q["hook_event_name"], "PermissionRequest");
+        assert_eq!(q["tool_name"], "Pregunta");
+        assert_eq!(q["source_tool"], "AskQuestion");
+        assert!(q.get("coucou_kind").is_none(), "not the step-by-step question card");
+        assert_eq!(q["tool_input"]["command"], "¿Qué motor?");
+        assert_eq!(q["options"], json!([{ "label": "Grok", "description": "rápido" }, { "label": "Claude" }]));
+        assert_eq!(q["allowCustom"], true);
+
+        // The pick goes back as the deny reason, the only text Cursor relays.
+        let ctx = Context::from(&q);
+        let picked = parse_reply(r#"{"decision":"allow","answer":"Otro: Gemini"}"#);
+        let out: Value = serde_json::from_str(&output("cursor", Kind::Ask, picked.as_ref(), &ctx).unwrap()).unwrap();
+        assert_eq!(out["permission"], "deny");
+        assert!(out["agent_message"].as_str().unwrap().contains("¿Qué motor? → Otro: Gemini"));
+        // Rechazar, a bare allow, or nothing: Cursor shows its own card, as before.
+        for reply in [None, parse_reply("deny"), parse_reply("allow")] {
+            assert_eq!(output("cursor", Kind::Ask, reply.as_ref(), &ctx).unwrap(), r#"{"permission":"allow"}"#);
+        }
+    }
+
+    #[test]
+    fn multi_select_or_several_cursor_questions_keep_the_question_card() {
+        let multi = json!({ "hook_event_name": "preToolUse", "tool_name": "AskQuestion", "tool_input": { "questions": [
+            { "prompt": "¿Cuáles?", "options": ["a", "b"], "allow_multiple": true } ] } });
+        let two = json!({ "hook_event_name": "preToolUse", "tool_name": "AskQuestion", "tool_input": { "questions": [
+            { "prompt": "¿Uno?", "options": ["a"] }, { "prompt": "¿Dos?", "options": ["b"] } ] } });
+        for v in [multi, two] {
+            let mut m = obj(v);
+            assert_eq!(normalize(&mut m, "cursor", "preToolUse", false, true), Kind::Ask);
+            assert_eq!(m["coucou_kind"], "ask_user_question");
+            assert!(m.get("options").is_none());
+        }
+    }
+
+    #[test]
+    fn an_answer_only_counts_with_allow() {
+        let r = parse_reply(r#"{"decision":"allow","answer":"B"}"#).unwrap();
+        assert_eq!(r.answer(), Some("B"));
+        assert_eq!(parse_reply("allow").unwrap().answer(), None);
+        assert_eq!(parse_reply(r#"{"decision":"deny","answer":"B"}"#).unwrap().answer(), None);
+        // A Claude Code tool approved through a card with choices is a plain allow.
+        let ctx = Context::default();
+        let out: Value = serde_json::from_str(&output("", Kind::Permission, Some(&r), &ctx).unwrap()).unwrap();
+        assert_eq!(out, json!({"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}));
     }
 
     #[test]
@@ -606,5 +883,53 @@ mod tests {
         assert_eq!(out["hookSpecificOutput"]["permissionDecision"], "allow");
         assert_eq!(out["hookSpecificOutput"]["updatedInput"]["answers"]["Which?"], "This one");
         assert!(output("", Kind::Ask, None, &ctx).is_none());
+    }
+
+    /// What Cursor's wrapper does to a text: its UTF-8 bytes read as Windows-1252.
+    fn garble(s: &str) -> String {
+        s.bytes().map(|b| if (0x80..=0x9F).contains(&b) { CP1252_HIGH[(b - 0x80) as usize] } else { b as char }).collect()
+    }
+
+    #[test]
+    fn mojibake_from_cursor_is_repaired() {
+        let seen = "S\u{c3}\u{ad}, te entiendo, y ya lo agregu\u{c3}\u{a9} al plan";
+        assert_eq!(garble("Sí, te entiendo, y ya lo agregué al plan"), seen);
+        assert_eq!(repair_mojibake(seen).as_deref(), Some("Sí, te entiendo, y ya lo agregué al plan"));
+        for text in ["¿Qué tal? año, pingüino, Ángel, “comillas” — … 😀 €", "Á Í Ï Ð Ý ß ÿ", "東京 ok"] {
+            assert_eq!(repair_mojibake(&garble(text)).as_deref(), Some(text), "{text}");
+        }
+    }
+
+    #[test]
+    fn good_text_is_left_alone() {
+        for text in [
+            "plain ascii",
+            "café, Sí, agregué",       // real accents: their 1252 bytes are not UTF-8
+            "precio 5Ã",                // no continuation after the lead
+            "Ã©Ã",                      // round trip is not valid UTF-8
+            "Ã© → listo",               // → is not in Windows-1252: not from the wrapper
+            "😀 €",
+            "",
+        ] {
+            assert_eq!(repair_mojibake(text), None, "{text}");
+        }
+        // Already repaired text stays repaired.
+        assert_eq!(repair_mojibake("Sí, agregué"), None);
+    }
+
+    #[test]
+    fn every_string_of_a_payload_is_repaired() {
+        let mut v = json!({ "text": garble("Sí"), "n": 1, "a": [garble("¿Qué?"), "ok"], "o": { "k": garble("año") } });
+        repair_mojibake_in(&mut v);
+        assert_eq!(v, json!({ "text": "Sí", "n": 1, "a": ["¿Qué?", "ok"], "o": { "k": "año" } }));
+    }
+
+    #[test]
+    fn replies_to_cursor_are_ascii_json() {
+        let json = json!({ "followup_message": "Sí, añade 😀" }).to_string();
+        let ascii = ascii_json(&json);
+        assert!(ascii.is_ascii());
+        assert_eq!(ascii, r#"{"followup_message":"S\u00ed, a\u00f1ade \ud83d\ude00"}"#);
+        assert_eq!(serde_json::from_str::<Value>(&ascii).unwrap(), serde_json::from_str::<Value>(&json).unwrap());
     }
 }

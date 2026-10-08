@@ -12,10 +12,11 @@ import {
 import { Sound } from "../core/sound";
 import { recordBotApproval } from "../core/botlog";
 import { Outbox, attachPaths, botErrorText } from "../core/attachments";
-import { sendToAll } from "../core/botchat";
+import { chatSlug, hasChat, sendToAll } from "../core/botchat";
 import { saveSettingsMerged } from "../core/savesettings";
 import { BotLive } from "../core/botlive";
 import { registerBotEvents } from "./botevents";
+import { APPROVAL_ANSWER, CURSOR_WRITE, callCmd } from "../core/botcmds";
 import { registerCursorVoice } from "./cursorvoice";
 import { ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
@@ -216,13 +217,23 @@ export class Island {
         State.notify();
       },
       botReplyFocus: (on) => this.holdForReply(on),
-      decide: (d) => {
+      decide: (d, answer) => {
         const req = State.pendingApproval;
-        void Bridge.log(`decide ${d} req=${req?.requestId ?? "none"}`);
+        // The chosen option / typed answer stays out of the log (it may be anything).
+        void Bridge.log(`decide ${d}${answer != null ? " answer" : ""} req=${req?.requestId ?? "none"}`);
         if (!req) return;
         if (d === "always" && !req.allowAlways) return;
+        // With choices on the card, a bare "allow" (Y key) would answer nothing.
+        if (d === "allow" && answer == null && req.options?.length) return;
         Sound.play(d === "deny" ? "blip" : "approve");
-        void Bridge.approvalDecision(req.requestId, d);
+        if (answer != null && d === "allow") {
+          // Same road as Permitir, carrying the choice (botcmds.ts APPROVAL_ANSWER).
+          void callCmd(APPROVAL_ANSWER.cmd, {
+            requestId: req.requestId, decision: APPROVAL_ANSWER.decision, [APPROVAL_ANSWER.field]: answer,
+          }).catch(() => {});
+        } else {
+          void Bridge.approvalDecision(req.requestId, d);
+        }
         if (req.agentId.startsWith(BOT_PREFIX)) {
           recordBotApproval({
             bot: req.agentId.slice(BOT_PREFIX.length),
@@ -241,7 +252,9 @@ export class Island {
           this.setView("prompt");
           return;
         }
-        State.updateTask(req.agentId, "working");
+        // A refused "Escribir en Cursor" never reached Cursor: its pill goes
+        // back to rest instead of «trabajando».
+        State.updateTask(req.agentId, req.tool === CURSOR_WRITE.tool && d === "deny" ? "idle" : "working");
         State.setPillBadge(req.agentId, null);
         this.setView(State.defaultView());
       },
@@ -327,6 +340,7 @@ export class Island {
       this.greetingCanvas,
       this.uploadCanvas.el,
       this.contentEl,
+      this.uploadCanvas.overlay,
     );
     this.islandEl = h(
       "div",
@@ -612,8 +626,8 @@ export class Island {
   private hasBotTargets(): boolean {
     if (State.mode === "expanded" && State.view === "overview" && botDetail.id) return true;
     const focus = State.focusTask;
-    if (focus?.id.startsWith(BOT_PREFIX)) return true;
-    return State.otherTasks.slice(0, 4).some((t) => t.id.startsWith(BOT_PREFIX));
+    if (focus && hasChat(focus.id)) return true;
+    return State.otherTasks.slice(0, 4).some((t) => hasChat(t.id));
   }
 
   /**
@@ -816,7 +830,7 @@ export class Island {
   }
 
   private dropOnBot(id: string, paths: string[]) {
-    const slug = id.slice(BOT_PREFIX.length);
+    const slug = chatSlug(id);
     if (botDetail.id !== id) this.actions.openBotDetail(id);
     else void Bridge.focusWindow(true);
     void attachPaths(slug, paths).then(() => {
@@ -1203,7 +1217,7 @@ export class Island {
 
     const uploadActive = this.uploadActive;
     if (uploadActive) this.uploadCanvas.draw(UploadSeq.frame(), nowMs / 1000);
-    this.uploadCanvas.el.classList.toggle("on", uploadActive);
+    this.uploadCanvas.setActive(uploadActive);
     this.viewsEl.classList.toggle("hidden-by-upload", uploadActive);
 
     tickMiniBots(dt);
@@ -1324,6 +1338,8 @@ export class Island {
 
   private syncDom() {
     const expanded = State.mode === "expanded";
+    // style.css runs the avatars' looping moods only while expanded (zero cost hidden).
+    if (this.islandEl.dataset.mode !== State.mode) this.islandEl.dataset.mode = State.mode;
     const greetingActive = expanded && State.view === "greeting";
 
     this.contentEl.style.opacity = expanded && !greetingActive ? "1" : "0";

@@ -4,6 +4,7 @@
 import "./settings.css";
 import { assistantSection, connectionsSection, coreSection, grokBotsSection, skillsSection } from "./assistant";
 import { voiceSection } from "./voice";
+import { soundsSection } from "./sounds";
 import { saveSettingsMerged } from "../core/savesettings";
 import { Bridge, onEvent, type HookStatus, type HookTarget } from "../core/bridge";
 import { AGENT_PILLS, DEFAULT_SETTINGS, isHiddenAgent, type Settings } from "../core/state";
@@ -518,6 +519,7 @@ async function main() {
     assistant,
     bots,
     voiceSection(settings.grokBots, settings.voices ?? {}, { get: () => settings, save }),
+    soundsSection({ get: () => settings, save }),
     connections,
     skills,
     ...shownAgents.map((def, i) => hooksSection(def, statuses[i])),

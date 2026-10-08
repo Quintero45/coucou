@@ -23,16 +23,20 @@ use crate::{grokbot, log, platform, secrets, settings};
 const PIPER_URL: &str = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip";
 const PIPER_ZIP: &str = "piper_windows_amd64.zip";
 const PIPER_VOICES_BASE: &str = "https://huggingface.co/rhasspy/piper-voices/resolve/main";
-pub const DEFAULT_VOICE: &str = "piper:es_MX-claude-high";
+/// Microsoft Edge neural voices (free "Read aloud" service) are the default;
+/// Piper stays as the offline fallback.
+pub const DEFAULT_VOICE: &str = "edge:es-CO-SalomeNeural";
+/// Spoken when Edge cannot be reached (installed with the app's first voice).
+const PIPER_FALLBACK_VOICE: &str = "piper:es_MX-ald-medium";
 /// Pseudo-bot id for the Cursor agent: not a Grok Bot, but it has a voice too.
 pub const CURSOR_ID: &str = "cursor";
 /// Default voice per Bot *name* (case-insensitive) when settings.voices has no entry.
 const NAMED_DEFAULTS: &[(&str, &str)] = &[
-    ("aegon", "piper:es_MX-ald-medium"),
-    ("aerys", "piper:es_MX-claude-high"),
-    ("daemond", "piper:es_ES-davefx-medium"),
+    ("aegon", "edge:es-CO-GonzaloNeural"),
+    ("aerys", "edge:es-CO-SalomeNeural"),
+    ("daemond", "edge:es-MX-JorgeNeural"),
 ];
-const CURSOR_DEFAULT_VOICE: &str = "piper:es_AR-daniela-high";
+const CURSOR_DEFAULT_VOICE: &str = "edge:es-MX-DaliaNeural";
 const PREVIEW_TEXT: &str = "Hola, soy tu asistente. Así sueno cuando te leo las respuestas.";
 /// Longest text read aloud in one go.
 const MAX_SPEAK_CHARS: usize = 3000;
@@ -76,6 +80,602 @@ const ELEVENLABS_FALLBACK: &[(&str, &str)] = &[
     ("pNInz6obpgDQGcFmaJgB", "Adam"),
     ("ErXwobaYiN019PkySvjV", "Antoni"),
 ];
+
+// ── Microsoft Edge neural voices ──────────────────────────────────────────────
+
+mod edge {
+    //! The free Microsoft Edge "Read aloud" service, spoken the way the edge-tts
+    //! project (rany2/edge-tts: constants.py, drm.py, communicate.py) does: a
+    //! WebSocket to speech.platform.bing.com with the TrustedClientToken, the
+    //! Sec-MS-GEC token (SHA-256 of the 5-minute-rounded Windows file time plus
+    //! the token) and Sec-MS-GEC-Version, then `speech.config` + SSML, collecting
+    //! the `Path:audio` binary frames until `turn.end`. Nothing here is secret.
+
+    use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+    use std::sync::{Arc, OnceLock};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    use futures_util::{SinkExt, StreamExt};
+    use sha2::{Digest, Sha256};
+    use tokio::net::TcpStream;
+    use tokio_rustls::rustls;
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    use tokio_tungstenite::tungstenite::http::HeaderValue;
+    use tokio_tungstenite::tungstenite::{Error as WsError, Message};
+
+    pub const TRUSTED_CLIENT_TOKEN: &str = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+    const HOST: &str = "speech.platform.bing.com";
+    const BASE: &str = "speech.platform.bing.com/consumer/speech/synthesize/readaloud";
+    /// edge-tts constants.py (CHROMIUM_FULL_VERSION), October 2026.
+    const CHROMIUM_FULL_VERSION: &str = "143.0.3650.75";
+    const ORIGIN: &str = "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold";
+    const WIN_EPOCH_S: u64 = 11_644_473_600;
+    /// The service caps one SSML request; longer text goes in several turns.
+    const MAX_CHUNK_BYTES: usize = 4096;
+    /// The free endpoint refuses riff/raw PCM ("Unsupported Edge output format",
+    /// checked October 2026); edge-tts' own MP3 format works.
+    pub const OUTPUT_FORMAT: &str = "audio-24khz-48kbitrate-mono-mp3";
+
+    /// Seconds to add to the PC clock (learnt from the server's Date on a 403).
+    static CLOCK_SKEW_S: AtomicI64 = AtomicI64::new(0);
+
+    fn chromium_major() -> &'static str {
+        CHROMIUM_FULL_VERSION.split('.').next().unwrap_or("143")
+    }
+
+    pub fn sec_ms_gec_version() -> String {
+        format!("1-{CHROMIUM_FULL_VERSION}")
+    }
+
+    fn user_agent() -> String {
+        let m = chromium_major();
+        format!(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{m}.0.0.0 Safari/537.36 Edg/{m}.0.0.0"
+        )
+    }
+
+    fn unix_now() -> i64 {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+        now + CLOCK_SKEW_S.load(Ordering::Relaxed)
+    }
+
+    /// drm.py generate_sec_ms_gec: Windows file time (100 ns ticks since 1601)
+    /// rounded down to 5 minutes, then SHA-256(ticks + token), uppercase hex.
+    pub fn sec_ms_gec_at(unix_s: i64) -> String {
+        let mut secs = (unix_s.max(0) as u64) + WIN_EPOCH_S;
+        secs -= secs % 300;
+        let ticks = secs as u128 * 10_000_000;
+        let digest = Sha256::digest(format!("{ticks}{TRUSTED_CLIENT_TOKEN}").as_bytes());
+        digest.iter().map(|b| format!("{b:02X}")).collect()
+    }
+
+    pub fn sec_ms_gec() -> String {
+        sec_ms_gec_at(unix_now())
+    }
+
+    /// 32 uppercase hex chars, fresh per connection (drm.py generate_muid).
+    fn random_hex() -> String {
+        static N: AtomicU64 = AtomicU64::new(0);
+        let seed = format!(
+            "{:?}{}{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default(),
+            std::process::id(),
+            N.fetch_add(1, Ordering::Relaxed)
+        );
+        Sha256::digest(seed.as_bytes())[..16].iter().map(|b| format!("{b:02X}")).collect()
+    }
+
+    fn connect_id() -> String {
+        random_hex().to_lowercase()
+    }
+
+    const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    fn civil_from_days(z: i64) -> (i64, u32, u32) {
+        let z = z + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z.rem_euclid(146_097);
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+        let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+        (yoe + era * 400 + if m <= 2 { 1 } else { 0 }, m, d)
+    }
+
+    fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+        let y = if m <= 2 { y - 1 } else { y };
+        let era = y.div_euclid(400);
+        let yoe = y.rem_euclid(400);
+        let m = m as i64;
+        let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d as i64 - 1;
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        era * 146_097 + doe - 719_468
+    }
+
+    /// communicate.py date_to_string: JavaScript-style, in UTC.
+    pub fn date_string_at(unix_s: i64) -> String {
+        let days = unix_s.div_euclid(86_400);
+        let rem = unix_s.rem_euclid(86_400);
+        let (y, m, d) = civil_from_days(days);
+        format!(
+            "{} {} {:02} {} {:02}:{:02}:{:02} GMT+0000 (Coordinated Universal Time)",
+            DAYS[days.rem_euclid(7) as usize],
+            MONTHS[(m - 1) as usize],
+            d,
+            y,
+            rem / 3600,
+            rem % 3600 / 60,
+            rem % 60
+        )
+    }
+
+    /// RFC 2616 date (`Wed, 07 Oct 2026 16:48:00 GMT`) to unix seconds.
+    pub fn parse_http_date(s: &str) -> Option<i64> {
+        let mut parts = s.split_whitespace().skip(1);
+        let day: u32 = parts.next()?.parse().ok()?;
+        let month = MONTHS.iter().position(|m| Some(*m) == parts.clone().next())? as u32 + 1;
+        parts.next();
+        let year: i64 = parts.next()?.parse().ok()?;
+        let mut hms = parts.next()?.split(':').map(|x| x.parse::<i64>().ok());
+        let (h, mi, se) = (hms.next()??, hms.next()??, hms.next()??);
+        Some(days_from_civil(year, month, day) * 86_400 + h * 3600 + mi * 60 + se)
+    }
+
+    /// `es-CO-SalomeNeural` → `Microsoft Server Speech Text to Speech Voice (es-CO, SalomeNeural)`.
+    pub fn full_voice_name(short: &str) -> String {
+        let mut it = short.splitn(3, '-');
+        let (lang, mut region, mut name) = match (it.next(), it.next(), it.next()) {
+            (Some(l), Some(r), Some(n)) => (l.to_string(), r.to_string(), n.to_string()),
+            _ => return short.to_string(),
+        };
+        if let Some(i) = name.find('-') {
+            region = format!("{region}-{}", &name[..i]);
+            name = name[i + 1..].to_string();
+        }
+        format!("Microsoft Server Speech Text to Speech Voice ({lang}-{region}, {name})")
+    }
+
+    pub fn valid_short_name(s: &str) -> bool {
+        let mut it = s.splitn(3, '-');
+        let (Some(l), Some(r), Some(n)) = (it.next(), it.next(), it.next()) else { return false };
+        s.len() <= 80
+            && l.len() >= 2
+            && l.chars().all(|c| c.is_ascii_lowercase())
+            && r.len() >= 2
+            && r.chars().all(|c| c.is_ascii_uppercase())
+            && n.ends_with("Neural")
+            && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+    }
+
+    /// remove_incompatible_characters + xml escape (&, <, >), as edge-tts does.
+    fn escape(text: &str) -> String {
+        let mut out = String::with_capacity(text.len());
+        for c in text.chars() {
+            match c {
+                '&' => out.push_str("&amp;"),
+                '<' => out.push_str("&lt;"),
+                '>' => out.push_str("&gt;"),
+                c if matches!(c as u32, 0..=8 | 11..=12 | 14..=31) => out.push(' '),
+                c => out.push(c),
+            }
+        }
+        out
+    }
+
+    /// Splits escaped text in pieces of at most MAX_CHUNK_BYTES, at a space when
+    /// possible, never inside a character or an XML entity.
+    fn split(text: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut rest = text.trim();
+        while rest.len() > MAX_CHUNK_BYTES {
+            let mut cut = MAX_CHUNK_BYTES;
+            while !rest.is_char_boundary(cut) {
+                cut -= 1;
+            }
+            if let Some(space) = rest[..cut].rfind(['\n', ' ']) {
+                if space > 0 {
+                    cut = space;
+                }
+            }
+            if let Some(amp) = rest[..cut].rfind('&') {
+                if !rest[amp..cut].contains(';') {
+                    cut = amp.max(1);
+                }
+            }
+            let piece = rest[..cut].trim();
+            if !piece.is_empty() {
+                out.push(piece.to_string());
+            }
+            rest = rest[cut..].trim_start();
+        }
+        if !rest.is_empty() {
+            out.push(rest.to_string());
+        }
+        out
+    }
+
+    fn tls_config() -> Arc<rustls::ClientConfig> {
+        static CONFIG: OnceLock<Arc<rustls::ClientConfig>> = OnceLock::new();
+        CONFIG
+            .get_or_init(|| {
+                let mut roots = rustls::RootCertStore::empty();
+                roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+                let provider = Arc::new(rustls::crypto::ring::default_provider());
+                let config = rustls::ClientConfig::builder_with_provider(provider)
+                    .with_safe_default_protocol_versions()
+                    .expect("rustls protocol versions")
+                    .with_root_certificates(roots)
+                    .with_no_client_auth();
+                Arc::new(config)
+            })
+            .clone()
+    }
+
+    type Socket = tokio_tungstenite::WebSocketStream<tokio_rustls::client::TlsStream<TcpStream>>;
+
+    enum ConnectError {
+        /// 403 with the server's clock: retry once with the skew corrected.
+        Skew(i64),
+        Other(String),
+    }
+
+    async fn connect_once() -> Result<Socket, ConnectError> {
+        use ConnectError::Other;
+        let url = format!(
+            "wss://{BASE}/edge/v1?TrustedClientToken={TRUSTED_CLIENT_TOKEN}&ConnectionId={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
+            connect_id(),
+            sec_ms_gec(),
+            sec_ms_gec_version()
+        );
+        let mut request = url.into_client_request().map_err(|e| Other(e.to_string()))?;
+        let headers = request.headers_mut();
+        let ua = user_agent();
+        let muid = format!("muid={};", random_hex());
+        for (k, v) in [
+            ("Pragma", "no-cache"),
+            ("Cache-Control", "no-cache"),
+            ("Origin", ORIGIN),
+            ("User-Agent", ua.as_str()),
+            ("Accept-Encoding", "gzip, deflate, br, zstd"),
+            ("Accept-Language", "en-US,en;q=0.9"),
+            ("Cookie", muid.as_str()),
+        ] {
+            headers.insert(k, HeaderValue::from_str(v).map_err(|e| Other(e.to_string()))?);
+        }
+        let tcp = tokio::time::timeout(Duration::from_secs(10), TcpStream::connect((HOST, 443)))
+            .await
+            .map_err(|_| Other("tiempo de conexión agotado".into()))?
+            .map_err(|e| Other(format!("sin conexión: {e}")))?;
+        let _ = tcp.set_nodelay(true);
+        let domain = rustls::pki_types::ServerName::try_from(HOST).map_err(|e| Other(e.to_string()))?.to_owned();
+        let tls = tokio::time::timeout(Duration::from_secs(10), tokio_rustls::TlsConnector::from(tls_config()).connect(domain, tcp))
+            .await
+            .map_err(|_| Other("TLS: tiempo agotado".into()))?
+            .map_err(|e| Other(format!("TLS: {e}")))?;
+        match tokio::time::timeout(Duration::from_secs(10), tokio_tungstenite::client_async(request, tls)).await {
+            Err(_) => Err(Other("WebSocket: tiempo agotado".into())),
+            Ok(Ok((socket, _))) => Ok(socket),
+            Ok(Err(WsError::Http(response))) => {
+                let status = response.status().as_u16();
+                let server = response.headers().get("date").and_then(|d| d.to_str().ok()).and_then(parse_http_date);
+                match (status, server) {
+                    (403, Some(server)) => Err(ConnectError::Skew(server - unix_now())),
+                    _ => Err(Other(format!("el servicio respondió HTTP {status}"))),
+                }
+            }
+            Ok(Err(e)) => Err(Other(format!("WebSocket: {e}"))),
+        }
+    }
+
+    async fn connect() -> Result<Socket, String> {
+        match connect_once().await {
+            Ok(s) => Ok(s),
+            Err(ConnectError::Other(e)) => Err(e),
+            Err(ConnectError::Skew(skew)) => {
+                // drm.py handle_client_response_error: trust the server's clock.
+                CLOCK_SKEW_S.fetch_add(skew, Ordering::Relaxed);
+                connect_once().await.map_err(|e| match e {
+                    ConnectError::Other(e) => e,
+                    ConnectError::Skew(_) => "el servicio rechazó el token (HTTP 403)".into(),
+                })
+            }
+        }
+    }
+
+    fn header_path(headers: &[u8]) -> Option<String> {
+        String::from_utf8_lossy(headers)
+            .split("\r\n")
+            .find_map(|line| line.strip_prefix("Path:").map(|v| v.trim().to_string()))
+    }
+
+    /// One SSML turn: the audio bytes the service streams back.
+    async fn turn(voice: &str, escaped: &str) -> Result<Vec<u8>, String> {
+        let mut ws = connect().await?;
+        let config = format!(
+            "X-Timestamp:{}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n\
+             {{\"context\":{{\"synthesis\":{{\"audio\":{{\"metadataoptions\":{{\
+             \"sentenceBoundaryEnabled\":\"true\",\"wordBoundaryEnabled\":\"false\"}},\
+             \"outputFormat\":\"{OUTPUT_FORMAT}\"}}}}}}}}\r\n",
+            date_string_at(unix_now())
+        );
+        let ssml = format!(
+            "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>\
+             <voice name='{}'><prosody pitch='+0Hz' rate='+0%' volume='+0%'>{escaped}</prosody></voice></speak>",
+            full_voice_name(voice)
+        );
+        let request = format!(
+            "X-RequestId:{}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:{}Z\r\nPath:ssml\r\n\r\n{ssml}",
+            connect_id(),
+            date_string_at(unix_now())
+        );
+        ws.send(Message::text(config)).await.map_err(|e| format!("envío: {e}"))?;
+        ws.send(Message::text(request)).await.map_err(|e| format!("envío: {e}"))?;
+        let mut audio = Vec::new();
+        loop {
+            let next = tokio::time::timeout(Duration::from_secs(30), ws.next())
+                .await
+                .map_err(|_| "el servicio dejó de responder (30 s)".to_string())?;
+            let msg = match next {
+                None => return Err("conexión cerrada antes de turn.end".into()),
+                Some(Err(e)) => return Err(format!("WebSocket: {e}")),
+                Some(Ok(m)) => m,
+            };
+            match msg {
+                Message::Text(t) => {
+                    let t: &str = t.as_ref();
+                    let head = t.split("\r\n\r\n").next().unwrap_or("");
+                    if header_path(head.as_bytes()).as_deref() == Some("turn.end") {
+                        break;
+                    }
+                }
+                Message::Binary(b) => {
+                    let b: &[u8] = b.as_ref();
+                    if b.len() < 2 {
+                        return Err("trama binaria sin cabecera".into());
+                    }
+                    let hl = u16::from_be_bytes([b[0], b[1]]) as usize;
+                    if 2 + hl > b.len() {
+                        return Err("cabecera binaria más larga que la trama".into());
+                    }
+                    if header_path(&b[2..2 + hl]).as_deref() != Some("audio") {
+                        return Err("trama binaria que no es audio".into());
+                    }
+                    audio.extend_from_slice(&b[2 + hl..]);
+                }
+                Message::Close(frame) => {
+                    return Err(format!("el servicio cerró: {}", frame.map(|f| f.reason.to_string()).unwrap_or_default()))
+                }
+                _ => {}
+            }
+        }
+        let _ = ws.close(None).await;
+        if audio.is_empty() {
+            return Err("no llegó audio".into());
+        }
+        Ok(audio)
+    }
+
+    /// MP3 (24 kHz mono, 48 kbit/s) for `text` in `voice` (`es-CO-SalomeNeural`).
+    /// Text over 4096 bytes takes several turns; MP3 frames simply concatenate.
+    pub async fn synth_mp3(voice: &str, text: &str) -> Result<Vec<u8>, String> {
+        if !valid_short_name(voice) {
+            return Err(format!("voz Edge inválida: {voice}"));
+        }
+        let mut mp3 = Vec::new();
+        for piece in split(&escape(text)) {
+            mp3.extend_from_slice(&turn(voice, &piece).await?);
+        }
+        if mp3.len() < 600 {
+            return Err("audio vacío".into());
+        }
+        Ok(mp3)
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct EdgeVoice {
+        pub short_name: String,
+        pub locale: String,
+        pub display: String,
+    }
+
+    /// The service's voice list, Spanish only.
+    pub async fn spanish_voices() -> Result<Vec<EdgeVoice>, String> {
+        let url = format!(
+            "https://{BASE}/voices/list?trustedclienttoken={TRUSTED_CLIENT_TOKEN}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
+            sec_ms_gec(),
+            sec_ms_gec_version()
+        );
+        let m = chromium_major();
+        let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build().map_err(|e| e.to_string())?;
+        let resp = client
+            .get(url)
+            .header("Authority", HOST)
+            .header("Sec-CH-UA", format!("\" Not;A Brand\";v=\"99\", \"Microsoft Edge\";v=\"{m}\", \"Chromium\";v=\"{m}\""))
+            .header("Sec-CH-UA-Mobile", "?0")
+            .header("Accept", "*/*")
+            .header("Sec-Fetch-Site", "none")
+            .header("Sec-Fetch-Mode", "cors")
+            .header("Sec-Fetch-Dest", "empty")
+            .header("User-Agent", user_agent())
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Cookie", format!("muid={};", random_hex()))
+            .send()
+            .await
+            .map_err(|e| format!("lista de voces: {}", e.without_url()))?;
+        if !resp.status().is_success() {
+            return Err(format!("lista de voces: HTTP {}", resp.status()));
+        }
+        let list: serde_json::Value = resp.json().await.map_err(|e| format!("lista de voces: {e}"))?;
+        let mut out: Vec<EdgeVoice> = list
+            .as_array()
+            .ok_or("lista de voces inesperada")?
+            .iter()
+            .filter_map(|v| {
+                let short = v["ShortName"].as_str()?;
+                let locale = v["Locale"].as_str()?;
+                if !locale.starts_with("es-") || !valid_short_name(short) {
+                    return None;
+                }
+                let friendly = v["FriendlyName"].as_str().unwrap_or("");
+                Some(EdgeVoice { short_name: short.into(), locale: locale.into(), display: display_name(short, locale, friendly) })
+            })
+            .collect();
+        out.sort_by(|a, b| a.locale.cmp(&b.locale).then(a.short_name.cmp(&b.short_name)));
+        Ok(out)
+    }
+
+    /// `SalomeNeural` + `… - Spanish (Colombia)` → `Salome (Colombia)`.
+    pub fn display_name(short: &str, locale: &str, friendly: &str) -> String {
+        let person = short.rsplit('-').next().unwrap_or(short).trim_end_matches("Neural").to_string();
+        let region = friendly
+            .rsplit_once('(')
+            .map(|(_, r)| r.trim_end_matches(')').trim().to_string())
+            .filter(|r| !r.is_empty())
+            .unwrap_or_else(|| locale.to_string());
+        format!("{person} ({region})")
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn token_matches_edge_tts() {
+            // 2024-11-08 12:00:00 UTC; same token for the whole 5-minute window.
+            let a = sec_ms_gec_at(1_731_067_200);
+            assert_eq!(a, sec_ms_gec_at(1_731_067_200 + 299));
+            assert_ne!(a, sec_ms_gec_at(1_731_067_200 + 300));
+            // Same input through edge-tts drm.py's float arithmetic.
+            assert_eq!(a, "EA09A9EEE65ADF1C44241564DD783FB0496E6FC56A5EA9DA4077423D5E6281E2");
+            assert!(a.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase()));
+        }
+
+        #[test]
+        fn names_and_dates() {
+            assert_eq!(full_voice_name("es-CO-SalomeNeural"), "Microsoft Server Speech Text to Speech Voice (es-CO, SalomeNeural)");
+            assert!(valid_short_name("es-MX-JorgeNeural"));
+            assert!(!valid_short_name("es-MX-Jorge"));
+            assert_eq!(date_string_at(0), "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)");
+            assert_eq!(parse_http_date("Wed, 07 Oct 2026 16:48:00 GMT"), Some(1_791_391_680));
+            assert_eq!(date_string_at(1_791_391_680), "Wed Oct 07 2026 16:48:00 GMT+0000 (Coordinated Universal Time)");
+        }
+
+        #[test]
+        fn text_is_escaped_and_split() {
+            assert_eq!(escape("a & b <c>\u{b}"), "a &amp; b &lt;c&gt; ");
+            let long = "palabra ".repeat(1200);
+            let parts = split(&long);
+            assert!(parts.len() >= 2 && parts.iter().all(|p| p.len() <= MAX_CHUNK_BYTES));
+        }
+    }
+}
+
+/// Edge voices offered when the service's list cannot be fetched.
+const EDGE_FALLBACK: &[(&str, &str, &str)] = &[
+    ("es-CO-SalomeNeural", "es-CO", "Salome (Colombia)"),
+    ("es-CO-GonzaloNeural", "es-CO", "Gonzalo (Colombia)"),
+    ("es-MX-DaliaNeural", "es-MX", "Dalia (Mexico)"),
+    ("es-MX-JorgeNeural", "es-MX", "Jorge (Mexico)"),
+    ("es-ES-ElviraNeural", "es-ES", "Elvira (Spain)"),
+    ("es-ES-AlvaroNeural", "es-ES", "Alvaro (Spain)"),
+    ("es-AR-ElenaNeural", "es-AR", "Elena (Argentina)"),
+    ("es-AR-TomasNeural", "es-AR", "Tomas (Argentina)"),
+];
+/// The service's list is fetched at most this often.
+const EDGE_LIST_TTL: Duration = Duration::from_secs(12 * 3600);
+
+fn edge_list_cache() -> &'static Mutex<Option<(Instant, Vec<edge::EdgeVoice>)>> {
+    static CACHE: OnceLock<Mutex<Option<(Instant, Vec<edge::EdgeVoice>)>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(None))
+}
+
+/// Spanish Edge voices: cached service list, else the built-in few. The
+/// fallback voices (the Bots' defaults among them) are always included.
+async fn edge_voices() -> Vec<edge::EdgeVoice> {
+    let cached = edge_list_cache().lock().unwrap().clone();
+    let mut list = match cached {
+        Some((at, list)) if at.elapsed() < EDGE_LIST_TTL => list,
+        stale => match edge::spanish_voices().await {
+            Ok(list) if !list.is_empty() => {
+                log::line(format!("voice: Edge voice list fetched ({} Spanish voices)", list.len()));
+                *edge_list_cache().lock().unwrap() = Some((Instant::now(), list.clone()));
+                list
+            }
+            other => {
+                if let Err(e) = other {
+                    log::line(format!("voice: Edge voice list unavailable: {e}"));
+                }
+                stale.map(|(_, l)| l).unwrap_or_default()
+            }
+        },
+    };
+    for (short, locale, display) in EDGE_FALLBACK {
+        if !list.iter().any(|v| v.short_name == *short) {
+            list.push(edge::EdgeVoice { short_name: (*short).into(), locale: (*locale).into(), display: (*display).into() });
+        }
+    }
+    list
+}
+
+/// Last Edge outcome reported on `voice-engine` (0 none, 1 ready, 2 failing):
+/// the event goes out on a change, so the settings page isn't reloaded per sentence.
+static EDGE_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+fn note_edge(app: &AppHandle, error: Option<String>) {
+    let state = if error.is_some() { 2 } else { 1 };
+    if EDGE_STATE.swap(state, Ordering::SeqCst) != state || error.is_some() {
+        emit_engine(app, EngineEvent { ready: error.is_none(), engine: "edge".into(), error, ..Default::default() });
+    }
+}
+
+/// WAV for `text` in an Edge voice; on any network/protocol failure the
+/// fallback Piper voice speaks instead, so the Bot is still heard.
+async fn synth_edge(app: &AppHandle, short: &str, text: &str) -> Result<Vec<u8>, String> {
+    let started = Instant::now();
+    match edge::synth_mp3(short, text).await.and_then(|mp3| {
+        let kb = mp3.len() / 1024;
+        mp3_to_wav(mp3).map(|wav| (kb, wav))
+    }) {
+        Ok((kb, wav)) => {
+            log::line(format!("voice: Edge {short} synthesised {kb} KB MP3 in {} ms", started.elapsed().as_millis()));
+            note_edge(app, None);
+            Ok(wav)
+        }
+        Err(e) => {
+            log::line(format!("voice: Edge {short} failed after {} ms ({e}); falling back to Piper", started.elapsed().as_millis()));
+            note_edge(app, Some(e));
+            let Voice::Piper(key) = parse_voice(PIPER_FALLBACK_VOICE)? else { unreachable!() };
+            synth_piper(app, &key, text, true).await
+        }
+    }
+}
+
+/// Decodes Edge's MP3 into the 16-bit mono WAV every other path (playback,
+/// call.rs) expects.
+#[cfg(windows)]
+fn mp3_to_wav(mp3: Vec<u8>) -> Result<Vec<u8>, String> {
+    use rodio::Source;
+    let decoder = rodio::Decoder::new_mp3(std::io::Cursor::new(mp3)).map_err(|e| format!("MP3 ilegible: {e}"))?;
+    let channels = decoder.channels().max(1) as usize;
+    let rate = decoder.sample_rate();
+    let samples: Vec<i16> = decoder.collect();
+    let mut pcm = Vec::with_capacity(samples.len() / channels * 2);
+    for frame in samples.chunks(channels) {
+        let mixed = frame.iter().map(|&s| s as i32).sum::<i32>() / frame.len() as i32;
+        pcm.extend_from_slice(&(mixed as i16).to_le_bytes());
+    }
+    if pcm.len() < 480 {
+        return Err("MP3 sin audio".into());
+    }
+    Ok(wav_from_pcm16(&pcm, rate))
+}
+
+#[cfg(not(windows))]
+fn mp3_to_wav(_mp3: Vec<u8>) -> Result<Vec<u8>, String> {
+    Err("La voz solo está disponible en Windows por ahora.".into())
+}
 
 // ── Paths and small helpers (shared with meeting.rs) ──────────────────────────
 
@@ -439,7 +1039,7 @@ fn installed_stand_in(wanted: &str) -> Option<&'static str> {
     installed
         .iter()
         .find(|v| Some(v.lang) == lang)
-        .or_else(|| installed.iter().find(|v| DEFAULT_VOICE.strip_prefix("piper:") == Some(v.key)))
+        .or_else(|| installed.iter().find(|v| PIPER_FALLBACK_VOICE.strip_prefix("piper:") == Some(v.key)))
         .or_else(|| installed.first())
         .map(|v| v.key)
 }
@@ -503,6 +1103,8 @@ pub struct VoiceInfo {
 }
 
 enum Voice {
+    /// Microsoft Edge neural voice, by ShortName (`es-CO-SalomeNeural`).
+    Edge(String),
     Piper(String),
     ElevenLabs(String),
     Azure(String),
@@ -514,6 +1116,7 @@ fn parse_voice(id: &str) -> Result<Voice, String> {
         !s.is_empty() && s.len() <= max && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
     };
     match engine {
+        "edge" if edge::valid_short_name(rest) => Ok(Voice::Edge(rest.into())),
         "piper" if PIPER_VOICES.iter().any(|v| v.key == rest) => Ok(Voice::Piper(rest.into())),
         "elevenlabs" if safe(rest, 64) => Ok(Voice::ElevenLabs(rest.into())),
         "azure" if safe(rest, 80) => Ok(Voice::Azure(rest.into())),
@@ -558,17 +1161,26 @@ async fn elevenlabs_voices(key: &str) -> Vec<(String, String)> {
 
 pub async fn voices() -> Vec<VoiceInfo> {
     let piper_ready = piper_exe().is_some();
-    let mut out: Vec<VoiceInfo> = PIPER_VOICES
-        .iter()
+    let mut out: Vec<VoiceInfo> = edge_voices()
+        .await
+        .into_iter()
         .map(|v| VoiceInfo {
+            id: format!("edge:{}", v.short_name),
+            engine: "edge".into(),
+            name: v.display,
+            lang: v.locale,
+            installed: true,
+            size_mb: None,
+        })
+        .collect();
+    out.extend(PIPER_VOICES.iter().map(|v| VoiceInfo {
             id: format!("piper:{}", v.key),
             engine: "piper".into(),
             name: v.name.into(),
             lang: v.lang.into(),
             installed: piper_ready && piper_voice_installed(v.key),
             size_mb: Some(v.size_mb + if piper_ready { 0 } else { 22 }),
-        })
-        .collect();
+        }));
     // No `voice-engine` event from here: the settings page reloads this list on
     // that event, and emitting it back made an endless loop that redrew the rows
     // (and closed any open dropdown) many times a second.
@@ -790,6 +1402,7 @@ async fn synth_azure(voice: &str, text: &str) -> Result<Vec<u8>, String> {
 /// falls back to the default Piper voice so the Bot still speaks.
 async fn synth(app: &AppHandle, voice_id: &str, text: &str, stand_in: bool) -> Result<Vec<u8>, String> {
     let cloud = match parse_voice(voice_id)? {
+        Voice::Edge(v) => return synth_edge(app, &v, text).await,
         Voice::Piper(key) => return synth_piper(app, &key, text, stand_in).await,
         Voice::ElevenLabs(v) => synth_elevenlabs(&v, text).await,
         Voice::Azure(v) => synth_azure(&v, text).await,
@@ -798,7 +1411,7 @@ async fn synth(app: &AppHandle, voice_id: &str, text: &str, stand_in: bool) -> R
         Ok(wav) => Ok(wav),
         Err(e) => {
             log::line(format!("voice: {voice_id} unavailable ({e}), using Piper"));
-            let Voice::Piper(key) = parse_voice(DEFAULT_VOICE)? else { unreachable!() };
+            let Voice::Piper(key) = parse_voice(PIPER_FALLBACK_VOICE)? else { unreachable!() };
             synth_piper(app, &key, text, true).await
         }
     }
@@ -960,6 +1573,10 @@ pub async fn speak(app: AppHandle, text: String, bot: Option<String>) -> Result<
     };
     // In a call, notices wait for a gap in the conversation instead of cutting in.
     if let Some(id) = bot.as_deref().filter(|_| crate::call::active()) {
+        log::line(format!(
+            "voice: call active, notice for {id} ({} chars) queued for the next pause",
+            text.chars().count()
+        ));
         crate::call::announce(id, &text);
         return Ok(());
     }
@@ -1016,6 +1633,8 @@ pub async fn install_voice(app: AppHandle, voice_id: String) -> Result<(), Strin
             Ok(())
         }
         .await,
+        // Online voices: nothing to download.
+        Voice::Edge(_) => Ok(()),
         Voice::ElevenLabs(_) => secrets::present(ELEVENLABS_KEY).then_some(()).ok_or_else(|| "no_key".to_string()),
         Voice::Azure(_) => secrets::present(AZURE_KEY).then_some(()).ok_or_else(|| "no_key".to_string()),
     };
@@ -1053,6 +1672,29 @@ mod tests {
         assert!(matches!(parse_voice("azure:es-MX-DaliaNeural"), Ok(Voice::Azure(_))));
         assert!(parse_voice("elevenlabs:../x").is_err());
         assert!(parse_voice("nothing").is_err());
+        assert!(matches!(parse_voice("edge:es-CO-SalomeNeural"), Ok(Voice::Edge(_))));
+        assert!(parse_voice("edge:es-CO-Salome").is_err());
+        for (_, v) in NAMED_DEFAULTS {
+            assert!(parse_voice(v).is_ok(), "{v}");
+        }
+        for v in [DEFAULT_VOICE, CURSOR_DEFAULT_VOICE, PIPER_FALLBACK_VOICE] {
+            assert!(parse_voice(v).is_ok(), "{v}");
+        }
+    }
+
+    /// Live: reaches Microsoft's service. `cargo test -p coucou --lib edge_live -- --ignored`
+    #[test]
+    #[ignore]
+    fn edge_live() {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let mp3 = rt.block_on(edge::synth_mp3("es-CO-GonzaloNeural", "Hola Miller, soy Aegon")).unwrap();
+        let wav = mp3_to_wav(mp3).unwrap();
+        let path = std::env::temp_dir().join("coucou-edge-live.wav");
+        std::fs::write(&path, &wav).unwrap();
+        let pcm = &wav[44..];
+        let peak = pcm.chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]]).unsigned_abs()).max().unwrap_or(0);
+        println!("edge_live: {} bytes PCM, peak {peak} -> {}", pcm.len(), path.display());
+        assert!(pcm.len() > 24_000 && peak > 1000);
     }
 
     #[test]

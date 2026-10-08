@@ -109,10 +109,15 @@ body {
   inset: 0;
 }
 
+/* Over #content (a later sibling of the layer); only the buttons take clicks. */
 #upload-overlay {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 640px;
+  height: 176px;
   display: none;
+  pointer-events: none;
 }
 
 /* Invisible hit areas over the buttons the canvas paints. */
@@ -1838,6 +1843,23 @@ input[type="range"]::-webkit-slider-thumb {
   font-size: 11.5px;
 }
 
+/* An order waiting in Cursor's queue: take it back, or type it in now. */
+.bot-detail-order-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.bot-detail-order-actions .btn {
+  padding: 3px 10px;
+  font-size: 10.5px;
+}
+
+.bot-detail-msg.me.queued .bot-detail-bubble {
+  opacity: 0.75;
+}
+
 /* "Escribiendo…": three dots in the Bot's colour while it works. */
 .bot-detail-typing {
   align-self: flex-start;
@@ -2884,6 +2906,387 @@ input[type="range"]::-webkit-slider-thumb {
   .bot-detail-file,
   .bot-tool,
   .bot-switch::after {
+    transition: none;
+  }
+}
+
+/* Choices in a question (views/options.ts): one button per option, "Más…",
+   and an "Otra respuesta" box when allowed. */
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.choices-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.choices .choice {
+  padding: 4px 11px;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.choices .choice.more {
+  opacity: 0.8;
+}
+
+.choices.picked {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.choices-custom-row {
+  display: flex;
+  gap: 6px;
+}
+
+.choices-custom {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font: 400 11px var(--font);
+  outline: none;
+}
+
+.choices-custom:focus {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.approval-choices {
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.bot-detail-msg.bot .choices {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+/* ── R11: avatar moods, «Recibido», sounds, island polish ─────────────────────
+   data-bot-state (BotLive.avatarState) on a pill, the conversation's mascot
+   and a Bot card: reposo · pensando · hablando · recibido · pregunta · listo ·
+   error. Only the avatar's frame (.mini / the colour dot) moves; the canvas
+   itself is the mascot's (mochi/*). Looping moods run only while the island is
+   expanded, and nothing moves with prefers-reduced-motion. */
+
+[data-bot-state] .mini,
+.bot-detail-mascot[data-bot-state] {
+  transform-origin: 50% 80%;
+  transition: filter 0.25s ease-out;
+}
+
+/* reposo: a small nod now and then, each pill on its own rhythm. */
+#island[data-mode="expanded"] .pill[data-bot-state="reposo"] .mini {
+  animation: mood-nod var(--nod-period, 7s) ease-in-out var(--nod-delay, 0s) infinite;
+}
+
+/* pensando: a gentle breath, plus three dots under the mascot. */
+#island[data-mode="expanded"] [data-bot-state="pensando"] .mini,
+#island[data-mode="expanded"] .bot-detail-mascot[data-bot-state="pensando"] {
+  animation: mood-think 1.6s ease-in-out infinite;
+}
+
+.pill[data-bot-state="pensando"] .mini::after,
+.bot-detail-mascot[data-bot-state="pensando"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: currentColor;
+  color: var(--bot, #60a5fa);
+  box-shadow: -4px 0 0 currentColor, 4px 0 0 currentColor;
+  transform: translateX(-50%);
+  opacity: 0.8;
+}
+
+#island[data-mode="expanded"] .pill[data-bot-state="pensando"] .mini::after,
+#island[data-mode="expanded"] .bot-detail-mascot[data-bot-state="pensando"]::after {
+  animation: mood-dots 1.2s steps(3, end) infinite;
+}
+
+/* hablando: a little bounce while it reads aloud. */
+#island[data-mode="expanded"] [data-bot-state="hablando"] .mini,
+#island[data-mode="expanded"] .bot-detail-mascot[data-bot-state="hablando"] {
+  animation: mood-talk 0.42s ease-in-out infinite alternate;
+}
+
+/* recibido: one hop and a green glow. */
+[data-bot-state="recibido"] .mini,
+.bot-detail-mascot[data-bot-state="recibido"] {
+  animation: mood-hop 0.45s cubic-bezier(0.3, 1.6, 0.4, 1);
+  filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.75));
+}
+
+/* pregunta: a slow bob and an amber glow. */
+#island[data-mode="expanded"] [data-bot-state="pregunta"] .mini,
+#island[data-mode="expanded"] .bot-detail-mascot[data-bot-state="pregunta"] {
+  animation: mood-bob 1.8s ease-in-out infinite;
+}
+
+[data-bot-state="pregunta"] .mini,
+.bot-detail-mascot[data-bot-state="pregunta"] {
+  filter: drop-shadow(0 0 3px rgba(245, 165, 36, 0.7));
+}
+
+/* listo: a pop and a check that fades away. */
+[data-bot-state="listo"] .mini,
+.bot-detail-mascot[data-bot-state="listo"] {
+  animation: mood-pop 0.5s cubic-bezier(0.3, 1.6, 0.4, 1);
+}
+
+.pill[data-bot-state="listo"] .mini::after,
+.bot-detail-mascot[data-bot-state="listo"]::after {
+  content: "✓";
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #0b0c0e;
+  font: 800 7px/10px var(--sans, system-ui);
+  text-align: center;
+  animation: mood-check 1.8s ease-out forwards;
+  pointer-events: none;
+}
+
+/* error: one shake, then a red tint while it lasts. */
+[data-bot-state="error"] .mini,
+.bot-detail-mascot[data-bot-state="error"] {
+  animation: mood-shake 0.45s ease-in-out;
+  filter: drop-shadow(0 0 3px rgba(244, 80, 94, 0.85)) saturate(0.8) sepia(0.25) hue-rotate(-20deg);
+}
+
+.bot-detail-mascot[data-bot-state] {
+  position: relative;
+}
+
+/* A Bot card: its colour dot carries the mood. */
+#island[data-mode="expanded"] .bot-card[data-bot-state="pensando"] .int-head .dot {
+  animation: mood-think 1.6s ease-in-out infinite;
+}
+
+.bot-card[data-bot-state="listo"] .int-head .dot {
+  animation: mood-pop 0.5s cubic-bezier(0.3, 1.6, 0.4, 1);
+  box-shadow: 0 0 5px rgba(34, 197, 94, 0.8);
+}
+
+.bot-card[data-bot-state="error"] .int-head .dot {
+  animation: mood-shake 0.45s ease-in-out;
+  box-shadow: 0 0 5px rgba(244, 80, 94, 0.9);
+}
+
+.bot-card[data-bot-state="pregunta"] .int-head .dot,
+.bot-card[data-bot-state="recibido"] .int-head .dot {
+  animation: mood-hop 0.45s cubic-bezier(0.3, 1.6, 0.4, 1);
+}
+
+@keyframes mood-nod {
+  0%, 88%, 100% { transform: none; }
+  92% { transform: translateY(1px) scale(1.04, 0.94); }
+  96% { transform: translateY(-1px) scale(0.98, 1.03); }
+}
+
+@keyframes mood-think {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.07); opacity: 0.85; }
+}
+
+@keyframes mood-dots {
+  0% { box-shadow: -4px 0 0 currentColor, 4px 0 0 transparent; background: transparent; }
+  33% { box-shadow: -4px 0 0 currentColor, 4px 0 0 transparent; background: currentColor; }
+  66%, 100% { box-shadow: -4px 0 0 currentColor, 4px 0 0 currentColor; background: currentColor; }
+}
+
+@keyframes mood-talk {
+  from { transform: translateY(0) scale(1, 1); }
+  to { transform: translateY(-1.5px) scale(1.03, 0.97); }
+}
+
+@keyframes mood-hop {
+  0% { transform: none; }
+  40% { transform: translateY(-4px) scale(1.06); }
+  100% { transform: none; }
+}
+
+@keyframes mood-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-1.5px) rotate(-4deg); }
+}
+
+@keyframes mood-pop {
+  0% { transform: scale(0.7); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@keyframes mood-check {
+  0% { opacity: 0; transform: scale(0.3); }
+  15% { opacity: 1; transform: scale(1.2); }
+  25% { transform: scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes mood-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-2px) rotate(-5deg); }
+  40% { transform: translateX(2px) rotate(5deg); }
+  60% { transform: translateX(-1.5px) rotate(-3deg); }
+  80% { transform: translateX(1px) rotate(2deg); }
+}
+
+/* «Enviando… / Recibido / No se pudo enviar» under my messages. */
+.bot-detail-status.sending {
+  animation: status-fade 1.1s ease-in-out infinite alternate;
+}
+
+.bot-detail-status.sent {
+  color: #22c55e;
+  animation: status-in 0.3s ease-out;
+}
+
+.bot-detail-status.error {
+  color: #f4505e;
+}
+
+.bot-retry {
+  animation: status-in 0.3s ease-out;
+}
+
+@keyframes status-fade {
+  from { opacity: 1; }
+  to { opacity: 0.45; }
+}
+
+@keyframes status-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* "Escribir en Cursor": the whole order, wrapped and scrollable. */
+.approval-detail.order {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 92px;
+  transition: max-height 0.25s ease-out;
+}
+
+.approval-detail.order.open {
+  max-height: 170px;
+}
+
+.approval-more {
+  align-self: flex-start;
+  font-size: 10.5px;
+  color: #8e939c;
+  padding: 0;
+}
+
+.bot-detail-order {
+  margin-top: 4px;
+}
+
+.bot-detail-order > summary {
+  cursor: pointer;
+  font-size: 10.5px;
+  color: #8e939c;
+  list-style: none;
+}
+
+.bot-detail-order > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bot-detail-order > summary::before {
+  content: "▸ ";
+}
+
+.bot-detail-order[open] > summary::before {
+  content: "▾ ";
+}
+
+.bot-detail-order > pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  animation: status-in 0.22s ease-out;
+}
+
+/* Island polish: softer content fade, choices and cards coming in, toast out. */
+#content {
+  transition: opacity 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.choices .choice {
+  animation: choice-in 0.28s cubic-bezier(0.3, 1.2, 0.4, 1) backwards;
+}
+
+.choices .choice:nth-child(2) { animation-delay: 40ms; }
+.choices .choice:nth-child(3) { animation-delay: 80ms; }
+.choices .choice:nth-child(4) { animation-delay: 120ms; }
+.choices .choice:nth-child(5) { animation-delay: 160ms; }
+.choices .choice:nth-child(6) { animation-delay: 200ms; }
+.choices .choice:nth-child(n + 7) { animation-delay: 240ms; }
+
+.view.on .card .actions .btn,
+.view.on .approval-detail {
+  animation: choice-in 0.3s cubic-bezier(0.3, 1.2, 0.4, 1) 0.18s backwards;
+}
+
+#bot-toast.out {
+  display: flex;
+  pointer-events: none;
+  animation: bot-toast-out 0.18s ease-in forwards;
+}
+
+@keyframes choice-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes bot-toast-out {
+  from { opacity: 1; transform: translateX(-50%); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.97); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-bot-state] .mini,
+  [data-bot-state] .mini::after,
+  .bot-detail-mascot[data-bot-state],
+  .bot-detail-mascot[data-bot-state]::after,
+  .bot-card[data-bot-state] .int-head .dot,
+  .bot-detail-status,
+  .bot-retry,
+  .bot-detail-order > pre,
+  .choices .choice,
+  .view.on .card .actions .btn,
+  .view.on .approval-detail,
+  #bot-toast.out {
+    animation: none !important;
+  }
+  #bot-toast.out {
+    display: none;
+  }
+  .approval-detail.order,
+  #content {
     transition: none;
   }
 }

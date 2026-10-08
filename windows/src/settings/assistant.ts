@@ -7,7 +7,7 @@ import {
   type GrokBotStatus, type McpImportCandidate, type McpServerConfig, type McpStatus, type SkillInfo,
 } from "../core/bridge";
 import { DECISION_LABELS, loadBotApprovals, type BotApproval } from "../core/botlog";
-import { AI_PROVIDERS, aiProvider, type Settings } from "../core/state";
+import { AI_PROVIDERS, aiProvider, defaultBotColor, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
 
 export interface SettingsCtx {
@@ -362,6 +362,15 @@ export async function grokBotsSection(): Promise<HTMLElement> {
     clear(form);
     const name = h("input", { type: "text", value: edit?.name ?? "", placeholder: "Igual que en Grok Bot, p. ej. Investigador", style: "flex:1 1 auto;min-width:0" }) as HTMLInputElement;
     const color = h("input", { type: "color", value: edit?.color ?? "#38BDF8", style: "width:44px;padding:0" }) as HTMLInputElement;
+    // A new Aegon, Aerys or Daemond starts with the family colour, until the picker is touched.
+    let colorTouched = !!edit;
+    color.addEventListener("input", () => {
+      colorTouched = true;
+    });
+    name.addEventListener("input", () => {
+      const def = colorTouched ? null : defaultBotColor(name.value);
+      if (def) color.value = def.toLowerCase();
+    });
     const url = h("input", { type: "text", value: edit?.url ?? "", placeholder: "POST to: https://…", style: "flex:1 1 auto;min-width:0", spellcheck: "false" }) as HTMLInputElement;
     const key = h("input", {
       type: "password",

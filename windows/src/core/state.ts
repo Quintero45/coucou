@@ -52,6 +52,10 @@ export interface ApprovalInfo {
   detailWrap?: boolean;
   /** The raw tool_input, for a Grok Bot's log line (botlog.ts sanitises it). */
   toolInput?: Record<string, unknown> | null;
+  /** Choices to answer with (botcmds.ts QUESTION_OPTIONS); one button each. */
+  options?: QuestionOption[] | null;
+  /** Offer an "Otra respuesta" box next to the choices. */
+  allowCustom?: boolean;
 }
 
 export interface QuestionOption {
@@ -180,6 +184,27 @@ export interface GrokBot {
   url: string;
 }
 
+/** The family's default colours: a new Bot with one of these names starts with
+    its colour; the picker in Ajustes always wins once a colour is saved. */
+export const BOT_COLORS: Readonly<Record<string, string>> = {
+  aegon: "#E5484D",
+  aerys: "#3E8EF7",
+  daemond: "#8E4EC6",
+  daemon: "#8E4EC6",
+};
+
+/** The default colour for a Bot name/id (family colours), or null. */
+export function defaultBotColor(name: string, id = ""): string | null {
+  const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  return BOT_COLORS[norm(id)] ?? BOT_COLORS[norm(name)] ?? null;
+}
+
+/** A Bot's colour in the island: the one chosen in Ajustes; the family default only if none is valid. */
+export function botColor(bot: { id: string; name: string; color: string }): string {
+  if (/^#[0-9a-fA-F]{6}$/.test(bot.color ?? "")) return bot.color;
+  return defaultBotColor(bot.name, bot.id) ?? "#38BDF8";
+}
+
 /** Grok Bot pills: `agent_bot-<id>`, fed by `coucou-hook --bot`. */
 export const BOT_PREFIX = "agent_bot-";
 
@@ -260,6 +285,8 @@ export interface Settings {
   voices: Record<string, string>;
   /** Read the Cursor agent's notices aloud (finished, question, approval). */
   speakCursor: boolean;
+  /** Read the Grok Bots' answers aloud as they arrive (front only until settings.rs adds read_replies). */
+  readReplies: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -285,6 +312,7 @@ export const DEFAULT_SETTINGS: Settings = {
   grokBots: [],
   voices: {},
   speakCursor: true,
+  readReplies: true,
 };
 
 type Listener = () => void;
@@ -399,10 +427,10 @@ class AppState {
       const existing = this.tasks.find((t) => t.id === id);
       if (existing) {
         existing.name = bot.name;
-        existing.color = bot.color;
+        existing.color = botColor(bot);
       } else {
         this.tasks.push({
-          id, name: bot.name, color: bot.color, state: "idle", stepIndex: 0, steps: [],
+          id, name: bot.name, color: botColor(bot), state: "idle", stepIndex: 0, steps: [],
           source: "agent", isIntegration: false,
         });
       }

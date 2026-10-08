@@ -16,8 +16,10 @@
 //     the terminal takes over.
 //
 // What we write back is the bare word `allow`, `always` or `deny`, or a JSON
-// line `{"decision":"answer","answers":{…}}`. Turning that into each agent's
-// documented output is coucou-hook's job, so the wire formats live in one place.
+// line `{"decision":"answer","answers":{…}}`, or — only for a question card with
+// choices (`options`, see `Choices`) — `{"decision":"allow","answer":"…"}`.
+// Turning that into each agent's documented output is coucou-hook's job, so the
+// wire formats live in one place.
 //
 // `coucou-hook tool` (Grok Bots calling Mochi's tools) is the one request that
 // is not a hook event: `coucou_kind: "tool"` / `"tool_list"`, answered with one
@@ -28,7 +30,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -79,6 +81,81 @@ pub fn approval_pending(app: &AppHandle) -> bool {
 }
 
 static COUNTER: AtomicU64 = AtomicU64::new(1);
+
+/// Longest answer (picked label or typed text) carried back from a card.
+const MAX_ANSWER_CHARS: usize = 500;
+/// The island shows at most this much of a label (botcmds.ts parseChoices).
+const MAX_LABEL_CHARS: usize = 80;
+
+/// What a question card with choices accepts as an answer: one of its labels,
+/// or anything when it offers "Otra respuesta".
+struct Choices {
+    labels: Vec<String>,
+    custom: bool,
+}
+
+/// Question cards with choices now on screen, by request id. Only these turn
+/// an answer into `{"decision":"allow","answer":…}`; every other approval
+/// (a tool, Mochi's own, a Bot's tool call) still gets the bare word.
+static CHOICES: LazyLock<Mutex<HashMap<String, Choices>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
+const CHOICE_KEYS: [&str; 3] = ["options", "allowCustom", "allow_custom"];
+
+/// A question, not a tool: `coucou-hook --bot … --status ask` and Cursor's
+/// single-choice questions (normalize.rs) both arrive as the tool `Pregunta`.
+/// Allowing it runs nothing; the answer is the whole point.
+fn is_question_card(payload: &Value) -> bool {
+    let agent = payload.get("coucou_agent").and_then(Value::as_str).unwrap_or_default();
+    payload.get("hook_event_name").and_then(Value::as_str) == Some("PermissionRequest")
+        && payload.get("tool_name").and_then(Value::as_str) == Some("Pregunta")
+        && (agent.starts_with("bot-") || agent == "cursor")
+}
+
+/// The choices a question card carries (top level or in tool_input, as the island reads them).
+fn choices_of(payload: &Value) -> Option<Choices> {
+    let input = payload.get("tool_input").filter(|v| v.is_object());
+    let field = |k: &str| payload.get(k).or_else(|| input.and_then(|i| i.get(k)));
+    let labels: Vec<String> = field("options")?
+        .as_array()?
+        .iter()
+        .filter_map(|o| o.as_str().or_else(|| o.get("label").and_then(Value::as_str)))
+        .map(|l| l.trim().chars().take(MAX_LABEL_CHARS).collect::<String>().trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect();
+    if labels.is_empty() {
+        return None;
+    }
+    let custom = field("allowCustom").or_else(|| field("allow_custom")).and_then(Value::as_bool) == Some(true);
+    Some(Choices { labels, custom })
+}
+
+/// A tool's approval must never show choices: any pick would be an "allow".
+/// Arguments that happen to be called `options` stay visible under another name.
+fn strip_choices(payload: &mut Value) {
+    let Some(map) = payload.as_object_mut() else { return };
+    for k in CHOICE_KEYS {
+        map.remove(k);
+    }
+    if let Some(input) = map.get_mut("tool_input").and_then(Value::as_object_mut) {
+        for k in CHOICE_KEYS {
+            if let Some(v) = input.remove(k) {
+                input.insert(format!("{k}_arg"), v);
+            }
+        }
+    }
+}
+
+/// Trimmed and capped; nothing left means no answer.
+fn clean_answer(raw: Option<&str>) -> Option<String> {
+    let a: String = raw?.trim().chars().take(MAX_ANSWER_CHARS).collect();
+    let a = a.trim();
+    (!a.is_empty()).then(|| a.to_string())
+}
+
+/// coucou.log names the decision, never an answer (it may be anything).
+fn brief(decision: &str) -> &str {
+    if decision.starts_with('{') { "answer" } else { decision }
+}
 
 /// `\\.\pipe\coucou-<sid>` — must match coucou-hook's `pipe_path()` exactly.
 #[cfg(windows)]
@@ -231,6 +308,28 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
             let answer = crate::botcards::attach(&app, &payload);
             return write_line(pipe, &answer).await;
         }
+        // Cursor's stop: relayed like any event, and answered at once with the
+        // orders queued in its conversation in the island (cursorlink.rs), if any.
+        Some("cursor_stop") => {
+            log::line("hook Stop");
+            let followup = crate::cursorlink::followup(&app, &payload);
+            let _ = app.emit_to(WINDOW_LABEL, "hook", payload);
+            match followup {
+                Some(f) => {
+                    // The orders count as sent only once the reply is written;
+                    // otherwise cursorlink puts them back in the queue.
+                    let line = format!("{}\n", json!({ "decision": "followup", "answers": { "message": f.text() } }));
+                    let written = pipe.write_all(line.as_bytes()).await.is_ok() && pipe.flush().await.is_ok();
+                    pipe.finish();
+                    crate::cursorlink::settle(&app, f, written);
+                    return;
+                }
+                None => {
+                    pipe.finish();
+                    return;
+                }
+            }
+        }
         _ => {}
     }
 
@@ -248,8 +347,15 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
         return;
     }
 
+    let choices = if is_question_card(&payload) { choices_of(&payload) } else { None };
+    if choices.is_none() {
+        strip_choices(&mut payload);
+    }
     let id = format!("{}-{}", std::process::id(), COUNTER.fetch_add(1, Ordering::Relaxed));
     let (tx, mut rx) = mpsc::channel::<Reply>(4);
+    if let Some(c) = choices {
+        CHOICES.lock().unwrap().insert(id.clone(), c);
+    }
     {
         let pending = app.state::<Pending>();
         pending.0.lock().unwrap().insert(id.clone(), tx);
@@ -260,6 +366,7 @@ async fn handle(app: AppHandle, mut pipe: impl Relay) {
 
     let decision = wait_for_decision(&id, &mut rx).await;
     app.state::<Pending>().0.lock().unwrap().remove(&id);
+    CHOICES.lock().unwrap().remove(&id);
 
     // No decision: say nothing at all. coucou-hook then writes nothing to stdout
     // and Claude Code asks in the terminal, exactly as if Coucou were closed.
@@ -281,7 +388,7 @@ async fn wait_for_decision_within(id: &str, rx: &mut mpsc::Receiver<Reply>, limi
         Ok(Some(Reply::Ack)) => {}
         // A click that beats the ack is still a click.
         Ok(Some(Reply::Decision(d))) => {
-            log::line(format!("hook id={id} answered {d}"));
+            log::line(format!("hook id={id} answered {}", brief(&d)));
             return Some(d);
         }
         Ok(Some(Reply::Decline)) => {
@@ -297,7 +404,7 @@ async fn wait_for_decision_within(id: &str, rx: &mut mpsc::Receiver<Reply>, limi
 
     match tokio::time::timeout(limit, rx.recv()).await {
         Ok(Some(Reply::Decision(d))) => {
-            log::line(format!("hook id={id} answered {d}"));
+            log::line(format!("hook id={id} answered {}", brief(&d)));
             Some(d)
         }
         Ok(Some(Reply::Decline)) => {
@@ -336,16 +443,30 @@ pub fn decline(app: &AppHandle, request_id: &str) {
     send(app, request_id, Reply::Decline, false);
 }
 
-/// Called by the island's Allow / Always / Deny buttons. Only ever a bare word:
-/// turning it into each agent's JSON is coucou-hook's job.
-pub fn answer(app: &AppHandle, request_id: &str, decision: &str) {
+/// Called by the island's Allow / Always / Deny buttons. A bare word, except an
+/// "allow" with the picked option on a question card with choices:
+/// `{"decision":"allow","answer":"…"}`. Turning that into each agent's JSON is
+/// coucou-hook's job.
+pub fn answer(app: &AppHandle, request_id: &str, decision: &str, answer: Option<&str>) {
     let word = match decision {
         "allow" => "allow",
         "always" => "always",
         _ => "deny",
     };
-    log::line(format!("decision id={request_id} {word}"));
-    send(app, request_id, Reply::Decision(word.to_string()), false);
+    let picked = if word == "allow" { clean_answer(answer) } else { None };
+    let picked = picked.filter(|a| {
+        CHOICES
+            .lock()
+            .unwrap()
+            .get(request_id)
+            .is_some_and(|c| c.custom || c.labels.iter().any(|l| l == a))
+    });
+    log::line(format!("decision id={request_id} {word}{}", if picked.is_some() { " answer" } else { "" }));
+    let line = match picked {
+        Some(a) => json!({ "decision": "allow", "answer": a }).to_string(),
+        None => word.to_string(),
+    };
+    send(app, request_id, Reply::Decision(line), false);
 }
 
 /// The answers to an AskUserQuestion card, as `{ question text: chosen label(s) }`.
@@ -504,7 +625,9 @@ async fn approve_bot_tool(app: &AppHandle, req: &ToolRequest, summary: &str) -> 
         req.agent,
         what.replace('\n', " ")
     ));
-    let _ = app.emit_to(WINDOW_LABEL, "hook", bot_tool_card(req, summary, &id));
+    let mut card = bot_tool_card(req, summary, &id);
+    strip_choices(&mut card);
+    let _ = app.emit_to(WINDOW_LABEL, "hook", card);
 
     let decision = wait_for_decision_within(&id, &mut rx, req.timeout).await;
     app.state::<Pending>().0.lock().unwrap().remove(&id);
@@ -594,6 +717,42 @@ mod tests {
         assert_eq!(code(wire("Aerys", "bot-aerys", "x", json!([1]), 0)), "invalid_request");
         assert_eq!(code(json!({ "coucou_kind": "tool", "timeout_ms": "soon" })), "invalid_request");
         assert!(parse_tool_request(json!({ "coucou_agent": "bot-a", "coucou_bot": "A", "tool_name": "x" })).is_ok());
+    }
+
+    #[test]
+    fn only_question_cards_keep_their_choices() {
+        let q = json!({ "hook_event_name": "PermissionRequest", "coucou_agent": "bot-a", "tool_name": "Pregunta",
+                        "options": [{ "label": " Sí " }, "No", { "label": " " }], "allowCustom": true });
+        assert!(is_question_card(&q));
+        let c = choices_of(&q).unwrap();
+        assert_eq!(c.labels, ["Sí", "No"]);
+        assert!(c.custom);
+        let cursor = json!({ "hook_event_name": "PermissionRequest", "coucou_agent": "cursor", "tool_name": "Pregunta",
+                             "tool_input": { "options": ["A"] } });
+        assert!(is_question_card(&cursor));
+        assert!(!choices_of(&cursor).unwrap().custom);
+
+        // A tool whose arguments carry `options`: no buttons, the argument stays visible.
+        let mut tool = json!({ "hook_event_name": "PermissionRequest", "tool_name": "mcp__x__create", "allowCustom": true,
+                               "tool_input": { "options": ["rm"], "path": "a" } });
+        assert!(!is_question_card(&tool));
+        strip_choices(&mut tool);
+        assert!(tool.get("allowCustom").is_none());
+        assert!(tool["tool_input"].get("options").is_none());
+        assert_eq!(tool["tool_input"]["options_arg"], json!(["rm"]));
+        assert_eq!(tool["tool_input"]["path"], "a");
+        let claude = json!({ "hook_event_name": "PermissionRequest", "coucou_agent": "claude", "tool_name": "Pregunta" });
+        assert!(!is_question_card(&claude), "only a Bot or Cursor asks with Pregunta");
+    }
+
+    #[test]
+    fn answers_are_trimmed_capped_and_never_logged() {
+        assert_eq!(clean_answer(Some("  Opción B \n")), Some("Opción B".to_string()));
+        assert_eq!(clean_answer(Some("   ")), None);
+        assert_eq!(clean_answer(None), None);
+        assert_eq!(clean_answer(Some(&"é".repeat(900))).unwrap().chars().count(), MAX_ANSWER_CHARS);
+        assert_eq!(brief(r#"{"decision":"allow","answer":"my secret"}"#), "answer");
+        assert_eq!(brief("deny"), "deny");
     }
 
     #[test]

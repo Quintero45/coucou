@@ -3,7 +3,7 @@
 // launch (Island constructor), whatever the island is showing.
 
 import { Bridge, onEvent } from "../core/bridge";
-import { BotChat } from "../core/botchat";
+import { BotChat, cursorOrderEvent } from "../core/botchat";
 import { BotLive, resolveBot } from "../core/botlive";
 import {
   CMD, EVT, callCmd,
@@ -109,6 +109,10 @@ export function registerBotEvents() {
     if (!p?.text) return;
     BotLive.callLines = [...BotLive.callLines, p].slice(-CALL_LINES);
     State.notify();
+  });
+
+  void onEvent<{ id: string; state: string }>(EVT.cursorOrder, (p) => {
+    if (p?.id) cursorOrderEvent(p);
   });
 
   // The Cursor agent in a call answers from what the island knows it is doing.

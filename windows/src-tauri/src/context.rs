@@ -7,11 +7,10 @@
 //! activation, but the settings window or a focused text box can, so the poll
 //! thread remembers the last foreign foreground window (`remember_foreground`).
 //!
-//! The selected text is not read: UI Automation needs windows-crate features
-//! (Win32_UI_Accessibility, Win32_System_Com) that Cargo.toml does not enable.
-//! The screenshot uses hand-declared gdi32/user32/dwmapi calls for the same
-//! reason (no Win32_Graphics_Gdi), and a small PNG encoder of our own (no
-//! image crate).
+//! The selected text is not read yet (UI Automation, as cursorlink.rs uses it).
+//! The screenshot uses hand-declared gdi32/user32/dwmapi calls (no
+//! Win32_Graphics_Gdi feature), and a small PNG encoder of our own (no image
+//! crate).
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -89,6 +88,25 @@ fn clean_clipboard(raw: &str) -> Option<String> {
     } else {
         Some(cap_chars(t, CLIPBOARD_MAX))
     }
+}
+
+/// The owner's screen right now (the monitor of their foreground window), saved
+/// in the inbox: an order to Cursor carries its path and Cursor opens it.
+/// Coucou's own windows (the island with its conversations) are left out, as
+/// in a screen share. Call it off the main thread.
+pub fn screen_png_file(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let sharing = SHARE.lock().unwrap().is_some();
+    if !sharing {
+        exclude_ours_now(app, true);
+    }
+    let frame = imp::screen_frame();
+    // A share started meanwhile keeps its exclusion.
+    if !sharing && SHARE.lock().unwrap().is_none() {
+        exclude_ours(app, false);
+    }
+    let (bgra, w, h, _) = frame.ok_or("No pude capturar la pantalla.")?;
+    let (rgb, tw, th) = bgra_to_rgb_fit(&bgra, w, h, SHOT_MAX_W, SHOT_MAX_H);
+    crate::files::save_to_inbox("pantalla.png", &encode_png(&rgb, tw, th))
 }
 
 /// Saves the PNG in the inbox: same ids and sweep as dropped files.
@@ -411,6 +429,28 @@ fn now_ms() -> u64 {
 /// The island (and the settings window) out of captures while sharing.
 #[cfg(not(windows))]
 fn exclude_ours(_app: &AppHandle, _on: bool) {}
+
+/// `exclude_ours`, waiting (briefly) until it is applied, for a single capture.
+#[cfg(not(windows))]
+fn exclude_ours_now(_app: &AppHandle, _on: bool) {}
+
+#[cfg(windows)]
+fn exclude_ours_now(app: &AppHandle, on: bool) {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = app.clone();
+    let queued = app.run_on_main_thread(move || {
+        for (_, win) in handle.webview_windows() {
+            if let Ok(hwnd) = win.hwnd() {
+                imp::exclude_from_capture(hwnd.0 as isize, on);
+            }
+        }
+        let _ = tx.send(());
+    });
+    if queued.is_ok() && rx.recv_timeout(Duration::from_millis(500)).is_ok() {
+        // DWM applies the affinity on its next frame.
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
 
 #[cfg(windows)]
 fn exclude_ours(app: &AppHandle, on: bool) {

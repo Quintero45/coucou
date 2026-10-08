@@ -65,12 +65,13 @@ export interface UploadCanvasActions {
 }
 
 export class UploadCanvas {
-  /** Wrapper holding the canvas and the two invisible choose buttons. */
+  /** Wrapper holding the canvas; it sits under the header. */
   readonly el: HTMLElement;
+  /** The two invisible choose buttons. Placed over #content, which would otherwise take their clicks. */
+  readonly overlay: HTMLElement;
 
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null;
-  private overlay: HTMLElement;
   private sizedFor = 0;
 
   constructor(actions: UploadCanvasActions) {
@@ -95,9 +96,15 @@ export class UploadCanvas {
 
     this.el = document.createElement("div");
     this.el.id = "upload-layer";
-    this.el.append(this.canvas, this.overlay);
+    this.el.append(this.canvas);
 
     this.ctx = this.canvas.getContext("2d");
+  }
+
+  /** The sequence owns the island body (or gave it back): fade in, or out and drop the buttons. */
+  setActive(on: boolean) {
+    this.el.classList.toggle("on", on);
+    if (!on) this.overlay.style.display = "none";
   }
 
   /** `wallTime` in seconds drives the marching dashes, like the macOS timeline. */
@@ -272,19 +279,19 @@ export class UploadCanvas {
     ctx.globalAlpha = f.chooseAlpha;
     ctx.translate(0, (1 - f.chooseAlpha) * 4);
 
-    const name = State.droppedFile?.name ?? "file";
-    text(ctx, `${name} is ready.`, 114, 80, `600 14px ${FONT}`, "#F5F6F8");
-    text(ctx, "What do you want to do with it?", 114, 100, `400 12.5px ${FONT}`, "#9398A1");
+    const name = State.droppedFile?.name ?? "archivo";
+    text(ctx, `${name} está listo.`, 114, 80, `600 14px ${FONT}`, "#F5F6F8");
+    text(ctx, "¿Qué quieres hacer con él?", 114, 100, `400 12.5px ${FONT}`, "#9398A1");
 
     ctx.fillStyle = "#F5F6F8";
     rr(ctx, 114, 113, 168, 26, 13);
     ctx.fill();
-    text(ctx, "Ask a question about it", 198, 126, `500 12.5px ${FONT}`, "#0B0C0E", "center");
+    text(ctx, "Pregúntale a Mochi", 198, 126, `500 12.5px ${FONT}`, "#0B0C0E", "center");
 
     ctx.fillStyle = "rgba(255,255,255,0.09)";
     rr(ctx, 290, 113, 120, 26, 13);
     ctx.fill();
-    text(ctx, "Cancel", 350, 126, `500 12.5px ${FONT}`, "#F1F2F4", "center");
+    text(ctx, "Cancelar", 350, 126, `500 12.5px ${FONT}`, "#F1F2F4", "center");
     ctx.restore();
   }
 

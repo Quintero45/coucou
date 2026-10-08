@@ -7,6 +7,7 @@ mod call;
 mod claude;
 mod context;
 mod cursor;
+mod cursorlink;
 mod files;
 mod grokbot;
 mod hooks;
@@ -25,6 +26,7 @@ mod secrets;
 mod selfmod;
 mod settings;
 mod shortcuts;
+mod sounds;
 mod tools;
 mod tray;
 mod voice;
@@ -247,9 +249,11 @@ fn hooks_apply(
     Ok(backup)
 }
 
+/// Allow / Always / Deny from the island. `answer`: the option picked (or the
+/// text typed) on a question card with choices; pipe.rs ignores it anywhere else.
 #[tauri::command]
-fn approval_decision(app: AppHandle, request_id: String, decision: String) {
-    pipe::answer(&app, &request_id, &decision);
+fn approval_decision(app: AppHandle, request_id: String, decision: String, answer: Option<String>) {
+    pipe::answer(&app, &request_id, &decision, answer.as_deref());
 }
 
 /// AskUserQuestion answered from the island: `{ question text: label(s) }`.
@@ -660,10 +664,14 @@ pub fn run() {
             meeting::stop_dictation,
             meeting::start_meeting,
             meeting::stop_meeting,
+            cursorlink::cursor_send,
+            cursorlink::cursor_order_now,
+            cursorlink::cursor_order_cancel,
             call::start_call,
             call::stop_call,
             call::call_mute,
             call::call_cursor_status,
+            sounds::play_sound,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

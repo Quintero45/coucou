@@ -9,7 +9,7 @@ import {
   CMD, EVT, callCmd, mirrorSpeakCursor, readRepliesEnabled, setReadReplies, speakCursorEnabled,
   type VoiceEngineEvent, type VoiceInfo,
 } from "../core/botcmds";
-import type { GrokBot, Settings } from "../core/state";
+import { botColor, type GrokBot, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
 
 const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -42,11 +42,15 @@ export function voiceSection(
   const botRows = h("div", { class: "voice-bots" });
   let voices: VoiceInfo[] = [];
 
-  const readToggle = h("button", { class: readRepliesEnabled() ? "switch on" : "switch" });
+  // settings.readReplies (saved with saveSettingsMerged); the old localStorage
+  // key is the fallback and mirror until settings.rs carries the field.
+  const readToggle = h("button", { class: readRepliesEnabled(ctx.get().readReplies) ? "switch on" : "switch" });
   readToggle.addEventListener("click", () => {
     const on = !readToggle.classList.contains("on");
     readToggle.classList.toggle("on", on);
+    ctx.get().readReplies = on;
     setReadReplies(on);
+    void ctx.save();
   });
 
   function say(kind: "ok" | "err" | "warn", text: string) {
@@ -116,7 +120,7 @@ export function voiceSection(
       }
     });
     return h("div", { class: "row", style: "flex-wrap:nowrap" },
-      h("label", {}, h("i", { class: "dot", style: `background:${bot.color}` }), h("span", { text: ` ${bot.name}`, style: `color:${bot.color}` })),
+      h("label", {}, h("i", { class: "dot", style: `background:${botColor(bot)}` }), h("span", { text: ` ${bot.name}`, style: `color:${botColor(bot)}` })),
       select, listen, install);
   }
 

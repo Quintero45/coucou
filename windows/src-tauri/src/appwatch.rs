@@ -9,6 +9,8 @@
 
 #[cfg(windows)]
 pub use self::win::start;
+#[cfg(windows)]
+pub(crate) use self::win::exe_name;
 
 #[cfg(not(windows))]
 pub fn start(_app: tauri::AppHandle) {}
@@ -48,7 +50,7 @@ mod win {
     /// Processes already announced: one SessionStart per launch, not per Alt+Tab.
     static SEEN: OnceLock<Mutex<HashSet<u32>>> = OnceLock::new();
 
-    fn exe_name(pid: u32) -> Option<String> {
+    pub(crate) fn exe_name(pid: u32) -> Option<String> {
         let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
         let mut buf = [0u16; 1024];
         let mut len = buf.len() as u32;
