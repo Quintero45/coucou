@@ -35,6 +35,8 @@ export interface FileDiff {
   tooLarge: boolean;
   /** True when produced by fromNew (Write tool). */
   isNewFile: boolean;
+  /** When State.appendSessionDiff received it (ms). */
+  at?: number;
 }
 
 /** FileDiff.maxBytes / maxLines on macOS. */

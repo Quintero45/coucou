@@ -18,7 +18,7 @@ import { pillDefinition, sessionSubtitle } from "../core/pills";
 import {
   PlanCard, buildPlanPill, claudePillVisible, codexPillVisible, planCardOpen, refreshCodexPlanUsage,
 } from "./usage";
-import { buildDiffCard } from "./diff";
+import { createEditor } from "./editor";
 import { lastTextStep } from "../core/diff";
 import { Bridge } from "../core/bridge";
 import { buildRecap } from "./recap";
@@ -63,6 +63,13 @@ export interface ViewActions {
   openBotDetail(id: string): void;
   /** Back to the overview's normal size. */
   closeBotDetail(): void;
+  /**
+   * A pill's file edit across the whole overview (the "diff" geometry).
+   * `follow`: newer edits of the same pill take its place; `returnTo`: the
+   * conversation Back goes to.
+   */
+  openDiff(pillId: string, id: number, opts?: { follow?: boolean; returnTo?: string }): void;
+  closeDiff(): void;
   /** A quick-reply box got (true) or lost (false) the cursor: keyboard + stay open. */
   botReplyFocus(on: boolean): void;
 }
@@ -73,6 +80,21 @@ export interface ViewActions {
  * conversation with that Bot.
  */
 export const botDetail: { id: string | null } = { id: null };
+
+/**
+ * The file edit open in the editor view (overview only), and the newest edit
+ * already closed by hand, which the live opening leaves alone.
+ */
+export const liveDiff: {
+  pillId: string | null;
+  id: number | null;
+  follow: boolean;
+  returnTo: string | null;
+  dismissed: number;
+} = { pillId: null, id: null, follow: false, returnTo: null, dismissed: -1 };
+
+/** An edit this recent opens the editor by itself, while the island is open. */
+const LIVE_DIFF_MS = 20_000;
 
 export interface ViewHost {
   el: HTMLElement;
@@ -186,17 +208,11 @@ export function buildHeader(actions: ViewActions): ViewHost {
 // ── Overview ──────────────────────────────────────────────────────────────────
 
 function buildOverview(actions: ViewActions): ViewHost {
-  /** The diff open in the left card (a FileDiff id), as activeDiffId on macOS. */
-  let activeDiffId: number | null = null;
-  const closeDiff = () => {
-    if (activeDiffId == null) return;
-    activeDiffId = null;
-    State.notify();
-  };
   const ticker = new Ticker((diffId) => {
+    const id = State.focusTask?.id;
+    if (!id) return;
     actions.blip();
-    activeDiffId = diffId;
-    State.notify();
+    actions.openDiff(id, diffId);
   });
   const who = h("div", { class: "who" });
   const tickerBody = h("div", { class: "card-body" }, who, ticker.el);
@@ -216,7 +232,7 @@ function buildOverview(actions: ViewActions): ViewHost {
   // the buttons and boxes inside it keep their own clicks.
   left.addEventListener("click", (e) => {
     const id = State.focusTask?.id;
-    if (!id || !hasChat(id) || botDetail.id || activeDiffId != null || planCardOpen()) return;
+    if (!id || !hasChat(id) || botDetail.id || liveDiff.id != null || planCardOpen()) return;
     if ((e.target as Element).closest("button, a, input, textarea, select, .bot-reply")) return;
     actions.openBotDetail(id);
   });
@@ -232,14 +248,26 @@ function buildOverview(actions: ViewActions): ViewHost {
     send: (slug, text) => void sendWithOutbox(slug, text),
     // Exactly the approval card's decide(): audit line, botFx flash, sound.
     decide: (d, answer) => actions.decide(d, answer),
+    openDiff: (pillId, diffId) => actions.openDiff(pillId, diffId, { returnTo: pillId }),
   });
   const layer = h("div", { class: "bot-detail-layer" }, detail.el);
   layer.style.display = "none";
+
+  const editor = createEditor({
+    back: () => {
+      actions.blip();
+      actions.closeDiff();
+    },
+    open: (path) => void Bridge.openFileInVSCode(path),
+  });
+  const editorLayer = h("div", { class: "live-editor-layer" }, editor.el);
+  editorLayer.style.display = "none";
 
   const el = h("div", { class: "view overview" },
     h("div", { class: "left" }, left),
     h("div", { class: "right" }, right),
     layer,
+    editorLayer,
   );
 
   let closing: number | null = null;
@@ -260,7 +288,7 @@ function buildOverview(actions: ViewActions): ViewHost {
   let pillIds = "";
   let detailOpen = false;
   let lastFocus: string | null = null;
-  let mode: "ticker" | "card" | "plan" | "diff" | null = null;
+  let mode: "ticker" | "card" | "plan" | null = null;
   let cardKey = "";
   let botApprovals: BotApproval[] | null = null;
   /** Bot state + steps the approvals were last read for. */
@@ -275,17 +303,17 @@ function buildOverview(actions: ViewActions): ViewHost {
 
   // Leaving the overview or folding the island closes the diff, as on macOS.
   State.subscribe(() => {
-    if (activeDiffId != null && (State.view !== "overview" || State.mode !== "expanded")) {
-      activeDiffId = null;
+    if (liveDiff.id != null && (State.view !== "overview" || State.mode !== "expanded")) {
+      liveDiff.id = liveDiff.pillId = liveDiff.returnTo = null;
     }
   });
   // Escape steps back out of the diff before it closes the island.
   window.addEventListener(
     "keydown",
     (e) => {
-      if (e.key !== "Escape" || activeDiffId == null || State.view !== "overview") return;
+      if (e.key !== "Escape" || liveDiff.id == null || State.view !== "overview") return;
       e.stopImmediatePropagation();
-      closeDiff();
+      actions.closeDiff();
     },
     true,
   );
@@ -321,6 +349,40 @@ function buildOverview(actions: ViewActions): ViewHost {
     }, 30_000);
   }
 
+  /**
+   * The editor view over the overview: the open edit, or — the island open on
+   * the overview, nothing else on top — the focused pill's edit of the last
+   * few seconds, opened by itself and following the next ones.
+   */
+  function syncEditor(task: AgentTask | null, showDetail: boolean, planOpen: boolean) {
+    const expanded = State.mode === "expanded" && State.view === "overview";
+    const latest = task ? State.latestDiff(task.id) : null;
+    if (liveDiff.id == null) {
+      if (expanded && task && latest && !showDetail && !planOpen && !detailOpen &&
+          latest.id > liveDiff.dismissed && Date.now() - (latest.at ?? 0) < LIVE_DIFF_MS) {
+        queueMicrotask(() => actions.openDiff(task.id, latest.id, { follow: true }));
+      }
+    } else if (liveDiff.follow && liveDiff.pillId === task?.id && latest && latest.id > liveDiff.id) {
+      liveDiff.id = latest.id;
+    }
+
+    const owner = liveDiff.pillId ? State.tasks.find((x) => x.id === liveDiff.pillId) ?? null : null;
+    const diff = owner && liveDiff.id != null ? State.findDiff(owner.id, liveDiff.id) : null;
+    // A diff that has since been dropped (cap, expiry, session end) just closes.
+    if (liveDiff.id != null && !diff) queueMicrotask(() => actions.closeDiff());
+    if (owner && diff && expanded) {
+      if (editorLayer.style.display === "none") {
+        editorLayer.style.display = "";
+        el.classList.add("live-editor-open");
+      }
+      const subtitle = owner.id.startsWith(BOT_PREFIX) ? botLabel(owner) : t(sessionSubtitle(owner.id));
+      editor.sync(owner, diff, subtitle);
+    } else if (editorLayer.style.display !== "none") {
+      editorLayer.style.display = "none";
+      el.classList.remove("live-editor-open");
+    }
+  }
+
   return {
     el,
     /** Files dropped on a Bot: the cursor goes to the open conversation's box. */
@@ -337,7 +399,6 @@ function buildOverview(actions: ViewActions): ViewHost {
       if (task?.id !== lastFocus) {
         lastFocus = task?.id ?? null;
         detailOpen = false;
-        activeDiffId = null;
         cardKey = "";
         mode = null;
       }
@@ -401,11 +462,9 @@ function buildOverview(actions: ViewActions): ViewHost {
       }
       syncPlanTimer(planOpen);
 
-      // A diff that has since been dropped (cap, expiry, session end) just closes.
-      const diff = task && activeDiffId != null ? State.findDiff(task.id, activeDiffId) : null;
-      if (!diff) activeDiffId = null;
+      syncEditor(task, showDetail, planOpen);
 
-      const replying = isBot && !showDetail && !planOpen && !diff && botCanReply(task);
+      const replying = isBot && !showDetail && !planOpen && botCanReply(task);
       replySlot.style.display = replying ? "" : "none";
       if (replying && task) reply.sync(task);
 
@@ -416,20 +475,6 @@ function buildOverview(actions: ViewActions): ViewHost {
           mode = "plan";
         }
         plan.sync();
-      } else if (task && diff) {
-        const key = `diff~${task.id}~${diff.id}`;
-        if (key !== cardKey) {
-          cardKey = key;
-          mode = "diff";
-          clear(leftBody);
-          leftBody.append(buildDiffCard(diff, {
-            dismiss: () => {
-              actions.blip();
-              closeDiff();
-            },
-            open: (path) => void Bridge.openFileInVSCode(path),
-          }));
-        }
       } else if (task && sessionActive) {
         if (mode !== "ticker") {
           clear(leftBody);
@@ -468,7 +513,7 @@ function buildOverview(actions: ViewActions): ViewHost {
         }
       }
 
-      jump.style.display = detailOpen || isBot || mode === "plan" || mode === "diff" ? "none" : "";
+      jump.style.display = detailOpen || isBot || mode === "plan" ? "none" : "";
 
       const others = State.otherTasks.slice(0, 4);
       const noBots = State.settings.grokBots.length === 0;

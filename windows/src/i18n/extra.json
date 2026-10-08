@@ -4990,6 +4990,17 @@
    "pt-BR": "Mais linhas: {count}",
    "ru": "Ещё строк: {count}",
    "id": "Baris lainnya: {count}"
+  },
+  "See it in the editor": {
+   "zh-Hans": "在编辑器中查看",
+   "hi": "एडिटर में देखें",
+   "es": "Verlo en el editor",
+   "ar": "اعرضه في المحرر",
+   "fr": "Le voir dans l'éditeur",
+   "bn": "এডিটরে দেখুন",
+   "pt-BR": "Ver no editor",
+   "ru": "Открыть в редакторе",
+   "id": "Lihat di editor"
   }
  }
 }

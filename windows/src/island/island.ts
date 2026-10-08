@@ -26,7 +26,7 @@ import { SeasonCache, parseOutfit } from "../mochi/wardrobe";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { closePlanCard, openPlanColor, planCardOpen } from "../views/usage";
-import { botDetail, buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
+import { botDetail, buildHeader, buildViews, liveDiff, type ViewActions, type ViewHost } from "../views/views";
 import { botCanReply } from "../views/integrations";
 import { botFx } from "../mochi/botfx";
 import { h, clear } from "../views/dom";
@@ -66,9 +66,14 @@ const PRE_PROGRESS = USC.T_PROG_START - USC.T_DROP;
 
 const modeOrder = (m: IslandMode) => (m === "hidden" ? 0 : m === "compact" ? 1 : 2);
 
-/** The open Grok Bot detail takes the chat's geometry: same size, same Mochi spot. */
+/**
+ * The open Grok Bot detail takes the chat's geometry: same size, same Mochi
+ * spot. The editor view takes the diff's: taller, Mochi up in the corner.
+ */
 function layoutView(): IslandViewName {
-  return botDetail.id && State.view === "overview" ? "prompt" : State.view;
+  if (State.view !== "overview") return State.view;
+  if (botDetail.id) return "prompt";
+  return liveDiff.id != null ? "diff" : "overview";
 }
 
 /** A Bot's card was answered: a short glow on its mascot (mochi/botfx.ts). */
@@ -270,6 +275,34 @@ export class Island {
         botDetail.id = null;
         this.animateGeometry(true);
         if (State.view !== "prompt" && !this.replyHold) void Bridge.focusWindow(false);
+        State.notify();
+      },
+      openDiff: (pillId, id, opts) => {
+        if (State.view !== "overview" || State.mode !== "expanded") return;
+        if (botDetail.id) {
+          botDetail.id = null;
+          if (!this.replyHold) void Bridge.focusWindow(false);
+        }
+        liveDiff.pillId = pillId;
+        liveDiff.id = id;
+        liveDiff.follow = !!opts?.follow;
+        liveDiff.returnTo = opts?.returnTo ?? null;
+        if (State.focusTask?.id !== pillId) State.setFocus(pillId);
+        State.lastActivity = performance.now();
+        this.animateGeometry(false);
+        State.notify();
+      },
+      closeDiff: () => {
+        if (liveDiff.id == null) return;
+        liveDiff.dismissed = Math.max(liveDiff.dismissed, liveDiff.id, State.latestDiff(liveDiff.pillId ?? "")?.id ?? -1);
+        const back = liveDiff.returnTo;
+        liveDiff.id = liveDiff.pillId = liveDiff.returnTo = null;
+        liveDiff.follow = false;
+        if (back && State.tasks.some((x) => x.id === back)) {
+          this.actions.openBotDetail(back);
+          return;
+        }
+        this.animateGeometry(true);
         State.notify();
       },
       botReplyFocus: (on) => this.holdForReply(on),
@@ -512,6 +545,7 @@ export class Island {
       botDetail.id = null;
       if (view !== "prompt") void Bridge.focusWindow(false);
     }
+    if (view !== "overview") liveDiff.id = liveDiff.pillId = liveDiff.returnTo = null;
     this.stopSequenceIfLeaving(view);
     if (view !== "overview") closePlanCard();
     if (State.mode !== "expanded") {

@@ -12,6 +12,7 @@ mod context;
 mod cursor;
 mod cursorlink;
 mod desktop;
+mod editctx;
 mod files;
 mod github;
 mod grokbot;
@@ -837,6 +838,7 @@ pub fn run() {
             open_session,
             open_claude_desktop,
             open_file_in_vscode,
+            editctx::edit_context,
             quit_app,
             hooks_status,
             agent_hooks_status,

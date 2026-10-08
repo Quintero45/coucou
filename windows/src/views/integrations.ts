@@ -713,6 +713,8 @@ export interface BotChatHandlers {
   send(slug: string, text: string): void;
   /** The approval card's own decide(): same audit, same flash; `answer` for a choice. */
   decide(d: "allow" | "deny", answer?: string): void;
+  /** A file edit still in memory, in the editor view; Back comes back here. */
+  openDiff(pillId: string, diffId: number): void;
 }
 
 export interface BotChatView {
@@ -967,6 +969,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     const extAt = name.lastIndexOf(".");
     const ext = extAt > 0 ? name.slice(extAt + 1, extAt + 5).toUpperCase() : "";
     const where = e.path.replace(/\\/g, "/").split("/").slice(-3).join("/");
+    const inMemory = e.diffId != null && State.findDiff(taskId, e.diffId) != null;
     const lines = isOpen
       ? h("div", { class: "bot-detail-edit-lines" },
           ...e.lines.map((l) => l.k === "…"
@@ -985,6 +988,15 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
         e.added > 0 ? h("span", { class: "plus", text: `+${e.added}` }) : null,
         e.removed > 0 ? h("span", { class: "minus", text: `−${e.removed}` }) : null,
         h("span", { class: "bot-detail-edit-path", text: where }),
+        inMemory
+          ? h("button", {
+              class: "icon-btn", title: t("See it in the editor"),
+              onclick: (ev: Event) => {
+                ev.stopPropagation();
+                handlers.openDiff(taskId, e.diffId!);
+              },
+            }, svg(ICONS.eye, 10))
+          : null,
         h("button", {
           class: "icon-btn", title: t("Open in VS Code"),
           onclick: (ev: Event) => {

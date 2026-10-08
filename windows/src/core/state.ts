@@ -366,7 +366,8 @@ class AppState {
   sessionDiffs = new Map<string, FileDiff[]>();
   private sessionDiffTimers = new Map<string, number>();
   /** Never reset, so an id can never point at a newer diff than the one tapped. */
-  private nextDiffId = 0;
+  /** From 1: a diff id of 0 is a FileDiff that was never stored. */
+  private nextDiffId = 1;
   /**
    * Mochi is out of the island — on the desktop, flying, or being dragged
    * there — so the island's own Mochi is hidden (AppState.mochiOnDesktop).
@@ -475,7 +476,7 @@ class AppState {
   appendSessionDiff(pillId: string, diff: FileDiff): number {
     const id = this.nextDiffId++;
     const list = this.sessionDiffs.get(pillId) ?? [];
-    list.push({ ...diff, id });
+    list.push({ ...diff, id, at: Date.now() });
     while (list.length > MAX_DIFFS_PER_PILL) list.shift();
     this.sessionDiffs.set(pillId, list);
     // One timer per pill, re-armed on every diff — nothing polls.
@@ -490,6 +491,10 @@ class AppState {
 
   findDiff(pillId: string, id: number): FileDiff | null {
     return this.sessionDiffs.get(pillId)?.find((d) => d.id === id) ?? null;
+  }
+
+  latestDiff(pillId: string): FileDiff | null {
+    return this.sessionDiffs.get(pillId)?.at(-1) ?? null;
   }
 
   clearSessionDiffs(pillId: string) {

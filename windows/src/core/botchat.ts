@@ -50,7 +50,12 @@ export type BotChatEntry =
     }
   | { id: string; kind: "step"; at: number; text: string }
   /** A file the agent edited (afterFileEdit, PostToolUse Edit): a capped copy of its diff. */
-  | { id: string; kind: "edit"; at: number; path: string; added: number; removed: number; lines: EditLine[]; more: number; tooLarge?: boolean }
+  | {
+      id: string; kind: "edit"; at: number; path: string; added: number; removed: number; lines: EditLine[]; more: number;
+      tooLarge?: boolean;
+      /** The full diff in State (kept an hour, not across restarts), for the editor view. */
+      diffId?: number;
+    }
   /** A file the Bot sent back (bot-attach) or a meeting transcript. Path only, opened by Rust. */
   | { id: string; kind: "file"; at: number; path: string; name: string; mime: string; size: number; source?: "bot" | "meeting"; caption?: string }
   /** A piece of a meeting transcript (meeting-chunk). */
@@ -169,6 +174,7 @@ export const BotChat = {
     BotChat.add(slug, {
       kind: "edit", path: diff.path, added: diff.added, removed: diff.removed, lines, more: total - lines.length,
       ...(diff.tooLarge ? { tooLarge: true } : {}),
+      ...(diff.id > 0 ? { diffId: diff.id } : {}),
     });
   },
 

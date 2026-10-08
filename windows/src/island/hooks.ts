@@ -315,7 +315,7 @@ function recordDiff(agentId: string, payload: HookPayload): FileDiff | null {
   if (!diff) return null;
   const id = State.appendSessionDiff(agentId, diff);
   State.appendStep(agentId, makeDiffStep(fileName(diff.path), diff.added, diff.removed, id));
-  return diff;
+  return { ...diff, id };
 }
 
 export function registerHookHandlers(island: Island) {
