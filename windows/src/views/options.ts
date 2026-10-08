@@ -5,6 +5,7 @@
 
 import { QUESTION_OPTIONS, type ChoiceOption } from "../core/botcmds";
 import { h } from "./dom";
+import { t } from "../i18n/i18n";
 
 export function buildChoices(opts: {
   options: readonly ChoiceOption[];
@@ -37,7 +38,7 @@ export function buildChoices(opts: {
   const rest = opts.options.slice(QUESTION_OPTIONS.visible);
   list.append(...visible.map(button));
   if (rest.length) {
-    const more = h("button", { class: "btn secondary choice more", title: `${rest.length} opciones más` }, h("span", { text: "Más…" }));
+    const more = h("button", { class: "btn secondary choice more", title: t("More options: {count}", { count: rest.length }) }, h("span", { text: t("More…") }));
     more.addEventListener("click", (e) => {
       e.stopPropagation();
       more.replaceWith(...rest.map(button));
@@ -50,11 +51,11 @@ export function buildChoices(opts: {
     const input = h("input", {
       type: "text",
       class: "choices-custom",
-      placeholder: "Otra respuesta…",
+      placeholder: t("Other answer…"),
       spellcheck: "true",
       maxlength: "500",
     }) as HTMLInputElement;
-    const send = h("button", { class: "btn primary", title: "Enviar (Enter)" }, h("span", { text: "Enviar" }));
+    const send = h("button", { class: "btn primary", title: t("Send (Enter)") }, h("span", { text: t("Send") }));
     send.addEventListener("click", (e) => {
       e.stopPropagation();
       pick(input.value);

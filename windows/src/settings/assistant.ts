@@ -8,6 +8,7 @@ import {
 } from "../core/bridge";
 import { DECISION_LABELS, loadBotApprovals, type BotApproval } from "../core/botlog";
 import { AI_PROVIDERS, aiProvider, defaultBotColor, type Settings } from "../core/state";
+import { N_, labels, t } from "../i18n/i18n";
 import { h, clear } from "../views/dom";
 
 export interface SettingsCtx {
@@ -25,24 +26,24 @@ function notice(kind: "ok" | "err" | "warn", text: string): HTMLElement {
 
 const errText = (err: unknown) => String(err).replace(/^Error:\s*/, "");
 
-const STORED = "••••••••••••  (guardada)";
+const stored = () => `••••••••••••  ${t("(stored)")}`;
 
 /** Password field + Save / Remove for one Credential Manager key. */
 function keyRow(label: string, key: string, placeholder: string, present: boolean, feedback: HTMLElement): HTMLElement {
   const status = dot(present ? "#22c55e" : "#f4505e");
   const field = h("input", {
     type: "password",
-    placeholder: present ? STORED : placeholder,
+    placeholder: present ? stored() : placeholder,
     style: "flex:1 1 auto;min-width:0",
     autocomplete: "off",
     spellcheck: "false",
   }) as HTMLInputElement;
-  const saveBtn = h("button", { class: "primary", text: "Guardar" });
-  const removeBtn = h("button", { class: "danger", text: "Quitar" });
+  const saveBtn = h("button", { class: "primary", text: t("Save") });
+  const removeBtn = h("button", { class: "danger", text: t("Remove") });
   removeBtn.style.display = present ? "" : "none";
   const set = (on: boolean) => {
     status.style.background = on ? "#22c55e" : "#f4505e";
-    field.placeholder = on ? STORED : placeholder;
+    field.placeholder = on ? stored() : placeholder;
     removeBtn.style.display = on ? "" : "none";
   };
   saveBtn.addEventListener("click", async () => {
@@ -53,9 +54,9 @@ function keyRow(label: string, key: string, placeholder: string, present: boolea
       await Bridge.secretSet(key, value);
       field.value = "";
       set(true);
-      feedback.append(notice("ok", "Guardada en el Administrador de credenciales de Windows. Nunca se escribe en disco."));
+      feedback.append(notice("ok", t("Saved in the Windows Credential Manager. Never written to disk.")));
     } catch (err) {
-      feedback.append(notice("err", `No se pudo guardar: ${errText(err)}`));
+      feedback.append(notice("err", t("Could not save: {error}", { error: errText(err) })));
     }
   });
   removeBtn.addEventListener("click", async () => {
@@ -63,9 +64,9 @@ function keyRow(label: string, key: string, placeholder: string, present: boolea
     try {
       await Bridge.secretClear(key);
       set(false);
-      feedback.append(notice("ok", "Clave quitada."));
+      feedback.append(notice("ok", t("Key removed.")));
     } catch (err) {
-      feedback.append(notice("err", `No se pudo quitar: ${errText(err)}`));
+      feedback.append(notice("err", t("Could not remove: {error}", { error: errText(err) })));
     }
   });
   return h("div", { class: "row" }, h("label", { text: label }), field, saveBtn, removeBtn, status);
@@ -87,37 +88,37 @@ const KEY_PLACEHOLDERS: Record<string, string> = {
   cursor: "cursor_…", anthropic: "sk-ant-…", xai: "xai-…", openai: "sk-…", google: "AIza…",
 };
 
+const installedText = (version: string | null | undefined) =>
+  version ? t("Installed ({version}).", { version }) : t("Installed.");
+
 /** The Cursor engine: the SDK bridge Coucou drives, downloaded on a click. */
 async function cursorEngineRows(feedback: HTMLElement): Promise<HTMLElement[]> {
   const st = await Bridge.cursorStatus();
   const state = h("span", {
     class: "hint",
-    text: st?.installed ? `Instalado${st.version ? ` (${st.version})` : ""}.` : "Sin instalar.",
+    text: st?.installed ? installedText(st.version) : t("Not installed."),
   });
-  const install = h("button", { class: st?.installed ? "" : "primary", text: st?.installed ? "Actualizar motor" : "Instalar motor" });
+  const install = h("button", { class: st?.installed ? "" : "primary", text: st?.installed ? t("Update engine") : t("Install engine") });
   install.addEventListener("click", async () => {
     clear(feedback);
     install.disabled = true;
-    state.textContent = "Descargando de GitHub (cursor/sdk-bridge)…";
+    state.textContent = t("Downloading from GitHub (cursor/sdk-bridge)…");
     try {
       const v = await Bridge.cursorInstall();
-      state.textContent = `Instalado (${v}).`;
-      feedback.append(notice("ok", "Motor de Cursor listo. Verificado con la suma SHA-256 publicada por Cursor."));
+      state.textContent = installedText(v);
+      feedback.append(notice("ok", t("Cursor engine ready. Verified against the SHA-256 checksum Cursor publishes.")));
     } catch (err) {
-      state.textContent = "Sin instalar.";
+      state.textContent = t("Not installed.");
       feedback.append(notice("err", errText(err)));
     } finally {
       install.disabled = false;
     }
   });
   return [
-    h("div", { class: "row" }, h("label", { text: "Motor" }), dot(st?.installed ? "#22c55e" : "#f4505e"), state, install),
+    h("div", { class: "row" }, h("label", { text: t("Engine") }), dot(st?.installed ? "#22c55e" : "#f4505e"), state, install),
     h("div", {
       class: "hint",
-      text: "Mochi piensa con Grok a través de tu cuenta de Cursor, la misma de tus Bots de Grok. " +
-        "1) En cursor.com/dashboard/integrations crea una «User API Key». 2) Pégala en «Clave de Cursor» y pulsa Guardar. " +
-        "3) Pulsa «Instalar motor». 4) Escríbele a Mochi. " +
-        "Las herramientas de Cursor quedan apagadas: Mochi solo actúa con las suyas, y cada acción te pide permiso en la isla.",
+      text: t("Mochi thinks with Grok through your Cursor account, the same one as your Grok Bots. 1) At cursor.com/dashboard/integrations, create a “User API Key”. 2) Paste it in “Cursor key” and click Save. 3) Click “Install engine”. 4) Write to Mochi. Cursor's own tools stay off: Mochi only acts with its own, and every action asks for your permission in the island."),
     }),
   ];
 }
@@ -133,7 +134,7 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
     const present = p.key ? ((await Bridge.secretPresent(p.key)) ?? false) : true;
     const bravePresent = (await Bridge.secretPresent("brave-api-key")) ?? false;
     clear(head);
-    head.append(dot(present ? p.color : "#f4505e"), h("span", { text: "Asistente" }));
+    head.append(dot(present ? p.color : "#f4505e"), h("span", { text: t("Assistant") }));
     clear(body);
     const feedback = h("div", {});
 
@@ -149,13 +150,13 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
     body.append(
       h("div", {
         class: "hint",
-        text: "Mochi responde con el motor que elijas aquí y puede actuar en esta PC con sus herramientas: todo lo que cambia algo te pide permiso primero, en la isla.",
+        text: t("Mochi answers with the engine you pick here and can act on this PC with its tools: anything that changes something asks for your permission first, in the island."),
       }),
-      h("div", { class: "row" }, h("label", { text: "Motor de IA" }), provider),
+      h("div", { class: "row" }, h("label", { text: t("AI engine") }), provider),
     );
 
     if (p.key) {
-      body.append(keyRow(p.id === "cursor" ? "Clave de Cursor" : "Clave de API", p.key, KEY_PLACEHOLDERS[p.id] ?? "…", present, feedback));
+      body.append(keyRow(p.id === "cursor" ? t("Cursor key") : t("API key"), p.key, KEY_PLACEHOLDERS[p.id] ?? "…", present, feedback));
     } else {
       const url = h("input", {
         type: "text",
@@ -169,8 +170,8 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
         void ctx.save();
       });
       body.append(
-        h("div", { class: "row" }, h("label", { text: "URL del servidor" }), url),
-        h("div", { class: "hint", text: `${p.name} corre en esta PC: sin clave, nada sale de tu equipo. Ábrelo antes de chatear.` }),
+        h("div", { class: "row" }, h("label", { text: t("Server URL") }), url),
+        h("div", { class: "hint", text: t("{name} runs on this PC: no key, nothing leaves your computer. Open it before chatting.", { name: p.name }) }),
       );
     }
     if (p.id === "cursor") body.append(...(await cursorEngineRows(feedback)));
@@ -194,7 +195,7 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
       else ctx.get().providerModels = { ...ctx.get().providerModels, [p.id]: v };
       void ctx.save();
     });
-    const fetchBtn = h("button", { text: "Ver modelos" });
+    const fetchBtn = h("button", { text: t("See models") });
     fetchBtn.addEventListener("click", async () => {
       clear(feedback);
       fetchBtn.disabled = true;
@@ -202,16 +203,16 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
         const models = await Bridge.modelsList(p.id);
         clear(datalist);
         for (const m of models) datalist.append(h("option", { value: m }));
-        feedback.append(notice("ok", `${models.length} modelos disponibles: escribe en el campo para elegir uno.`));
+        feedback.append(notice("ok", t("Models available: {count}. Type in the field to pick one.", { count: models.length })));
       } catch (err) {
         feedback.append(notice("err", errText(err)));
       } finally {
         fetchBtn.disabled = false;
       }
     });
-    body.append(h("div", { class: "row" }, h("label", { text: "Modelo" }), model, datalist, fetchBtn));
+    body.append(h("div", { class: "row" }, h("label", { text: t("Model") }), model, datalist, fetchBtn));
     if (p.id === "cursor") {
-      body.append(h("div", { class: "hint", text: "«grok» elige solo el Grok más nuevo de tu cuenta." }));
+      body.append(h("div", { class: "hint", text: t("“grok” picks the newest Grok on your account by itself.") }));
     }
 
     const tools = h("button", { class: s.assistantTools ? "switch on" : "switch" });
@@ -223,21 +224,21 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
     });
     body.append(
       h("div", { class: "row" },
-        h("label", { text: "Herramientas" }),
+        h("label", { text: t("Tools") }),
         tools,
-        h("span", { class: "hint", text: "Archivos, PowerShell, apps, web, tus integraciones, tus Bots de Grok y las conexiones MCP. Leer es libre; cada acción espera tu clic." }),
+        h("span", { class: "hint", text: t("Files, PowerShell, apps, the web, your integrations, your Grok Bots and MCP connections. Reading is free; every action waits for your click.") }),
       ),
     );
 
     const braveFeedback = h("div", {});
     body.append(
       keyRow("Brave Search", "brave-api-key", "BSA…", bravePresent, braveFeedback),
-      h("div", { class: "hint", text: "Opcional: búsqueda web para los motores que no la traen (los modelos de Anthropic buscan solos)." }),
+      h("div", { class: "hint", text: t("Optional: web search for the engines that don't have it (Anthropic's models search on their own).") }),
       braveFeedback,
       h("div", { class: "row" },
-        h("label", { text: "Memoria" }),
-        h("button", { text: "Abrir carpeta de memoria", onclick: () => void Bridge.openDataFolder("memory") }),
-        h("span", { class: "hint", text: "notes.md es lo que Mochi recuerda; history.jsonl, el registro de los chats terminados." }),
+        h("label", { text: t("Memory") }),
+        h("button", { text: t("Open memory folder"), onclick: () => void Bridge.openDataFolder("memory") }),
+        h("span", { class: "hint", text: t("notes.md is what Mochi remembers; history.jsonl, the log of finished chats.") }),
       ),
       feedback,
     );
@@ -264,16 +265,16 @@ function shortTime(at: string | undefined): string {
 /** Last ~20 permission requests from the Bots: who, which tool, what was decided, when. Read-only. */
 function botHistory(colorOf: (bot: string) => string): { el: HTMLElement; refresh(): Promise<void> } {
   const rows = h("div", { class: "bot-history" });
-  const refreshBtn = h("button", { text: "Actualizar" });
+  const refreshBtn = h("button", { text: t("Refresh") });
   const el = h("div", { style: "display:flex;flex-direction:column;gap:8px" },
-    h("div", { class: "row" }, h("label", { text: "Permisos recientes" }), h("span", { class: "spacer" }), refreshBtn),
+    h("div", { class: "row" }, h("label", { text: t("Recent permissions") }), h("span", { class: "spacer" }), refreshBtn),
     rows,
   );
   async function refresh() {
     const entries: BotApproval[] = await loadBotApprovals();
     clear(rows);
     if (entries.length === 0) {
-      rows.append(h("div", { class: "hint", text: "Ningún Bot pidió permiso todavía." }));
+      rows.append(h("div", { class: "hint", text: t("No Bot has asked for permission yet.") }));
       return;
     }
     for (const e of entries) {
@@ -283,7 +284,7 @@ function botHistory(colorOf: (bot: string) => string): { el: HTMLElement; refres
         h("span", { class: "who", text: e.name }),
         h("span", { class: "tool", text: e.tool }),
         h("span", { class: "target", text: e.target }),
-        h("span", { class: "verdict", style: `color:${verdict.color};background:${verdict.color}24`, text: verdict.text }),
+        h("span", { class: "verdict", style: `color:${verdict.color};background:${verdict.color}24`, text: t(verdict.text) }),
         h("time", { text: shortTime(e.at) }),
       ));
     }
@@ -305,14 +306,15 @@ export async function grokBotsSection(): Promise<HTMLElement> {
     for (const b of bots) colors.set(b.id, b.color);
     clear(list);
     if (bots.length === 0) {
-      list.append(h("div", { class: "hint", text: "Todavía no conectaste ningún Bot." }));
+      list.append(h("div", { class: "hint", text: t("You haven't connected any Bot yet.") }));
     }
     for (const b of bots) {
-      const test = h("button", { text: "Probar" });
+      const test = h("button", { text: t("Test") });
       test.addEventListener("click", async () => {
         clear(feedback);
         test.disabled = true;
         try {
+          // Read by the Bot, not shown here: it stays in the language its instructions use.
           const msg = await Bridge.grokbotSend(
             b.id,
             `Prueba de conexión desde Coucou. Avísame en la isla con --status done "Conectado y listo".`,
@@ -324,13 +326,13 @@ export async function grokBotsSection(): Promise<HTMLElement> {
           test.disabled = false;
         }
       });
-      const copy = h("button", { text: "Copiar instrucciones" });
+      const copy = h("button", { text: t("Copy instructions") });
       copy.addEventListener("click", async () => {
         clear(feedback);
         try {
           const text = await Bridge.grokbotInstructions(b.id);
           await navigator.clipboard.writeText(text);
-          feedback.append(notice("ok", `Copiadas. Pégalas en Grok Bot → ${b.name} → Bot settings → Description.`));
+          feedback.append(notice("ok", t("Copied. Paste them in Grok Bot → {name} → Bot settings → Description.", { name: b.name })));
         } catch (err) {
           feedback.append(notice("err", errText(err)));
         }
@@ -338,13 +340,13 @@ export async function grokBotsSection(): Promise<HTMLElement> {
       list.append(h("div", { class: "row" },
         dot(b.color),
         h("span", { style: "font-size:12.5px;min-width:96px", text: b.name }),
-        h("span", { class: "hint", style: "flex:1 1 auto;min-width:0", text: b.hasKey ? "webhook listo" : "falta la clave" }),
+        h("span", { class: "hint", style: "flex:1 1 auto;min-width:0", text: b.hasKey ? t("webhook ready") : t("key missing") }),
         test,
         copy,
-        h("button", { text: "Editar", onclick: () => drawForm(b) }),
+        h("button", { text: t("Edit"), onclick: () => drawForm(b) }),
         h("button", {
           class: "danger",
-          text: "Quitar",
+          text: t("Remove"),
           onclick: async () => {
             try {
               await Bridge.grokbotRemove(b.id);
@@ -360,7 +362,7 @@ export async function grokBotsSection(): Promise<HTMLElement> {
 
   function drawForm(edit?: GrokBotStatus) {
     clear(form);
-    const name = h("input", { type: "text", value: edit?.name ?? "", placeholder: "Igual que en Grok Bot, p. ej. Investigador", style: "flex:1 1 auto;min-width:0" }) as HTMLInputElement;
+    const name = h("input", { type: "text", value: edit?.name ?? "", placeholder: t("Same as in Grok Bot, e.g. Researcher"), style: "flex:1 1 auto;min-width:0" }) as HTMLInputElement;
     const color = h("input", { type: "color", value: edit?.color ?? "#38BDF8", style: "width:44px;padding:0" }) as HTMLInputElement;
     // A new Aegon, Aerys or Daemond starts with the family colour, until the picker is touched.
     let colorTouched = !!edit;
@@ -374,11 +376,11 @@ export async function grokBotsSection(): Promise<HTMLElement> {
     const url = h("input", { type: "text", value: edit?.url ?? "", placeholder: "POST to: https://…", style: "flex:1 1 auto;min-width:0", spellcheck: "false" }) as HTMLInputElement;
     const key = h("input", {
       type: "password",
-      placeholder: edit?.hasKey ? STORED : "key de la rutina",
+      placeholder: edit?.hasKey ? stored() : t("the routine's key"),
       style: "flex:1 1 auto;min-width:0",
       autocomplete: "off",
     }) as HTMLInputElement;
-    const saveBtn = h("button", { class: "primary", text: edit ? "Guardar cambios" : "Conectar Bot" });
+    const saveBtn = h("button", { class: "primary", text: edit ? t("Save changes") : t("Connect Bot") });
     saveBtn.addEventListener("click", async () => {
       clear(feedback);
       saveBtn.disabled = true;
@@ -386,7 +388,7 @@ export async function grokBotsSection(): Promise<HTMLElement> {
         const bot = await Bridge.grokbotSave({
           previous: edit?.id, name: name.value, color: color.value, url: url.value, key: key.value,
         });
-        feedback.append(notice("ok", `${bot.name} conectado. Ahora pulsa «Copiar instrucciones» y pégalas en la descripción del Bot.`));
+        feedback.append(notice("ok", t("{name} connected. Now click “Copy instructions” and paste them in the Bot's description.", { name: bot.name })));
         drawForm();
         void drawList();
       } catch (err) {
@@ -396,19 +398,19 @@ export async function grokBotsSection(): Promise<HTMLElement> {
       }
     });
     form.append(
-      h("div", { class: "row" }, h("label", { text: "Nombre" }), name, color),
+      h("div", { class: "row" }, h("label", { text: t("Name") }), name, color),
       h("div", { class: "row" }, h("label", { text: "Webhook" }), url),
-      h("div", { class: "row" }, h("label", { text: "Clave" }), key),
-      h("div", { class: "row" }, saveBtn, edit ? h("button", { text: "Cancelar", onclick: () => drawForm() }) : h("span")),
+      h("div", { class: "row" }, h("label", { text: t("Key") }), key),
+      h("div", { class: "row" }, saveBtn, edit ? h("button", { text: t("Cancel"), onclick: () => drawForm() }) : h("span")),
     );
   }
 
   const steps = h("ol", { class: "hint", style: "margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px" },
-    h("li", { text: "En Grok Bot, escríbele a tu Bot: «Crea una rutina llamada Tareas de Coucou que se active por webhook y haga lo que diga el campo message del cuerpo»." }),
-    h("li", { text: "Abre la rutina (nombre del Bot → Tasks → la rutina) y copia «POST to» y «key»." }),
-    h("li", { text: "Pégalos abajo con el mismo nombre del Bot y pulsa «Conectar Bot»." }),
-    h("li", { text: "Pulsa «Copiar instrucciones» y pégalas en Bot settings → Description del Bot: así sabe avisarte en la isla." }),
-    h("li", { text: "En Grok Bot → Settings → Computer, deja «Execution on this computer» en preguntar o permitir siempre." }),
+    h("li", { text: t("In Grok Bot, tell your Bot: “Create a routine called Coucou Tasks, triggered by webhook, that does what the body's message field says.”") }),
+    h("li", { text: t("Open the routine (Bot name → Tasks → the routine) and copy “POST to” and “key”.") }),
+    h("li", { text: t("Paste them below with the same Bot name and click “Connect Bot”.") }),
+    h("li", { text: t("Click “Copy instructions” and paste them in the Bot's Bot settings → Description: that's how it knows to alert you in the island.") }),
+    h("li", { text: t("In Grok Bot → Settings → Computer, set “Execution on this computer” to ask or always allow.") }),
   );
 
   await drawList();
@@ -420,11 +422,10 @@ export async function grokBotsSection(): Promise<HTMLElement> {
   return h(
     "section",
     {},
-    h("h2", {}, h("span", { text: "Mis Bots de Grok" })),
+    h("h2", {}, h("span", { text: t("My Grok Bots") })),
     h("div", {
       class: "hint",
-      text: "Tus compañeros de Grok Bot (Cursor), con su computadora en la nube, memoria y plugins. Coucou les manda tareas por el webhook de una rutina, " +
-        "y ellos te avisan en la isla ejecutando un comando en esta PC. En el chat de la isla, escribe «@Nombre tarea» para mandarle algo directo a un Bot.",
+      text: t("Your Grok Bot teammates (Cursor), with their cloud computer, memory and plugins. Coucou sends them tasks through a routine's webhook, and they alert you in the island by running a command on this PC. In the island chat, type “@Name task” to send something straight to a Bot."),
     }),
     steps,
     list,
@@ -438,6 +439,7 @@ export async function grokBotsSection(): Promise<HTMLElement> {
 
 interface Recommended {
   name: string;
+  /** English key (N_), or a name that stays as it is. */
   title: string;
   why: string;
   config: McpServerConfig;
@@ -446,18 +448,18 @@ interface Recommended {
 }
 
 const RECOMMENDED: Recommended[] = [
-  { name: "playwright", title: "Navegador Playwright", why: "Maneja un navegador de verdad: abre páginas, hace clic, rellena formularios, toma capturas.",
+  { name: "playwright", title: N_("Playwright browser"), why: N_("Drives a real browser: opens pages, clicks, fills in forms, takes screenshots."),
     config: { command: "npx", args: ["-y", "@playwright/mcp@latest"] } },
-  { name: "windows", title: "Escritorio de Windows", why: "Controla apps y el escritorio de Windows: ventanas, clics, teclado, portapapeles. Necesita uv (Python).",
+  { name: "windows", title: N_("Windows desktop"), why: N_("Controls apps and the Windows desktop: windows, clicks, keyboard, clipboard. Needs uv (Python)."),
     config: { command: "uvx", args: ["windows-mcp"] } },
-  { name: "filesystem", title: "Archivos", why: "Operaciones de archivos avanzadas dentro de tu carpeta de usuario.",
+  { name: "filesystem", title: N_("Files"), why: N_("Advanced file operations inside your user folder."),
     config: { command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "${userHome}"] } },
-  { name: "github", title: "GitHub", why: "Issues, pull requests, búsqueda de código y más, con el servidor oficial de GitHub.",
+  { name: "github", title: "GitHub", why: N_("Issues, pull requests, code search and more, with GitHub's official server."),
     config: { url: "https://api.githubcopilot.com/mcp/" },
     secrets: [{ field: "header:Authorization", label: "Authorization", placeholder: "Bearer ghp_…" }] },
-  { name: "memory", title: "Grafo de conocimiento", why: "Una memoria estructurada a largo plazo que Mochi puede consultar.",
+  { name: "memory", title: N_("Knowledge graph"), why: N_("A structured long-term memory Mochi can look up."),
     config: { command: "npx", args: ["-y", "@modelcontextprotocol/server-memory"] } },
-  { name: "fetch", title: "Fetch", why: "Convierte cualquier página web en Markdown limpio. Necesita uv (Python).",
+  { name: "fetch", title: "Fetch", why: N_("Turns any web page into clean Markdown. Needs uv (Python)."),
     config: { command: "uvx", args: ["mcp-server-fetch"] } },
 ];
 
@@ -471,9 +473,9 @@ function stateColor(s: McpStatus["state"]): string {
   return { connected: "#22c55e", connecting: "#f5a524", disabled: "#6b7280", error: "#f4505e" }[s];
 }
 
-const STATE_LABELS: Record<McpStatus["state"], string> = {
-  connected: "conectado", connecting: "conectando", disabled: "apagado", error: "error",
-};
+const STATE_LABELS = labels<McpStatus["state"]>({
+  connected: N_("Connected"), connecting: N_("Connecting"), disabled: N_("Off"), error: N_("Error"),
+});
 
 export async function connectionsSection(): Promise<HTMLElement> {
   const list = h("div", { style: "display:flex;flex-direction:column;gap:8px" });
@@ -482,10 +484,10 @@ export async function connectionsSection(): Promise<HTMLElement> {
   const section = h(
     "section",
     {},
-    h("h2", {}, h("span", { text: "Conexiones (MCP)" })),
+    h("h2", {}, h("span", { text: t("Connections (MCP)") })),
     h("div", {
       class: "hint",
-      text: "Conecta a Mochi con cualquier cosa que hable el Model Context Protocol. Las herramientas de cada servidor pasan a ser de Mochi; las que cambian algo te preguntan primero. Las claves que escribas aquí van al Administrador de credenciales: el archivo de configuración solo guarda un marcador.",
+      text: t("Connect Mochi to anything that speaks the Model Context Protocol. Each server's tools become Mochi's; the ones that change something ask you first. Keys you type here go to the Credential Manager: the config file only keeps a placeholder."),
     }),
     list,
     feedback,
@@ -496,7 +498,7 @@ export async function connectionsSection(): Promise<HTMLElement> {
     const statuses = (await Bridge.mcpList()) ?? [];
     clear(list);
     if (statuses.length === 0) {
-      list.append(h("div", { class: "hint", text: "Sin conexiones todavía. Añade uno de los servidores recomendados de abajo, o importa los tuyos de Cursor." }));
+      list.append(h("div", { class: "hint", text: t("No connections yet. Add one of the recommended servers below, or import yours from Cursor.") }));
     }
     for (const st of statuses) {
       const isSkill = st.name.startsWith("skill-");
@@ -509,7 +511,9 @@ export async function connectionsSection(): Promise<HTMLElement> {
         }
       });
       const info =
-        st.state === "connected" ? `${st.tools.length} herramientas` : st.state === "error" ? (st.error ?? "error") : STATE_LABELS[st.state];
+        st.state === "connected"
+          ? t("Tools: {count}", { count: st.tools.length })
+          : st.state === "error" ? (st.error ?? STATE_LABELS.error) : STATE_LABELS[st.state];
       const row = h("div", { class: "row" },
         isSkill ? h("span", { style: "width:34px" }) : sw,
         dot(stateColor(st.state)),
@@ -519,7 +523,7 @@ export async function connectionsSection(): Promise<HTMLElement> {
       if (!isSkill) {
         row.append(h("button", {
           class: "danger",
-          text: "Quitar",
+          text: t("Remove"),
           onclick: async () => {
             try {
               await Bridge.mcpRemove(st.name);
@@ -535,9 +539,9 @@ export async function connectionsSection(): Promise<HTMLElement> {
 
   function drawForm(prefill?: Recommended) {
     clear(form);
-    const name = h("input", { type: "text", value: prefill?.name ?? "", placeholder: "nombre (letras, números, - _)", style: "width:160px" }) as HTMLInputElement;
+    const name = h("input", { type: "text", value: prefill?.name ?? "", placeholder: t("name (letters, digits, - _)"), style: "width:160px" }) as HTMLInputElement;
     const kind = h("select", {}) as HTMLSelectElement;
-    kind.append(h("option", { value: "stdio", text: "Comando" }), h("option", { value: "http", text: "URL" }));
+    kind.append(h("option", { value: "stdio", text: t("Command") }), h("option", { value: "http", text: "URL" }));
     kind.value = prefill?.config.url ? "http" : "stdio";
     const command = h("input", {
       type: "text",
@@ -549,7 +553,7 @@ export async function connectionsSection(): Promise<HTMLElement> {
     const url = h("input", { type: "text", value: prefill?.config.url ?? "", placeholder: "https://…/mcp", style: "flex:1 1 auto;min-width:0", spellcheck: "false" }) as HTMLInputElement;
     const env = h("textarea", {
       rows: "2",
-      placeholder: "Una por línea: NOMBRE=valor (las claves y tokens van al Administrador de credenciales)",
+      placeholder: t("One per line: NAME=value (keys and tokens go to the Credential Manager)"),
       style: "flex:1 1 auto;min-width:0;font:inherit;font-size:12px",
       spellcheck: "false",
     }) as HTMLTextAreaElement;
@@ -561,9 +565,9 @@ export async function connectionsSection(): Promise<HTMLElement> {
     const askAll = h("button", { class: "switch" });
     askAll.addEventListener("click", () => askAll.classList.toggle("on"));
 
-    const cmdRow = h("div", { class: "row" }, h("label", { text: "Comando" }), command);
+    const cmdRow = h("div", { class: "row" }, h("label", { text: t("Command") }), command);
     const urlRow = h("div", { class: "row" }, h("label", { text: "URL" }), url);
-    const envRow = h("div", { class: "row" }, h("label", { text: "Entorno" }), env);
+    const envRow = h("div", { class: "row" }, h("label", { text: t("Environment") }), env);
     const syncKind = () => {
       const http = kind.value === "http";
       cmdRow.style.display = http ? "none" : "";
@@ -573,7 +577,7 @@ export async function connectionsSection(): Promise<HTMLElement> {
     kind.addEventListener("change", syncKind);
     syncKind();
 
-    const saveBtn = h("button", { class: "primary", text: "Guardar conexión" });
+    const saveBtn = h("button", { class: "primary", text: t("Save connection") });
     saveBtn.addEventListener("click", async () => {
       clear(feedback);
       const config: McpServerConfig = {};
@@ -603,7 +607,7 @@ export async function connectionsSection(): Promise<HTMLElement> {
       saveBtn.disabled = true;
       try {
         await Bridge.mcpSave(name.value.trim(), config, secrets);
-        feedback.append(notice("ok", `Guardado. Conectando con ${name.value.trim()}…`));
+        feedback.append(notice("ok", t("Saved. Connecting to {name}…", { name: name.value.trim() })));
         drawForm();
       } catch (err) {
         feedback.append(notice("err", errText(err)));
@@ -614,25 +618,25 @@ export async function connectionsSection(): Promise<HTMLElement> {
 
     const recRow = h("div", { style: "display:flex;flex-wrap:wrap;gap:6px" });
     for (const rec of RECOMMENDED) {
-      recRow.append(h("button", { text: rec.title, title: rec.why, onclick: () => drawForm(rec) }));
+      recRow.append(h("button", { text: t(rec.title), title: t(rec.why), onclick: () => drawForm(rec) }));
     }
-    const importBtn = h("button", { text: "Importar de Cursor / Claude Code…", onclick: () => void showImport() });
+    const importBtn = h("button", { text: t("Import from Cursor / Claude Code…"), onclick: () => void showImport() });
 
     form.append(
-      h("div", { class: "hint", text: "Recomendados: un clic rellena el formulario, luego Guardar." }),
+      h("div", { class: "hint", text: t("Recommended: one click fills in the form, then Save.") }),
       recRow,
-      prefill ? h("div", { class: "hint", text: prefill.why }) : h("span"),
-      h("div", { class: "row" }, h("label", { text: "Nombre" }), name, kind),
+      prefill ? h("div", { class: "hint", text: t(prefill.why) }) : h("span"),
+      h("div", { class: "row" }, h("label", { text: t("Name") }), name, kind),
       cmdRow,
       urlRow,
       envRow,
       ...secretInputs.map((s) => h("div", { class: "row" }, h("label", { text: s.label }), s.input)),
       h("div", { class: "row" },
-        h("label", { text: "Preguntar todo" }),
+        h("label", { text: t("Ask for everything") }),
         askAll,
-        h("span", { class: "hint", text: "Pregunta también antes de las herramientas que dicen que solo leen." }),
+        h("span", { class: "hint", text: t("Also asks before tools that say they only read.") }),
       ),
-      h("div", { class: "row" }, saveBtn, importBtn, h("button", { text: "Reconectar todo", onclick: () => void Bridge.mcpReconnect() })),
+      h("div", { class: "row" }, saveBtn, importBtn, h("button", { text: t("Reconnect all"), onclick: () => void Bridge.mcpReconnect() })),
     );
   }
 
@@ -640,7 +644,7 @@ export async function connectionsSection(): Promise<HTMLElement> {
     clear(feedback);
     const candidates: McpImportCandidate[] = (await Bridge.mcpImportPreview()) ?? [];
     if (candidates.length === 0) {
-      feedback.append(notice("warn", "No hay servidores MCP en ~/.cursor/mcp.json ni en ~/.claude.json."));
+      feedback.append(notice("warn", t("No MCP servers in ~/.cursor/mcp.json or ~/.claude.json.")));
       return;
     }
     const picks = new Set<string>();
@@ -657,23 +661,23 @@ export async function connectionsSection(): Promise<HTMLElement> {
       box.append(h("div", { class: "row" },
         sw,
         h("span", { style: "font-size:12.5px;min-width:96px", text: c.name }),
-        h("span", { class: "hint", style: "flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text: `${c.source} · ${c.exists ? "ya añadido" : c.summary}` }),
+        h("span", { class: "hint", style: "flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text: `${c.source} · ${c.exists ? t("already added") : c.summary}` }),
       ));
     }
-    const go = h("button", { class: "primary", text: "Importar seleccionados" });
+    const go = h("button", { class: "primary", text: t("Import selected") });
     go.addEventListener("click", async () => {
       try {
         const n = await Bridge.mcpImportApply([...picks]);
         clear(feedback);
-        feedback.append(notice("ok", `${n} servidor(es) importados. Sus claves pasaron al Administrador de credenciales.`));
+        feedback.append(notice("ok", t("Servers imported: {count}. Their keys moved to the Credential Manager.", { count: n })));
       } catch (err) {
         feedback.append(notice("err", errText(err)));
       }
     });
     feedback.append(
-      h("div", { class: "hint", text: "Elige los servidores a copiar. No se cambia nada en los archivos de Cursor ni de Claude Code." }),
+      h("div", { class: "hint", text: t("Pick the servers to copy. Nothing changes in Cursor's or Claude Code's files.") }),
       box,
-      h("div", { class: "row" }, go, h("button", { text: "Cancelar", onclick: () => clear(feedback) })),
+      h("div", { class: "row" }, go, h("button", { text: t("Cancel"), onclick: () => clear(feedback) })),
     );
   }
 
@@ -693,7 +697,7 @@ export async function skillsSection(): Promise<HTMLElement> {
     const skills: SkillInfo[] = (await Bridge.skillsList()) ?? [];
     clear(list);
     if (skills.length === 0) {
-      list.append(h("div", { class: "hint", text: "Sin habilidades todavía. Pídele a Mochi que se cree una («créate una herramienta que…»): lees su código en la isla antes de que se instale." }));
+      list.append(h("div", { class: "hint", text: t("No skills yet. Ask Mochi to make itself one (“make yourself a tool that…”): you read its code in the island before it is installed.") }));
     }
     for (const sk of skills) {
       const sw = h("button", { class: sk.enabled ? "switch on" : "switch" });
@@ -706,14 +710,14 @@ export async function skillsSection(): Promise<HTMLElement> {
           feedback.append(notice("err", errText(err)));
         }
       });
-      const tools = sk.kind === "mcp" ? "servidor MCP" : sk.tools.map((t) => t.name).join(", ");
+      const tools = sk.kind === "mcp" ? t("MCP server") : sk.tools.map((x) => x.name).join(", ");
       list.append(h("div", { class: "row" },
         sw,
         h("span", { style: "font-size:12.5px;min-width:110px", text: sk.name }),
         h("span", { class: "hint", style: "flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text: `${sk.description} · ${tools}`, title: sk.description }),
         h("button", {
           class: "danger",
-          text: "Quitar",
+          text: t("Remove"),
           onclick: async () => {
             try {
               await Bridge.skillRemove(sk.name);
@@ -731,12 +735,12 @@ export async function skillsSection(): Promise<HTMLElement> {
   return h(
     "section",
     {},
-    h("h2", {}, h("span", { text: "Habilidades" })),
-    h("div", { class: "hint", text: "Herramientas pequeñas que Mochi escribió para sí mismo, cada una instalada después de que aprobaste su código." }),
+    h("h2", {}, h("span", { text: t("Skills") })),
+    h("div", { class: "hint", text: t("Small tools Mochi wrote for itself, each one installed after you approved its code.") }),
     list,
     h("div", { class: "row" },
-      h("button", { text: "Abrir carpeta de habilidades", onclick: () => void Bridge.openDataFolder("skills") }),
-      h("button", { text: "Actualizar", onclick: () => void draw() }),
+      h("button", { text: t("Open skills folder"), onclick: () => void Bridge.openDataFolder("skills") }),
+      h("button", { text: t("Refresh"), onclick: () => void draw() }),
     ),
     feedback,
   );
@@ -750,18 +754,18 @@ export async function coreSection(): Promise<HTMLElement> {
   return h(
     "section",
     {},
-    h("h2", {}, dot(ok ? "#22c55e" : "#f5a524"), h("span", { text: "Núcleo protegido" })),
+    h("h2", {}, dot(ok ? "#22c55e" : "#f5a524"), h("span", { text: t("Protected core") })),
     h("div", {
       class: "hint",
-      text: "Mochi puede mejorarse a sí mismo (habilidades y cambios en su propio código en un worktree de git que apruebas como diff), pero nunca puede cambiar esto. Solo tú lo editas, a mano.",
+      text: t("Mochi can improve itself (skills, and changes to its own code in a git worktree you approve as a diff), but it can never change this. Only you edit it, by hand."),
     }),
     h("div", { class: "path", style: "white-space:pre-wrap", text: status.protected.join("\n") }),
     ok
-      ? notice("ok", "Verificado al arrancar: idéntico a lo que se usó para compilar esta versión.")
-      : notice("warn", `Cambió desde esta compilación: ${status.tampered.join(", ")}. La autoevolución queda bloqueada hasta que recompiles.`),
+      ? notice("ok", t("Verified at startup: identical to what this version was built with."))
+      : notice("warn", t("Changed since this build: {files}. Self-evolution is blocked until you rebuild.", { files: status.tampered.join(", ") })),
     h("div", { class: "row" },
-      h("button", { text: "Abrir carpeta del registro", onclick: () => void Bridge.openDataFolder("log") }),
-      h("span", { class: "hint", text: "coucou.log lista cada herramienta que usó Mochi y si la permitiste." }),
+      h("button", { text: t("Open log folder"), onclick: () => void Bridge.openDataFolder("log") }),
+      h("span", { class: "hint", text: t("coucou.log lists every tool Mochi used and whether you allowed it.") }),
     ),
   );
 }

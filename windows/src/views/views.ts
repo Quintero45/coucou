@@ -506,8 +506,8 @@ export function hasSessionTicker(task: AgentTask): boolean {
 /** A Grok Bot's grey label: its latest live step while it works, else its phase. */
 function botLabel(task: AgentTask): string {
   const phase = botPhase(task.state);
-  // Working: its latest live step (bot-step) says more than "trabajando".
-  const live = phase?.label === "trabajando" ? BotLive.step(task.id)?.text : null;
+  // Working: its latest live step (bot-step) says more than "working".
+  const live = phase?.phase === "working" ? BotLive.step(task.id)?.text : null;
   if (live) return live;
   return phase ? `${t("Grok Bot")} · ${phase.label}` : t("Grok Bot");
 }
@@ -516,19 +516,19 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   const label = task.id === "integration_claude" ? "VS Code" : task.name;
   const canvas = createMiniBot(task, 24);
   const isBotPill = task.id.startsWith(BOT_PREFIX);
-  // Grok Bots say what they are doing under their name: trabajando, pregunta,
-  // listo, error. Nothing when idle.
+  // Grok Bots say what they are doing under their name: working, asking,
+  // done, error. Nothing when idle.
   const mood = BotLive.avatarState(task);
-  // «Recibido» for a moment after a message reached it (no reply yet).
+  // "Received" for a moment after a message reached it (no reply yet).
   const phase = isBotPill
-    ? (mood === "recibido" ? { label: "recibido", color: "#22C55E" } : botPhase(task.state))
+    ? (mood === "recibido" ? { phase: null, label: t("Received"), color: "#22C55E" } : botPhase(task.state))
     : null;
   const lbl = phase
     ? h("span", { class: "lbl two" },
         h("span", { class: "lbl-name", text: label, style: `color:${task.color}` }),
         h("span", { class: "pill-state" }, h("i", { style: `background:${phase.color}` }),
-          // Working: the latest live step instead of just "trabajando".
-          h("span", { class: "pill-step", text: (phase.label === "trabajando" ? BotLive.step(task.id)?.text : null) ?? phase.label })))
+          // Working: the latest live step instead of just "working".
+          h("span", { class: "pill-step", text: (phase.phase === "working" ? BotLive.step(task.id)?.text : null) ?? phase.label })))
     : h("span", { class: "lbl", text: label, style: isBotPill ? `color:${task.color}` : undefined });
   const pill = h(
     "div",

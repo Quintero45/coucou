@@ -10,6 +10,7 @@ import type { CodexPlanUsage, PlanUsage } from "./plan";
 import type { FileDiff } from "./diff";
 import type { Bindings } from "./shortcuts";
 import { DEFAULT_OUTFIT, type Outfit } from "../mochi/wardrobe";
+import { t } from "../i18n/i18n";
 
 export type AgentSource = "claudeCode" | "n8n" | "agent";
 export type PillBadge = "approval" | "finished" | "error";
@@ -185,20 +186,22 @@ export function botPillId(bot: GrokBot): string {
   return `${BOT_PREFIX}${bot.id}`;
 }
 
-/** How a Grok Bot pill names its state, in the island's words. */
-export function botPhase(state: BotStateName): { label: string; color: string } | null {
+export type BotPhaseName = "working" | "asking" | "done" | "error";
+
+/** How a Grok Bot pill names its state, in the island's words (`label` is translated). */
+export function botPhase(state: BotStateName): { phase: BotPhaseName; label: string; color: string } | null {
   switch (state) {
     case "working":
     case "thinking":
     case "searching":
-      return { label: "trabajando", color: "#60A5FA" };
+      return { phase: "working", label: t("Working"), color: "#60A5FA" };
     case "approval":
     case "question":
-      return { label: "pregunta", color: "#F5A524" };
+      return { phase: "asking", label: t("Asking"), color: "#F5A524" };
     case "finished":
-      return { label: "listo", color: "#22C55E" };
+      return { phase: "done", label: t("Finished"), color: "#22C55E" };
     case "error":
-      return { label: "error", color: "#F4505E" };
+      return { phase: "error", label: t("Error"), color: "#F4505E" };
     default:
       return null;
   }

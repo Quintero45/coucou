@@ -10,6 +10,7 @@ import type { BotDecision } from "./botlog";
 import { CMD, callCmd, playSound } from "./botcmds";
 import { BotLive } from "./botlive";
 import { BOT_PREFIX, CURSOR_AGENT_ID, State } from "./state";
+import { t } from "../i18n/i18n";
 
 /** The Cursor agent's conversation: its prompts, steps and answers, read from its hooks. */
 export const CURSOR_CHAT = "cursor";
@@ -151,7 +152,7 @@ export const BotChat = {
   },
 };
 
-const QUEUED_NOTE = "En cola: le llega a Cursor cuando termine lo que está haciendo.";
+const queuedNote = () => t("Queued: Cursor gets it when it finishes what it's doing.");
 
 /**
  * An order for the Cursor agent (cursorlink.rs): while it works it waits for
@@ -167,7 +168,7 @@ export async function sendToCursor(text: string, screen: boolean, busy: boolean)
   });
   try {
     const how = await callCmd<string>(CMD.cursorSend, { id: entry.id, text, screen, busy, attachments: items.map(toWire) });
-    BotChat.update(CURSOR_CHAT, entry.id, how === "queued" ? { status: "queued", note: QUEUED_NOTE } : { status: "sent", note: "" });
+    BotChat.update(CURSOR_CHAT, entry.id, how === "queued" ? { status: "queued", note: queuedNote() } : { status: "sent", note: "" });
   } catch (err) {
     Outbox.restore(CURSOR_CHAT, items);
     BotChat.update(CURSOR_CHAT, entry.id, { status: "error", note: err instanceof Error ? err.message : String(err) });
@@ -194,20 +195,20 @@ const ORDER_GONE = /^Esa orden ya salió(?: hacia Cursor)?\.$/;
 export async function cursorOrderCancel(id: string): Promise<void> {
   try {
     await callCmd(CMD.cursorOrderCancel, { id });
-    BotChat.update(CURSOR_CHAT, id, { status: "error", note: "Quitada de la cola: no se envió." });
+    BotChat.update(CURSOR_CHAT, id, { status: "error", note: t("Taken out of the queue: not sent.") });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // "Esa orden ya salió hacia Cursor.": it was sent, say so as is.
     if (ORDER_GONE.test(msg)) BotChat.update(CURSOR_CHAT, id, { status: "sent", note: msg });
     // Still queued as far as we know: saying "no se envió" could be false.
-    else BotChat.update(CURSOR_CHAT, id, { status: "queued", note: `No se pudo quitar de la cola: ${msg}` });
+    else BotChat.update(CURSOR_CHAT, id, { status: "queued", note: t("Couldn't take it out of the queue: {error}", { error: msg }) });
   }
 }
 
 /** cursor-order: a queued order reached Cursor, or Cursor stopped without taking it. */
 export function cursorOrderEvent(p: { id: string; state: string }) {
   if (p.state === "sent") BotChat.update(CURSOR_CHAT, p.id, { status: "sent", note: "" });
-  else BotChat.update(CURSOR_CHAT, p.id, { note: "Cursor se detuvo sin recibirla. Toca «Enviar ahora» para escribírsela en su chat." });
+  else BotChat.update(CURSOR_CHAT, p.id, { note: t("Cursor stopped without getting it. Tap “Send now” to type it into its chat.") });
 }
 
 /**
@@ -296,7 +297,7 @@ export function parseTodos(text: string): string | null {
 /**
  * The same message to every Grok Bot (grokbot_send each), recorded in each
  * Bot's conversation. ok when at least one got it; message says how it went,
- * with each failure in Spanish.
+ * with each failure in the owner's words.
  */
 export async function sendToAll(
   text: string,
@@ -304,13 +305,13 @@ export async function sendToAll(
 ): Promise<{ ok: boolean; message: string; sent: number; failed: { name: string; message: string }[] }> {
   const bots = State.settings.grokBots;
   void Bridge.log(`todos n=${bots.length} files=${attachments.length}`);
-  if (bots.length === 0) return { ok: false, message: "No tienes Bots de Grok conectados", sent: 0, failed: [] };
+  if (bots.length === 0) return { ok: false, message: t("You have no Grok Bots connected"), sent: 0, failed: [] };
   const results = await Promise.all(bots.map(async (b) => ({ bot: b, r: await sendToBot(b.id, text, attachments, true) })));
   const failed = results.filter((x) => !x.r.ok).map((x) => ({ name: x.bot.name, message: x.r.message }));
   const sent = results.length - failed.length;
   // One sound for the whole round, not one per Bot.
   playSound(sent > 0 ? "recibido" : "error", State.settings);
-  const head = `Enviado a ${sent} ${sent === 1 ? "bot" : "bots"}`;
+  const head = t("Sent to bots: {count}", { count: sent });
   const message = failed.length ? `${head} · ${failed.map((f) => `${f.name}: ${f.message}`).join(" · ")}` : head;
   return { ok: sent > 0, message, sent, failed };
 }

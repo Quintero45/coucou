@@ -6,6 +6,7 @@
 import { Bridge, type AttachmentIn } from "./bridge";
 import { State } from "./state";
 import { cmdErrorText } from "./botcmds";
+import { t } from "../i18n/i18n";
 
 export type PendingAttachment =
   | { key: string; kind: "file"; id: string; name: string; mime: string; size: number }
@@ -73,18 +74,18 @@ export function formatSize(bytes: number): string {
 /** The send and copy errors, in the owner's words. */
 export function botErrorText(err: unknown): string {
   const raw = String(err).replace(/^Error:\s*/, "");
-  if (/\btoo_large\b/.test(raw)) return "El archivo es demasiado grande";
-  if (/\bnot_connected\b/.test(raw)) return "Este bot aún no está conectado";
-  if (/\bempty_message\b/.test(raw)) return "El mensaje está vacío";
+  if (/\btoo_large\b/.test(raw)) return t("The file is too large");
+  if (/\bnot_connected\b/.test(raw)) return t("This bot isn't connected yet");
+  if (/\bempty_message\b/.test(raw)) return t("The message is empty");
   const http = /\bhttp_(\d+)\b/.exec(raw);
-  if (http) return http[1] === "0" ? "No se pudo contactar con el bot (red o tiempo agotado)" : `El bot no respondió (${http[1]})`;
+  if (http) return http[1] === "0" ? t("Couldn't reach the bot (network or timeout)") : t("The bot didn't answer ({status})", { status: http[1] });
   return raw;
 }
 
 /** Copies dropped files into the inbox and puts them in the Bot's tray. */
 export async function attachPaths(slug: string, paths: string[]): Promise<boolean> {
   if (paths.length === 0) return false;
-  Outbox.setNotice(slug, paths.length === 1 ? "Preparando el archivo…" : `Preparando ${paths.length} archivos…`);
+  Outbox.setNotice(slug, paths.length === 1 ? t("Preparing the file…") : t("Preparing files: {count}…", { count: paths.length }));
   try {
     const files = await Bridge.ingestFiles(paths);
     Outbox.setNotice(slug, null);
@@ -126,7 +127,7 @@ export function handleBotPaste(e: ClipboardEvent, slug: string) {
         size: file.size,
       });
     };
-    reader.onerror = () => Outbox.setNotice(slug, "No se pudo leer la imagen pegada");
+    reader.onerror = () => Outbox.setNotice(slug, t("Couldn't read the pasted image"));
     reader.readAsDataURL(file);
     return;
   }
@@ -150,26 +151,26 @@ export function handleBotPaste(e: ClipboardEvent, slug: string) {
  * pull into the box before sending.
  */
 export async function attachContext(slug: string): Promise<string | null> {
-  Outbox.setNotice(slug, "Capturando el contexto…");
+  Outbox.setNotice(slug, t("Capturing the context…"));
   try {
     const c = await Bridge.captureContext().catch((err: unknown) => {
       throw new Error(cmdErrorText(err));
     });
     Outbox.setNotice(slug, null);
     const note = (name: string, text: string | null | undefined) => {
-      const t = (text ?? "").trim();
-      if (t) Outbox.add(slug, { kind: "note", name, text: t, size: new Blob([t]).size });
+      const body = (text ?? "").trim();
+      if (body) Outbox.add(slug, { kind: "note", name, text: body, size: new Blob([body]).size });
     };
     const win = [c.window_title, c.process_name ? `(${c.process_name})` : ""].filter(Boolean).join(" ");
-    note("Ventana", win);
-    note("Texto seleccionado", c.selected_text);
-    note("Portapapeles", c.clipboard_text);
+    note(t("Window"), win);
+    note(t("Selected text"), c.selected_text);
+    note(t("Clipboard"), c.clipboard_text);
     const shot = c.screenshot;
     if (shot?.id) Outbox.add(slug, { kind: "file", id: shot.id, name: shot.name, mime: shot.mime, size: shot.size });
     return null;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    Outbox.setNotice(slug, `Contexto: ${msg}`);
+    Outbox.setNotice(slug, t("Context: {error}", { error: msg }));
     return msg;
   }
 }

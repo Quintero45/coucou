@@ -9,6 +9,7 @@
 
 import { BotChat } from "./botchat";
 import { Bridge } from "./bridge";
+import { N_ } from "../i18n/i18n";
 
 /**
  * allow / always / deny: the owner's click. timeout: no click in time. busy:
@@ -43,14 +44,15 @@ export type BotApprovalRecord = Omit<BotApproval, "at" | "toolInput" | "truncate
   input?: Record<string, unknown> | null;
 };
 
+/** `text` is an English key: shown through t(). */
 export const DECISION_LABELS: Record<BotDecision, { text: string; color: string }> = {
-  allow: { text: "Permitido", color: "#22c55e" },
-  always: { text: "Permitido", color: "#22c55e" },
-  deny: { text: "Denegado", color: "#f4505e" },
-  timeout: { text: "Sin respuesta", color: "#f5a524" },
-  busy: { text: "Ocupado", color: "#9398a1" },
-  paused: { text: "En pausa", color: "#9398a1" },
-  auto: { text: "Libre", color: "#60a5fa" },
+  allow: { text: N_("Allowed"), color: "#22c55e" },
+  always: { text: N_("Allowed"), color: "#22c55e" },
+  deny: { text: N_("Denied"), color: "#f4505e" },
+  timeout: { text: N_("No answer"), color: "#f5a524" },
+  busy: { text: N_("Busy"), color: "#9398a1" },
+  paused: { text: N_("Paused"), color: "#9398a1" },
+  auto: { text: N_("Free"), color: "#60a5fa" },
 };
 
 const clean = (s: string, max: number) => s.replace(/\s+/g, " ").trim().slice(0, max);

@@ -446,7 +446,7 @@ function n8nDetail(task: AgentTask, onBack: () => void): HTMLElement {
 function botCard(task: AgentTask, hooks: IntegrationCardHooks): HTMLElement {
   const last = task.lastMessage ?? task.steps.at(-1) ?? null;
   const color = task.state === "error" ? "#F4505E" : task.state === "finished" ? "#22C55E" : `${task.color}`;
-  const head = header(task.color, task.name, "Bot de Grok");
+  const head = header(task.color, task.name, t("Grok Bot"));
   (head.querySelector("b") as HTMLElement).style.color = task.color;
   return h(
     "div",
@@ -456,9 +456,9 @@ function botCard(task: AgentTask, hooks: IntegrationCardHooks): HTMLElement {
     h("div", { class: "int-status" }, dot(color, 5),
       task.lastMessage
         ? markdown("span", "bot-card-md", task.lastMessage)
-        : h("span", { text: last ?? "En reposo. Toca la tarjeta para hablar con él." })),
+        : h("span", { text: last ?? t("Idle. Tap the card to talk to it.") })),
     h("div", { class: "int-actions" },
-      h("button", { class: "link-btn", style: "color:#8e939c", text: "Ajustes…", onclick: hooks.openSettings }),
+      h("button", { class: "link-btn", style: "color:#8e939c", text: t("Settings…"), onclick: hooks.openSettings }),
     ),
   );
 }
@@ -506,10 +506,10 @@ export function createBotReply(handlers: BotReplyHandlers): BotReply {
   const input = h("textarea", {
     class: "bot-reply-input",
     rows: "1",
-    placeholder: "Respóndele…",
+    placeholder: t("Reply…"),
     spellcheck: "true",
   }) as HTMLTextAreaElement;
-  const sendBtn = h("button", { class: "bot-reply-send", title: "Enviar (Enter)" }, svg(ICONS.arrowUp, 10));
+  const sendBtn = h("button", { class: "bot-reply-send", title: t("Send (Enter)") }, svg(ICONS.arrowUp, 10));
   const status = h("div", { class: "bot-reply-status" });
   const chips = h("div", { class: "bot-chips" });
   const note = h("div", { class: "bot-chips-note" });
@@ -639,7 +639,7 @@ export function createBotReply(handlers: BotReplyHandlers): BotReply {
       el.style.setProperty("--bot", task.color);
       connected = !!State.settings.grokBots.find((b) => b.id === slug)?.url.trim();
       input.disabled = !connected;
-      input.placeholder = connected ? `Respóndele a ${task.name}…` : "Este bot aún no está conectado";
+      input.placeholder = connected ? t("Reply to {name}…", { name: task.name }) : t("This bot isn't connected yet");
       sendBtn.disabled = !connected || sending;
       box.classList.toggle("off", !connected);
       syncChips(chips, note, slug, (text) => {
@@ -663,13 +663,13 @@ function syncChips(row: HTMLElement, note: HTMLElement, slug: string, pull?: (te
       const preview = a.kind === "note" ? `${a.name}: ${a.text.replace(/\s+/g, " ").slice(0, 60)}` : a.name;
       const chip = h("span", {
         class: `bot-chip ${a.kind}`,
-        title: a.kind === "note" ? `${a.name}\n${a.text.slice(0, 400)}\n\n(Clic: pasarlo a la caja para editarlo)` : a.name,
+        title: a.kind === "note" ? `${a.name}\n${a.text.slice(0, 400)}\n\n${t("(Click: move it to the box to edit it)")}` : a.name,
       },
         h("span", { class: "bot-chip-name", text: preview }),
         h("span", { class: "bot-chip-size", text: formatSize(a.size) }),
         h("button", {
           class: "bot-chip-x",
-          title: "Quitar",
+          title: t("Remove"),
           onclick: (e: Event) => {
             e.stopPropagation();
             Outbox.remove(slug, [a.key]);
@@ -745,27 +745,27 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
   const dotEl = h("i", { class: "bot-detail-dot" });
   const nameEl = h("b", { class: "bot-detail-name" });
   const stateEl = h("span", { class: "bot-detail-state" });
-  const backBtn = h("button", { class: "btn secondary bot-detail-back", title: "Volver" },
-    svg(ICONS.chevronLeft, 9, { stroke: 2.4 }), h("span", { text: "Volver" }));
+  const backBtn = h("button", { class: "btn secondary bot-detail-back", title: t("Back") },
+    svg(ICONS.chevronLeft, 9, { stroke: 2.4 }), h("span", { text: t("Back") }));
   const timeline = h("div", { class: "bot-detail-timeline" });
   const input = h("textarea", {
     class: "bot-detail-input",
     rows: "1",
-    placeholder: "Escríbele…",
+    placeholder: t("Write to it…"),
     spellcheck: "true",
   }) as HTMLTextAreaElement;
-  const sendBtn = h("button", { class: "bot-detail-send", title: "Enviar (Enter)" }, svg(ICONS.arrowUp, 11));
-  const offline = h("div", { class: "bot-detail-offline", text: "Este bot aún no está conectado. Pega su webhook en Ajustes → Mis Bots de Grok." });
+  const sendBtn = h("button", { class: "bot-detail-send", title: t("Send (Enter)") }, svg(ICONS.arrowUp, 11));
+  const offline = h("div", { class: "bot-detail-offline", text: t("This bot isn't connected yet. Paste its webhook in Settings → My Grok Bots.") });
   // Second batch: context, dictation, meeting, screen sharing (Rust may not
   // have them yet — each says "no disponible todavía" then).
-  const ctxBtn = h("button", { class: "bot-tool", title: "Contexto: captura la ventana activa, la selección y el portapapeles para revisarlos antes de enviar" },
+  const ctxBtn = h("button", { class: "bot-tool", title: t("Context: captures the active window, the selection and the clipboard so you can check them before sending") },
     svg(TOOL_ICONS.context, 12));
-  const micBtn = h("button", { class: "bot-tool", title: "Mantén pulsado para dictar" }, svg(TOOL_ICONS.mic, 12));
-  const meetingBtn = h("button", { class: "bot-tool-pill", title: "Reunión: graba y transcribe (micrófono y sonido del PC)" },
-    svg(TOOL_ICONS.meeting, 11), h("span", { text: "Reunión" }));
+  const micBtn = h("button", { class: "bot-tool", title: t("Hold to dictate") }, svg(TOOL_ICONS.mic, 12));
+  const meetingBtn = h("button", { class: "bot-tool-pill", title: t("Meeting: records and transcribes (microphone and PC sound)") },
+    svg(TOOL_ICONS.meeting, 11), h("span", { text: t("Meeting") }));
   const shareSwitch = h("i", { class: "bot-switch" });
-  const shareBtn = h("button", { class: "bot-tool-pill", title: "Compartir pantalla con el bot (una captura cada 5 s)" },
-    svg(TOOL_ICONS.screen, 11), h("span", { text: "Pantalla" }), shareSwitch);
+  const shareBtn = h("button", { class: "bot-tool-pill", title: t("Share your screen with the bot (one capture every 5 s)") },
+    svg(TOOL_ICONS.screen, 11), h("span", { text: t("Screen") }), shareSwitch);
   const composer = h("div", { class: "bot-detail-composer" }, ctxBtn, micBtn, input, sendBtn);
   const chips = h("div", { class: "bot-chips" });
   const note = h("div", { class: "bot-chips-note" });
@@ -843,11 +843,11 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     BotLive.dictatingSlug = who;
     BotLive.dictation.delete(who);
     micBtn.classList.add("live");
-    Outbox.setNotice(who, "Escuchando… suelta para enviar");
+    Outbox.setNotice(who, t("Listening… release to send"));
     callCmd(CMD.startDictation, { bot: who }).catch((err) => {
       BotLive.dictatingSlug = null;
       micBtn.classList.remove("live");
-      toolError("Dictado", err);
+      toolError(t("Dictation"), err);
     });
   });
   const endDictation = (e: PointerEvent) => {
@@ -856,7 +856,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     const who = BotLive.dictatingSlug;
     micBtn.classList.remove("live");
     if (!who) return;
-    Outbox.setNotice(who, "Transcribiendo…");
+    Outbox.setNotice(who, t("Transcribing…"));
     callCmd<{ text?: string }>(CMD.stopDictation)
       .then((r) => {
         const heard = String(r?.text ?? BotLive.dictation.get(who) ?? "").trim();
@@ -874,7 +874,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       .catch((err) => {
         BotLive.dictatingSlug = null;
         BotLive.dictation.delete(who);
-        toolError("Dictado", err);
+        toolError(t("Dictation"), err);
       });
   };
   micBtn.addEventListener("pointerup", endDictation);
@@ -891,13 +891,13 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
           const path = r?.path_transcript;
           if (path) {
             BotChat.add(who, {
-              kind: "file", path, name: path.split(/[\\/]/).pop() || "transcripción.txt",
+              kind: "file", path, name: path.split(/[\\/]/).pop() || "transcript.txt",
               mime: "text/plain", size: 0, source: "meeting",
             });
           }
           State.notify();
         })
-        .catch((err) => toolError("Reunión", err));
+        .catch((err) => toolError(t("Meeting"), err));
     } else {
       callCmd(CMD.startMeeting, { bot: who, options: { mic: true, system: true } })
         .then(() => {
@@ -905,7 +905,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
           if (!BotLive.meeting?.active) BotLive.meeting = { active: true, bot: who, since: Date.now() };
           State.notify();
         })
-        .catch((err) => toolError("Reunión", err));
+        .catch((err) => toolError(t("Meeting"), err));
     }
   });
 
@@ -923,7 +923,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
           BotLive.screenShare = { active: false, bot: who };
           State.notify();
         })
-        .catch((err) => toolError("Pantalla", err));
+        .catch((err) => toolError(t("Screen"), err));
     } else {
       // Tauri takes command arguments in camelCase (interval_s → intervalS).
       callCmd(CMD.startScreenShare, { bot: who, intervalS: 5 })
@@ -931,7 +931,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
           if (!BotLive.screenShare?.active) BotLive.screenShare = { active: true, bot: who };
           State.notify();
         })
-        .catch((err) => toolError("Pantalla", err));
+        .catch((err) => toolError(t("Screen"), err));
     }
   });
 
@@ -945,14 +945,14 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
   function fileCard(e: Extract<BotChatEntry, { kind: "file" }>): HTMLElement {
     // The asset protocol is off in tauri.conf, so no thumbnails: an icon says it's an image.
     const isImage = e.mime.startsWith("image/");
-    const card = h("div", { class: "bot-detail-file", title: `Abrir ${e.name}` },
+    const card = h("div", { class: "bot-detail-file", title: t("Open {name}", { name: e.name }) },
       h("span", { class: "bot-detail-file-icon" }, svg(isImage ? TOOL_ICONS.image : TOOL_ICONS.file, 14)),
       h("span", { class: "bot-detail-file-body" },
         h("b", { text: e.name }),
-        h("span", { text: e.caption || [e.source === "meeting" ? "Transcripción de la reunión" : isImage ? "Imagen" : "Archivo", e.size ? formatSize(e.size) : ""].filter(Boolean).join(" · ") })),
+        h("span", { text: e.caption || [e.source === "meeting" ? t("Meeting transcript") : isImage ? t("Image") : t("File"), e.size ? formatSize(e.size) : ""].filter(Boolean).join(" · ") })),
       h("span", { class: "time", text: when(e.at) }));
     card.addEventListener("click", () => {
-      Bridge.openAttachment(e.path).catch((err: unknown) => toolError("Abrir", new Error(cmdErrorText(err))));
+      Bridge.openAttachment(e.path).catch((err: unknown) => toolError(t("Open"), new Error(cmdErrorText(err))));
     });
     return card;
   }
@@ -970,20 +970,20 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
         ? `${p.toolInput}${p.truncated ? "…" : ""}`
         : JSON.stringify(p.toolInput, null, 2);
     const marks: string[] = [];
-    if (json && p.truncated) marks.push("(recortado) El registro guarda hasta 2 KB de argumentos.");
-    if (json && p.omitted) marks.push("(omitido) El contenido de archivos y los textos largos no se guardan, solo su longitud.");
+    if (json && p.truncated) marks.push(t("(trimmed) The log keeps up to 2 KB of arguments."));
+    if (json && p.omitted) marks.push(t("(omitted) File contents and long texts aren't kept, only their length."));
     const isOpen = open.has(p.id);
-    const row = h("div", { class: isOpen ? "bot-detail-perm open" : "bot-detail-perm", title: "Ver los argumentos" },
+    const row = h("div", { class: isOpen ? "bot-detail-perm open" : "bot-detail-perm", title: t("See the arguments") },
       h("div", { class: "bot-detail-perm-line" },
         h("span", { class: "bot-detail-chev" }, svg(ICONS.chevronLeft, 8, { stroke: 2.4 })),
-        h("span", { class: "bot-detail-perm-kind", text: "Permiso" }),
+        h("span", { class: "bot-detail-perm-kind", text: t("Permission") }),
         h("span", { class: "tool", text: p.tool }),
-        h("span", { class: "bot-detail-verdict", style: `color:${v.color};background:${v.color}22`, text: v.text }),
+        h("span", { class: "bot-detail-verdict", style: `color:${v.color};background:${v.color}22`, text: t(v.text) }),
         h("span", { class: "time", text: when(p.at) })),
-      isOpen ? h("pre", { class: "bot-detail-json", text: json ?? (p.target || "Sin argumentos.") }) : null,
+      isOpen ? h("pre", { class: "bot-detail-json", text: json ?? (p.target || t("No arguments.")) }) : null,
       isOpen && marks.length > 0 ? h("div", { class: "bot-detail-note", text: marks.join(" ") }) : null,
       isOpen && !json
-        ? h("div", { class: "bot-detail-note", text: "Este permiso es de antes de que se guardaran los argumentos: solo queda el resumen." })
+        ? h("div", { class: "bot-detail-note", text: t("This permission is from before arguments were kept: only the summary is left.") })
         : null,
     );
     row.addEventListener("click", (e) => {
@@ -1001,7 +1001,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       case "me": {
         // «Recibido» until its first step or reply shows up; then just the time.
         const answered = e.status === "sent" && answeredIds.has(e.id);
-        const status = { sending: "Enviando…", sent: answered ? "" : "Recibido", queued: "en cola", error: "No se pudo enviar" }[e.status];
+        const status = { sending: t("Sending…"), sent: answered ? "" : t("Received"), queued: t("Queued"), error: t("Couldn't send") }[e.status];
         const queued = e.status === "queued";
         const canRetry = e.status === "error" && slug !== CURSOR_CHAT;
         return h("div", { class: `bot-detail-msg me ${e.status}` },
@@ -1014,8 +1014,8 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
             : null,
           e.screen
             ? h("div", { class: "bot-detail-files" },
-                h("span", { class: "bot-chip sent", title: "Llevó una captura de tu pantalla" },
-                  svg(TOOL_ICONS.screen, 10), h("span", { class: "bot-chip-name", text: "Captura de pantalla" })))
+                h("span", { class: "bot-chip sent", title: t("It carried a capture of your screen") },
+                  svg(TOOL_ICONS.screen, 10), h("span", { class: "bot-chip-name", text: t("Screenshot") })))
             : null,
           h("div", { class: "bot-detail-meta" },
             h("span", { text: when(e.at) }),
@@ -1024,19 +1024,19 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
           e.status !== "sending" && e.note ? h("div", { class: `bot-detail-note${e.status === "error" ? " err" : ""}`, text: e.note }) : null,
           queued
             ? h("div", { class: "bot-detail-order-actions" },
-                h("button", { class: "btn secondary", title: "Quitarla de la cola", onclick: () => void cursorOrderCancel(e.id) },
-                  h("span", { text: "Quitar" })),
-                h("button", { class: "btn primary", title: "Escribírsela ya en el chat de Cursor", onclick: () => void cursorOrderNow(e.id) },
-                  h("span", { text: "Enviar ahora" })))
+                h("button", { class: "btn secondary", title: t("Take it out of the queue"), onclick: () => void cursorOrderCancel(e.id) },
+                  h("span", { text: t("Remove") })),
+                h("button", { class: "btn primary", title: t("Write it in Cursor's chat now"), onclick: () => void cursorOrderNow(e.id) },
+                  h("span", { text: t("Send now") })))
             : null,
           canRetry
             ? h("div", { class: "bot-detail-order-actions" },
-                h("button", { class: "btn secondary bot-retry", title: "Enviarlo otra vez", onclick: () => void retryToBot(slug, e.id) },
-                  h("span", { text: "Reintentar" })))
+                h("button", { class: "btn secondary bot-retry", title: t("Send it again"), onclick: () => void retryToBot(slug, e.id) },
+                  h("span", { text: t("Retry") })))
             : null);
       }
       case "bot": {
-        const tag = { done: "listo", needs: "necesita algo", error: "error", working: "" }[e.status];
+        const tag = { done: t("Finished"), needs: t("Needs something"), error: t("Error"), working: "" }[e.status];
         return h("div", { class: `bot-detail-msg bot ${e.status}` },
           // Its formatting kept: bold, italics, code, lists, http(s) links.
           markdown("div", "bot-detail-bubble", e.text),
@@ -1055,7 +1055,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
         return fileCard(e);
       case "transcript":
         return h("div", { class: "bot-detail-step transcript" },
-          h("span", { class: "bot-detail-perm-kind", text: "transcripción" }),
+          h("span", { class: "bot-detail-perm-kind", text: t("Transcript") }),
           h("span", { class: "bot-detail-text", text: e.text }), h("span", { class: "time", text: when(e.at) }));
       case "perm":
         return permRow(e);
@@ -1070,14 +1070,14 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     const order = req.tool === CURSOR_WRITE.tool && !!req.detail;
     return h("div", { class: "bot-detail-pending" },
       h("div", { class: "bot-detail-pending-head" },
-        h("span", { class: "bot-detail-perm-kind", text: question ? "Pregunta" : "Pide permiso" }),
+        h("span", { class: "bot-detail-perm-kind", text: question ? t("Question") : t("Asks for permission") }),
         question ? null : h("span", { class: "tool", text: req.tool })),
       h("div", { class: "bot-detail-pending-target", text: req.command || req.tool }),
       order
         ? (() => {
             // Stays open across redraws of the timeline (new steps, typing…).
             const box = h("details", { class: "bot-detail-order", open: orderOpenFor === req.requestId },
-              h("summary", { text: `Ver el texto completo (${req.detail!.length} caracteres)` }),
+              h("summary", { text: t("See the full text ({count} characters)", { count: req.detail!.length }) }),
               h("pre", { class: "bot-detail-json wrap", text: req.detail! }));
             box.addEventListener("toggle", () => {
               orderOpenFor = box.open ? req.requestId : "";
@@ -1090,10 +1090,10 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
         ? buildChoices({ options: req.options, allowCustom: !!req.allowCustom, onPick: (a) => handlers.decide("allow", a) })
         : null,
       h("div", { class: "bot-detail-pending-actions" },
-        h("button", { class: "btn secondary", onclick: () => handlers.decide("deny") }, h("span", { text: "Denegar" })),
+        h("button", { class: "btn secondary", onclick: () => handlers.decide("deny") }, h("span", { text: t("Deny") })),
         req.options?.length
           ? null
-          : h("button", { class: "btn primary", onclick: () => handlers.decide("allow") }, h("span", { text: "Permitir" }))));
+          : h("button", { class: "btn primary", onclick: () => handlers.decide("allow") }, h("span", { text: t("Allow") }))));
   }
 
   function draw(task: AgentTask, approvals: BotApproval[] | null, follow: boolean) {
@@ -1124,7 +1124,7 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     ].sort((a, b) => a.at - b.at);
 
     const pending = State.pendingApproval?.pillId === taskId ? State.pendingApproval : null;
-    const typing = !pending && botPhase(task.state)?.label === "trabajando";
+    const typing = !pending && botPhase(task.state)?.phase === "working";
     // Its latest step (bot-step), live under the timeline while it works.
     const live = typing ? BotLive.step(taskId)?.text ?? "" : "";
     const key = [
@@ -1139,8 +1139,8 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     clear(timeline);
     if (items.length === 0 && !pending) {
       const empty = task.id === CURSOR_AGENT_ID
-        ? "Aún no hay actividad de Cursor. Ordénale algo aquí abajo o escríbele en su ventana: verás tus mensajes, sus pasos y sus respuestas."
-        : `Todavía no hablaron. Escríbele a ${task.name} y su respuesta aparecerá aquí.`;
+        ? t("No activity from Cursor yet. Give it an order below or write in its window: you'll see your messages, its steps and its answers.")
+        : t("You haven't talked yet. Write to {name} and its answer will show up here.", { name: task.name });
       timeline.append(h("div", { class: "bot-detail-empty", text: empty }));
     }
     const next = new Set<string>();
@@ -1160,10 +1160,10 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
     }
     if (typing) {
       timeline.append(live
-        ? h("div", { class: "bot-detail-live", title: `${task.name} está trabajando` },
+        ? h("div", { class: "bot-detail-live", title: t("{name} is working", { name: task.name }) },
             h("span", { class: "bot-detail-typing" }, h("i"), h("i"), h("i")),
             h("span", { class: "bot-detail-live-text", text: live }))
-        : h("div", { class: "bot-detail-typing", title: `${task.name} está trabajando` }, h("i"), h("i"), h("i")));
+        : h("div", { class: "bot-detail-typing", title: t("{name} is working", { name: task.name }) }, h("i"), h("i"), h("i")));
     }
     seen = next;
     if (follow && (nearEnd || fresh > 0)) {
@@ -1192,14 +1192,14 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       // Its mood on the avatar's frame (style.css): pensando, recibido, listo…
       const mood = BotLive.avatarState(task);
       if (mascot.dataset.botState !== mood) mascot.dataset.botState = mood;
-      const phase = botPhase(task.state) ?? { label: "en reposo", color: "#8e939c" };
+      const phase = botPhase(task.state) ?? { phase: null, label: t("Idle"), color: "#8e939c" };
       const hk = `${task.name}|${task.color}|${phase.label}`;
       if (hk !== headKey) {
         headKey = hk;
         cardEl.style.setProperty("--bot", task.color);
         cardEl.style.setProperty("--phase", phase.color);
         nameEl.textContent = task.name;
-        dotEl.classList.toggle("live", phase.label === "trabajando");
+        dotEl.classList.toggle("live", phase.phase === "working");
         stateEl.textContent = phase.label;
         // Re-run the little pop on every state change.
         stateEl.classList.remove("bot-detail-pop");
@@ -1221,18 +1221,18 @@ export function createBotChat(handlers: BotChatHandlers): BotChatView {
       composer.classList.toggle("off", !connected);
       input.disabled = !connected;
       input.placeholder = isCursor
-        ? (botPhase(task.state)?.label === "trabajando" ? "Ordénale algo: le llega cuando termine…" : "Ordénale algo a Cursor…")
-        : "Escríbele…";
+        ? (botPhase(task.state)?.phase === "working" ? t("Give it an order: it gets it when it's done…") : t("Give Cursor an order…"))
+        : t("Write to it…");
       sendBtn.toggleAttribute("disabled", !connected);
       shareBtn.title = isCursor
-        ? (BotLive.cursorScreen ? "Cada orden lleva una captura de tu pantalla. Toca para quitarla." : "Pantalla: cada orden que envíes lleva una captura de tu pantalla")
-        : "Compartir pantalla con el bot (una captura cada 5 s)";
+        ? (BotLive.cursorScreen ? t("Every order carries a capture of your screen. Tap to stop.") : t("Screen: every order you send carries a capture of your screen"))
+        : t("Share your screen with the bot (one capture every 5 s)");
       // Voice engine not ready (or downloading): no microphone, no meeting.
       const blocked = BotLive.voiceBlocked();
       micBtn.toggleAttribute("disabled", !!blocked || !connected);
-      micBtn.title = blocked ?? (connected ? "Mantén pulsado para dictar" : "Este bot aún no está conectado");
+      micBtn.title = blocked ?? (connected ? t("Hold to dictate") : t("This bot isn't connected yet"));
       meetingBtn.toggleAttribute("disabled", !!blocked && !BotLive.meetingWith(slug));
-      meetingBtn.title = blocked ?? "Reunión: graba y transcribe (micrófono y sonido del PC)";
+      meetingBtn.title = blocked ?? t("Meeting: records and transcribes (microphone and PC sound)");
       meetingBtn.classList.toggle("on", BotLive.meetingWith(slug));
       shareBtn.classList.toggle("on", BotLive.sharingWith(slug));
       shareSwitch.classList.toggle("on", BotLive.sharingWith(slug));

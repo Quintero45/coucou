@@ -30,6 +30,7 @@ import { botDetail, buildHeader, buildViews, type ViewActions, type ViewHost } f
 import { botCanReply } from "../views/integrations";
 import { botFx } from "../mochi/botfx";
 import { h, clear } from "../views/dom";
+import { t } from "../i18n/i18n";
 import { IslandStateMachine } from "./fsm";
 import { refreshHookPills } from "./integrations";
 import { DesktopLink } from "./desktop";
@@ -367,9 +368,9 @@ export class Island {
     this.miniGrid = h("div", { id: "mini-grid" });
     this.countdown = h("div", { id: "countdown" });
     this.notchLive = h("div", { id: "notch-live" },
-      h("i", { class: "notch-rec", title: "Reunión en curso" }),
+      h("i", { class: "notch-rec", title: t("Meeting in progress") }),
       h("span", { class: "notch-rec-time" }),
-      h("span", { class: "notch-share", title: "Compartiendo pantalla con un Bot" }, "Pantalla"));
+      h("span", { class: "notch-share", title: t("Sharing your screen with a Bot") }, t("Screen")));
     this.toastEl = h("div", { id: "bot-toast", role: "status" });
     this.toastEl.addEventListener("click", () => this.openFromToast());
 
@@ -864,9 +865,9 @@ export class Island {
       const names = files.map((f) => f.name).join(", ");
       const items = files.map((f, i) => ({ key: `all${i}`, kind: "file" as const, id: f.id, name: f.name, mime: f.mime, size: f.size }));
       const r = await sendToAll(`Te comparto ${files.length === 1 ? "un archivo" : `${files.length} archivos`}: ${names}`, items);
-      this.showToast({ id: null, color: r.ok ? "#22C55E" : "#F4505E", name: "Todos los bots", text: r.message });
+      this.showToast({ id: null, color: r.ok ? "#22C55E" : "#F4505E", name: t("All bots"), text: r.message });
     } catch (err) {
-      this.showToast({ id: null, color: "#F4505E", name: "Todos los bots", text: botErrorText(err) });
+      this.showToast({ id: null, color: "#F4505E", name: t("All bots"), text: botErrorText(err) });
     }
   }
 
@@ -874,18 +875,18 @@ export class Island {
 
   /** Watches the Bots' states: one that just answered while folded gets a toast. */
   private watchBots() {
-    for (const t of State.tasks) {
-      if (!t.id.startsWith(BOT_PREFIX)) continue;
-      const prev = this.botStates.get(t.id);
-      this.botStates.set(t.id, t.state);
-      if (prev === undefined || prev === t.state) continue;
-      const answered = t.state === "finished" || t.state === "question" || t.state === "error";
+    for (const task of State.tasks) {
+      if (!task.id.startsWith(BOT_PREFIX)) continue;
+      const prev = this.botStates.get(task.id);
+      this.botStates.set(task.id, task.state);
+      if (prev === undefined || prev === task.state) continue;
+      const answered = task.state === "finished" || task.state === "question" || task.state === "error";
       if (!answered || State.mode === "expanded") continue;
-      const first = (t.lastMessage ?? t.steps.at(-1) ?? "").split("\n").find((l) => l.trim()) ?? "";
-      const text = first.replace(/[*_`#>]/g, "").trim() || (t.state === "error" ? "Algo falló" : "Terminó");
-      void Bridge.log(`notify bot=${t.id.slice(BOT_PREFIX.length)} state=${t.state}`);
+      const first = (task.lastMessage ?? task.steps.at(-1) ?? "").split("\n").find((l) => l.trim()) ?? "";
+      const text = first.replace(/[*_`#>]/g, "").trim() || (task.state === "error" ? t("Something failed") : t("Finished"));
+      void Bridge.log(`notify bot=${task.id.slice(BOT_PREFIX.length)} state=${task.state}`);
       // The hook already played its sound for this answer.
-      this.showToast({ id: t.id, color: t.color, name: t.name, text });
+      this.showToast({ id: task.id, color: task.color, name: task.name, text });
     }
   }
 
@@ -901,7 +902,7 @@ export class Island {
         h("b", { class: "bot-toast-name", text: n.name }),
         h("span", { class: "bot-toast-text", text: n.text.slice(0, 160) })),
     );
-    this.toastEl.title = n.id ? "Abrir la conversación" : "";
+    this.toastEl.title = n.id ? t("Open the conversation") : "";
     // A folded island has no room for it: come out to the compact notch first.
     if (State.mode === "hidden") this.reveal();
     this.toastShown = true;

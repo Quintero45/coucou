@@ -3,7 +3,8 @@
 // in memory; the conversation (botchat.ts) keeps the lasting part.
 
 import { BOT_PREFIX, State, type AgentTask, type GrokBot } from "./state";
-import type { MeetingStateEvent, ScreenShareEvent, VoiceEngineEvent } from "./botcmds";
+import { notYet, type MeetingStateEvent, type ScreenShareEvent, type VoiceEngineEvent } from "./botcmds";
+import { t } from "../i18n/i18n";
 
 /** The Bot an event names: by id first, then by name (case-insensitive). */
 export function resolveBot(who: string | undefined | null): GrokBot | null {
@@ -93,8 +94,8 @@ export const BotLive = {
   voiceBlocked(): string | null {
     const v = BotLive.voice.get("whisper") ?? BotLive.voice.get("");
     if (!v || v.ready) return null;
-    if (v.downloading) return `Descargando modelo ${Math.round(v.pct ?? 0)}%`;
-    return "no disponible todavía";
+    if (v.downloading) return t("Downloading model {pct}%", { pct: Math.round(v.pct ?? 0) });
+    return notYet();
   },
 };
 

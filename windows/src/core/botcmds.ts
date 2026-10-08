@@ -6,6 +6,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { Bridge, IS_TAURI } from "./bridge";
+import { t } from "../i18n/i18n";
 
 // bot-step, bot-attach and capture_context are typed in bridge.ts (Aerys).
 export type { BotAttachEvent, BotStepEvent, CapturedContext } from "./bridge";
@@ -37,7 +38,7 @@ export const EVT = {
   cursorOrder: "cursor-order",
 } as const;
 
-export const NOT_YET = "no disponible todavía";
+export const notYet = () => t("not available yet");
 
 // ── Choices in a question (contract with Aerys; names provisional) ───────────
 // A question or approval (Grok Bot or Cursor) may carry
@@ -87,17 +88,16 @@ export function parseChoices(payload: Record<string, unknown> | null | undefined
   return { options, allowCustom: custom === true };
 }
 
-/** The error in the owner's words; a command Rust doesn't have is "no disponible todavía". */
 /** Shown for any other failure; the original goes to coucou.log. */
-export const CMD_FAILED = "No se pudo completar. El detalle quedó en el registro.";
+export const cmdFailed = () => t("Couldn't finish. The details are in the log.");
 
-/** grokbot/files error codes in Spanish (same words as attachments.ts botErrorText). */
+/** grokbot/files error codes in the owner's words (same as attachments.ts botErrorText). */
 function codeText(raw: string): string | null {
-  if (/^too_large\b/.test(raw)) return "El archivo es demasiado grande";
-  if (/^not_connected\b/.test(raw)) return "Este bot aún no está conectado";
-  if (/^empty_message\b/.test(raw)) return "El mensaje está vacío";
+  if (/^too_large\b/.test(raw)) return t("The file is too large");
+  if (/^not_connected\b/.test(raw)) return t("This bot isn't connected yet");
+  if (/^empty_message\b/.test(raw)) return t("The message is empty");
   const http = /^http_(\d+)\b/.exec(raw);
-  if (http) return http[1] === "0" ? "No se pudo contactar con el bot (red o tiempo agotado)" : `El bot no respondió (${http[1]})`;
+  if (http) return http[1] === "0" ? t("Couldn't reach the bot (network or timeout)") : t("The bot didn't answer ({status})", { status: http[1] });
   return null;
 }
 
@@ -107,24 +107,24 @@ const MISSING_CMD = /^(?:command\s+\S+\s+not\s+found|unknown\s+command\b.*)$/i;
 const SPANISH = /[áéíóúñ¿¡]|\b(?:no|el|la|los|las|está|archivo|clave|todavía|conectad[oa])\b/i;
 
 /**
- * The error in the owner's words. "no disponible todavía" only for a command
+ * The error in the owner's words. "not available yet" only for a command
  * Rust doesn't have; a known code (too_large, not_connected, http_N…) in
- * Spanish; a message Rust already wrote in Spanish as is; anything else a
+ * words; a message Rust already wrote in Spanish as is; anything else a
  * generic line (callCmd logs the original).
  */
 export function cmdErrorText(err: unknown): string {
   const raw = String(err instanceof Error ? err.message : err).replace(/^Error:\s*/, "").trim();
-  if (!raw) return CMD_FAILED;
-  if (raw === NOT_YET || MISSING_CMD.test(raw)) return NOT_YET;
+  if (!raw) return cmdFailed();
+  if (raw === notYet() || MISSING_CMD.test(raw)) return notYet();
   const code = codeText(raw);
   if (code) return code;
   if (SPANISH.test(raw)) return raw;
-  return CMD_FAILED;
+  return cmdFailed();
 }
 
-/** invoke() that fails with a readable Spanish message, also outside Tauri. */
+/** invoke() that fails with a readable message, also outside Tauri. */
 export async function callCmd<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!IS_TAURI) throw new Error(NOT_YET);
+  if (!IS_TAURI) throw new Error(notYet());
   try {
     return await invoke<T>(cmd, args);
   } catch (err) {

@@ -5,10 +5,11 @@
 import { playSound } from "../core/botcmds";
 import type { Settings } from "../core/state";
 import { h } from "../views/dom";
+import { t } from "../i18n/i18n";
 
 export function soundsSection(ctx: { get: () => Settings; save: () => Promise<void> }): HTMLElement {
   const s0 = ctx.get();
-  const toggle = h("button", { class: s0.soundEnabled !== false ? "switch on" : "switch", title: "Sonidos de Coucou" });
+  const toggle = h("button", { class: s0.soundEnabled !== false ? "switch on" : "switch", title: t("Coucou sounds") });
   const volume = h("input", {
     type: "range", min: "0", max: "0.2", step: "0.01",
     value: String(Math.max(0, Math.min(0.2, typeof s0.soundVolume === "number" ? s0.soundVolume : 0.15))),
@@ -31,9 +32,9 @@ export function soundsSection(ctx: { get: () => Settings; save: () => Promise<vo
   volume.addEventListener("change", () => playSound("recibido", ctx.get()));
 
   return h("section", {},
-    h("h2", {}, h("span", { text: "Sonidos" })),
-    h("div", { class: "row" }, h("label", { text: "Sonidos de Coucou" }), toggle),
-    h("div", { class: "row" }, h("label", { text: "Volumen" }), volume),
-    h("div", { class: "hint", text: "Suenan cuando un Bot recibe tu mensaje, te pregunta algo, termina o falla." }),
+    h("h2", {}, h("span", { text: t("Sounds") })),
+    h("div", { class: "row" }, h("label", { text: t("Coucou sounds") }), toggle),
+    h("div", { class: "row" }, h("label", { text: t("Volume") }), volume),
+    h("div", { class: "hint", text: t("They play when a Bot gets your message, asks you something, finishes or fails.") }),
   );
 }
