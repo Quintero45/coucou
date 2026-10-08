@@ -7,7 +7,7 @@ import { h, svg, clear } from "./dom";
 import { ICONS } from "./icons";
 import { highlightLine, languageOf } from "./highlight";
 import { reducedMotion } from "./integrations";
-import { fileName, parseDiffStep, type DiffLine, type FileDiff } from "../core/diff";
+import { fileName, parseDiffStep, type DiffHunk, type FileDiff } from "../core/diff";
 import { Bridge } from "../core/bridge";
 import type { AgentTask } from "../core/state";
 import { t } from "../i18n/i18n";
@@ -24,9 +24,6 @@ export interface EditorHooks {
 const FRESH_MS = 4000;
 /** The whole typing never takes longer than this. */
 const TYPE_BUDGET_MS = 1400;
-/** Shorter than this, a piece of text could be anywhere in the file: no line numbers. */
-const MIN_NEEDLE = 8;
-
 const BADGES: Record<string, [string, string]> = {
   ts: ["#3178C6", "#fff"], tsx: ["#3178C6", "#fff"], mts: ["#3178C6", "#fff"],
   js: ["#F7DF1E", "#111"], jsx: ["#F7DF1E", "#111"], mjs: ["#F7DF1E", "#111"], cjs: ["#F7DF1E", "#111"],
@@ -37,10 +34,17 @@ const BADGES: Record<string, [string, string]> = {
 
 const isBusy = (task: AgentTask) => task.state === "working" || task.state === "thinking" || task.state === "searching";
 
-/** The new side of a hunk: what the file holds now, to find it there. */
-function needleOf(lines: readonly DiffLine[]): string {
-  const text = lines.filter((l) => l.kind !== "removed").map((l) => l.text).join("\n");
-  return text.replace(/\s/g, "").length >= MIN_NEEDLE ? text : "";
+/**
+ * What to look for in the file to find a hunk: its whole edit as the agent
+ * wrote it (more text, so more often in one place only), else the hunk's own
+ * new side. `from`/`to` are the hunk's lines inside that text.
+ */
+export function lookupOf(diff: FileDiff, hunk: DiffHunk): { text: string; from: number; to: number } {
+  const kept = hunk.lines.filter((l) => l.kind !== "removed");
+  if (kept.length === 0) return { text: "", from: 1, to: 1 };
+  const whole = hunk.edit != null ? diff.edits?.[hunk.edit] : undefined;
+  if (whole != null) return { text: whole, from: kept[0].newLine, to: kept[kept.length - 1].newLine };
+  return { text: kept.map((l) => l.text).join("\n"), from: 1, to: kept.length };
 }
 
 /** The rows to draw: each hunk with its real line numbers and the file's lines around it, when found. */
@@ -104,9 +108,9 @@ export function createEditor(hooks: EditorHooks) {
   function fetchContext(diff: FileDiff, redraw: () => void) {
     if (contexts.has(diff.id) || diff.isNewFile || diff.tooLarge) return;
     contexts.set(diff.id, []);
-    const needles = diff.hunks.map((hunk) => needleOf(hunk.lines));
-    if (!needles.some(Boolean)) return;
-    void Bridge.editContext(diff.path, needles).then((found) => {
+    const lookups = diff.hunks.map((hunk) => lookupOf(diff, hunk));
+    if (!lookups.some((l) => l.text.trim())) return;
+    void Bridge.editContext(diff.path, lookups).then((found) => {
       if (!found?.some(Boolean)) return;
       contexts.set(diff.id, found);
       while (contexts.size > 12) contexts.delete(contexts.keys().next().value!);

@@ -80,8 +80,8 @@ export const Bridge = {
   /** The diff card's ↗: an existing file, in VS Code; never launched by its type. */
   openFileInVSCode: (path: string) => call<boolean>("open_file_in_vscode", { path }),
   /** Where each piece of an edit sits in its file (editctx.rs): its line and a few lines around it. */
-  editContext: (path: string, needles: string[]) =>
-    call<({ line: number; before: string[]; after: string[] } | null)[]>("edit_context", { path, needles }),
+  editContext: (path: string, lookups: { text: string; from: number; to: number }[]) =>
+    call<({ line: number; before: string[]; after: string[] } | null)[]>("edit_context", { path, lookups }),
 
   quit: () => call<void>("quit_app"),
 

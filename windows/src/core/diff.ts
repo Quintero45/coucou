@@ -23,6 +23,8 @@ export interface DiffHunk {
   origStart: number;
   newStart: number;
   lines: DiffLine[];
+  /** Index in FileDiff.edits of the edit this hunk comes from. */
+  edit?: number;
 }
 
 export interface FileDiff {
@@ -37,11 +39,19 @@ export interface FileDiff {
   isNewFile: boolean;
   /** When State.appendSessionDiff received it (ms). */
   at?: number;
+  /**
+   * The text each edit left in the file (new_string), whole: a hunk's newLine
+   * counts from its start, which is how the editor view finds real line numbers.
+   * Absent past EDITS_MAX_BYTES.
+   */
+  edits?: string[];
 }
 
 /** FileDiff.maxBytes / maxLines on macOS. */
 export const DIFF_MAX_BYTES = 200 * 1024;
 export const DIFF_MAX_LINES = 4000;
+/** Up to this much new_string text stays with a diff (50 diffs per pill). */
+const EDITS_MAX_BYTES = 64 * 1024;
 /** LCS is O(m·n): bail out before the quadratic blowup. */
 const DIFF_MAX_CELLS = 1_000_000;
 const CONTEXT = 3;
@@ -77,8 +87,10 @@ export function fromEdit(oldText: string, newText: string, path: string): FileDi
     if (l.kind === "added") added++;
     else if (l.kind === "removed") removed++;
   }
+  const hunks = buildHunks(flat, CONTEXT).map((h) => ({ ...h, edit: 0 }));
   return {
-    id: 0, path, added, removed, hunks: buildHunks(flat, CONTEXT), tooLarge: false, isNewFile: false,
+    id: 0, path, added, removed, hunks, tooLarge: false, isNewFile: false,
+    edits: utf8Length(newText) <= EDITS_MAX_BYTES ? [newText] : undefined,
   };
 }
 
@@ -132,6 +144,8 @@ export function buildFileDiff(tool: string, input: Record<string, unknown>): Fil
       let removed = 0;
       let tooLarge = false;
       const hunks: DiffHunk[] = [];
+      const texts: string[] = [];
+      let bytes = 0;
       for (const edit of edits) {
         if (!edit || typeof edit !== "object") continue;
         const e = edit as Record<string, unknown>;
@@ -141,11 +155,14 @@ export function buildFileDiff(tool: string, input: Record<string, unknown>): Fil
         const d = fromEdit(oldText, newText, path);
         added += d.added;
         removed += d.removed;
-        hunks.push(...d.hunks);
+        hunks.push(...d.hunks.map((h) => ({ ...h, edit: texts.length })));
+        texts.push(newText);
+        bytes += utf8Length(newText);
         if (d.tooLarge) tooLarge = true;
       }
       if (added === 0 && removed === 0) return null;
-      return { id: 0, path, added, removed, hunks, tooLarge, isNewFile: false };
+      const kept = bytes <= EDITS_MAX_BYTES ? texts : undefined;
+      return { id: 0, path, added, removed, hunks, tooLarge, isNewFile: false, edits: kept };
     }
     case "Write": {
       const content = str(input.content);
