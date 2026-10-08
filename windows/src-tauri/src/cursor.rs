@@ -6,8 +6,11 @@
 // Coucou downloads the bridge on a click in settings (checked against the
 // release's SHA256SUMS), starts it with the first message and stops it after
 // IDLE_STOP without use. One local agent per conversation, with Cursor's own
-// tools switched off (`tools: []`): Mochi's tools are offered as custom tools,
-// which the bridge calls back on a loopback server here. Custom tools skip the
+// tools switched off: Mochi's tools are offered as custom tools, which the
+// bridge calls back on a loopback server here. The model only reaches custom
+// tools through Cursor's MCP meta-tools (discover, then invoke), so the "mcp"
+// group is the one left on — with no setting sources loaded, the owner's
+// Cursor MCP servers aren't there, only Mochi's tools. Custom tools skip the
 // SDK's approval, so policy.rs (through tools::run) is the only gate — the
 // same one every other provider goes through.
 //
@@ -603,13 +606,14 @@ async fn converse(
         .map(|t| (t.name.clone(), json!({ "description": t.description, "inputSchema": t.schema })))
         .collect();
     let signature = specs.iter().map(|t| t.name.as_str()).collect::<Vec<_>>().join(",");
+    let allowed: &[&str] = if specs.is_empty() { &[] } else { &["mcp"] };
     let options = |agent: Option<&str>| {
         let mut o = json!({
             "model": { "id": ep.model },
             "apiKey": key,
             "name": "Mochi",
             "local": { "cwd": [platform::home_dir().to_string_lossy()], "customTools": custom },
-            "tools": { "names": [] },
+            "tools": { "names": allowed },
         });
         if let Some(id) = agent {
             o["agentId"] = json!(id);
