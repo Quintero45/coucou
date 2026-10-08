@@ -421,6 +421,8 @@ export interface AgentHookStatus {
   approvals: boolean;
   /** Cursor only: its shell / MCP approval gates are installed; null for the others. */
   gates: boolean | null;
+  /** Installed by an older Coucou: reinstalling brings what's missing. */
+  outdated: boolean;
   /** What to do once it is written. */
   note: string;
 }

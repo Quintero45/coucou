@@ -20,6 +20,9 @@ const TEXT = {
   get reinstall() { return t("Reinstall…"); },
   get uninstall() { return t("Uninstall…"); },
   get relayMissing() { return t("The relay isn't installed yet. Restart Coucou."); },
+  get outdated() {
+    return t("Installed by an older version of Coucou: reinstall so questions and mode changes reach the island.");
+  },
   get gates() { return t("Approve shell and MCP commands from the island"); },
   get gatesHint() {
     return t("Asks in the island before Cursor runs a shell or MCP command. If nobody answers, Cursor asks in its own window: never an automatic yes. Applied on the next install.");
@@ -104,6 +107,7 @@ function agentBlock(initial: AgentHookStatus): HTMLElement {
       }));
     }
     body.append(h("span", { class: "path", text: status.path }));
+    if (status.installed && status.outdated) body.append(h("div", { class: "notice warn", text: TEXT.outdated }));
     if (status.gates !== null) {
       const sw = h("button", { class: options.approvals ? "switch on" : "switch", "aria-pressed": !!options.approvals });
       sw.addEventListener("click", () => {

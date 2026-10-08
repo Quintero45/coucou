@@ -53,6 +53,11 @@ pub fn event(raw: &str) -> &str {
 pub fn normalize(map: &mut Map<String, Value>, raw: &str, approve: bool, ask: bool) -> (String, Wait) {
     if ask {
         let tool = map.get("tool_name").and_then(Value::as_str).unwrap_or_default().to_string();
+        if is_mode_switch(&tool) {
+            mode_switch_card(map);
+            map.insert("source_event".into(), json!(raw));
+            return ("PermissionRequest".into(), Wait::Ask);
+        }
         if !is_question(&tool) {
             return (raw.to_string(), Wait::Nothing);
         }
@@ -136,6 +141,46 @@ pub fn normalize(map: &mut Map<String, Value>, raw: &str, approve: bool, ask: bo
 
 fn is_question(tool: &str) -> bool {
     matches!(tool.to_ascii_lowercase().replace('_', "").as_str(), "askquestion" | "askuserquestion")
+}
+
+fn is_mode_switch(tool: &str) -> bool {
+    tool.to_ascii_lowercase().replace('_', "") == "switchmode"
+}
+
+const STAY_LABEL: &str = "Seguir en el modo actual";
+
+/// `plan` → `Plan`.
+fn mode_name(mode: &str) -> String {
+    let mut chars = mode.chars();
+    chars.next().map(|c| c.to_uppercase().collect::<String>() + chars.as_str()).unwrap_or_default()
+}
+
+/// SwitchMode (`target_mode_id`, `explanation`) → a card with two choices:
+/// switch, or stay. Cursor asks for consent before switching modes, so the
+/// island asks instead; no answer leaves the choice to Cursor's own prompt.
+fn mode_switch_card(map: &mut Map<String, Value>) {
+    let input = match map.get("tool_input") {
+        Some(Value::String(s)) => serde_json::from_str::<Value>(s).unwrap_or(Value::Null),
+        Some(v) => v.clone(),
+        None => Value::Null,
+    };
+    let text = |keys: &[&str]| {
+        keys.iter().find_map(|k| input.get(*k).and_then(Value::as_str)).unwrap_or_default().trim().to_string()
+    };
+    let mode = text(&["target_mode_id", "targetModeId", "mode", "target"]);
+    let why = text(&["explanation", "reason"]);
+    let (question, switch) = match mode_name(&mode) {
+        name if name.is_empty() => ("Cursor quiere cambiar de modo".to_string(), "Cambiar de modo".to_string()),
+        name => (format!("Cursor quiere cambiar a modo {name}"), format!("Cambiar a modo {name}")),
+    };
+    let options = choices::clean_options(&[(switch, why), (STAY_LABEL.into(), String::new())]).unwrap_or_default();
+    let tool = map.get("tool_name").cloned().unwrap_or(Value::Null);
+    map.insert("source_tool".into(), tool);
+    map.insert("hook_event_name".into(), json!("PermissionRequest"));
+    map.insert("tool_name".into(), json!("Pregunta"));
+    map.insert("tool_input".into(), json!({ "command": question, "mode": mode }));
+    map.insert("options".into(), Value::Array(options));
+    map.insert("allowCustom".into(), json!(false));
 }
 
 /// AskQuestion's input (`title`, `questions[].prompt`, `options[].label`,
@@ -231,11 +276,16 @@ fn question_to_choices(map: &mut Map<String, Value>) -> bool {
 #[derive(Debug, Clone, Default)]
 pub struct Context {
     pub questions: Value,
+    /// A SwitchMode card rather than a question.
+    pub mode_switch: bool,
 }
 
 impl Context {
     pub fn from(map: &Map<String, Value>) -> Self {
-        Self { questions: map.get("tool_input").and_then(|i| i.get("questions")).cloned().unwrap_or(Value::Null) }
+        Self {
+            questions: map.get("tool_input").and_then(|i| i.get("questions")).cloned().unwrap_or(Value::Null),
+            mode_switch: map.get("source_tool").and_then(Value::as_str).is_some_and(is_mode_switch),
+        }
     }
 }
 
@@ -278,6 +328,19 @@ pub fn stdout(wait: Wait, decision: Option<&str>, ctx: &Context) -> Option<Strin
 /// card with choices — allow, and Cursor shows its own card; an empty reply
 /// would block the tool instead.
 fn answer(reply: Option<&Reply>, ctx: &Context) -> Value {
+    if ctx.mode_switch {
+        let stay = reply.is_some_and(|r| r.decision == "deny") || reply.and_then(Reply::answer) == Some(STAY_LABEL);
+        return match reply.and_then(Reply::answer) {
+            _ if stay => json!({
+                "permission": "deny",
+                "user_message": "Seguir en el modo actual (desde Coucou)",
+                "agent_message": "The user chose, in Coucou (the island at the top of their screen), to stay in the current mode. \
+Do not switch modes; carry on in this one.",
+            }),
+            Some(_) => json!({ "permission": "allow" }),
+            None => json!({ "permission": "ask" }),
+        };
+    }
     let picked = reply.and_then(Reply::answer).map(|a| {
         let question = ctx.questions.get(0).and_then(|q| q.get("question")).and_then(Value::as_str).unwrap_or("Pregunta");
         vec![(question.to_string(), a.to_string())]
@@ -527,6 +590,40 @@ mod tests {
         for reply in [None, Some("deny"), Some(r#"{"decision":"answer","answers":{}}"#)] {
             assert_eq!(stdout(Wait::Ask, reply, &ctx).unwrap(), r#"{"permission":"allow"}"#);
         }
+    }
+
+    #[test]
+    fn a_mode_switch_is_asked_in_the_island() {
+        let mut m = obj(json!({
+            "tool_name": "SwitchMode",
+            "tool_input": { "target_mode_id": "plan", "explanation": "Conviene planear antes de tocar nada" },
+        }));
+        assert_eq!(normalize(&mut m, "preToolUse", false, true), ("PermissionRequest".into(), Wait::Ask));
+        assert_eq!(m["tool_name"], "Pregunta");
+        assert_eq!(m["source_tool"], "SwitchMode");
+        assert_eq!(m["tool_input"]["command"], "Cursor quiere cambiar a modo Plan");
+        assert_eq!(m["options"], json!([
+            { "label": "Cambiar a modo Plan", "description": "Conviene planear antes de tocar nada" },
+            { "label": "Seguir en el modo actual" },
+        ]));
+        assert_eq!(m["allowCustom"], false);
+
+        let ctx = Context::from(&m);
+        assert!(ctx.mode_switch);
+        let switch = Some(r#"{"decision":"allow","answer":"Cambiar a modo Plan"}"#);
+        assert_eq!(stdout(Wait::Ask, switch, &ctx).unwrap(), r#"{"permission":"allow"}"#);
+        for stay in [Some(r#"{"decision":"allow","answer":"Seguir en el modo actual"}"#), Some("deny")] {
+            let o = out(Wait::Ask, stay, &ctx);
+            assert_eq!(o["permission"], "deny");
+            assert!(o["agent_message"].as_str().unwrap().contains("stay in the current mode"));
+        }
+        // No answer: Cursor asks in its own window.
+        assert_eq!(stdout(Wait::Ask, None, &ctx).unwrap(), r#"{"permission":"ask"}"#);
+
+        let mut bare = obj(json!({ "tool_name": "switch_mode", "tool_input": "{}" }));
+        normalize(&mut bare, "preToolUse", false, true);
+        assert_eq!(bare["tool_input"]["command"], "Cursor quiere cambiar de modo");
+        assert!(!Context::from(&obj(json!({ "source_tool": "AskQuestion" }))).mode_switch);
     }
 
     /// What Cursor's wrapper does to a text: its UTF-8 bytes read as Windows-1252.

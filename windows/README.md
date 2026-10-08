@@ -236,11 +236,13 @@ the main pill.
 agents get no pill, and their questions go straight back to their own UI.
 
 Cursor's `AskQuestion` reaches the island through a second `preToolUse` entry
-(`matcher: AskQuestion|AskUserQuestion`, `--ask`, 130 s). Cursor's hooks can only
-allow or deny a tool, so an answer from the island denies Cursor's card and hands
-the agent the chosen answers in `agent_message`. **Responder en Cursor**, no answer
-within 125 s, or Coucou closed all mean `allow`, and Cursor shows its own card.
-Settings flags hooks written by an older build: **Reinstalar hooks…** shows the diff.
+(`matcher: AskQuestion|AskUserQuestion|SwitchMode`, `--ask`, 130 s). Cursor's hooks
+can only allow or deny a tool, so an answer from the island denies Cursor's card and
+hands the agent the chosen answers in `agent_message`. **Responder en Cursor**, no
+answer within 125 s, or Coucou closed all mean `allow`, and Cursor shows its own card.
+A `SwitchMode` becomes a two-choice card: switching allows the tool, staying (or
+Rechazar) denies it and tells the agent to carry on in its mode; no answer is `ask`.
+Settings flags hooks written by an older build: **Reinstall…** shows the diff.
 
 ## Grok Bots
 

@@ -337,6 +337,8 @@ pub struct AgentStatus {
     /// Cursor only: whether its shell / MCP approval gates are installed.
     /// `None` for agents without that option.
     pub gates: Option<bool>,
+    /// Installed by an older Coucou: reinstalling brings what's missing.
+    pub outdated: bool,
     pub note: String,
 }
 
@@ -357,6 +359,7 @@ pub fn list() -> Vec<AgentStatus> {
             hook_ready,
             approvals: a.approvals(),
             gates: (a == Agent::Cursor).then(|| cursor_gates_installed(&home)),
+            outdated: a == Agent::Cursor && cursor_hooks(&home).is_some_and(|root| cursor_outdated(&root)),
             note: a.note(),
         })
         .collect()
@@ -617,7 +620,7 @@ const CURSOR_EVENTS: &[&str] = &[
 ];
 /// Installed only with approvals on: they wait for a human (seconds).
 const CURSOR_GATES: &[(&str, u64)] = &[("beforeShellExecution", 120), ("beforeMCPExecution", 120)];
-const CURSOR_QUESTION_MATCHER: &str = "AskQuestion|AskUserQuestion";
+const CURSOR_QUESTION_MATCHER: &str = "AskQuestion|AskUserQuestion|SwitchMode";
 
 /// The question entry, plus the gates when `opts.approvals`.
 fn cursor_extra_entries(relay: &Relay, opts: InstallOptions) -> Vec<(String, Value)> {
@@ -656,14 +659,15 @@ fn cursor_install(root: &Value, command: &str, extra: &[(String, Value)]) -> Res
     Ok(Value::Object(root))
 }
 
-fn cursor_gates_installed(home: &Path) -> bool {
-    let Some(root) = config_file::read(&Agent::Cursor.files(home)[0])
+fn cursor_hooks(home: &Path) -> Option<Value> {
+    config_file::read(&Agent::Cursor.files(home)[0])
         .ok()
         .flatten()
         .and_then(|b| config_file::parse_json(Some(&b), "").ok())
-    else {
-        return false;
-    };
+}
+
+fn cursor_gates_installed(home: &Path) -> bool {
+    let Some(root) = cursor_hooks(home) else { return false };
     let Some(hooks) = root.get("hooks").and_then(Value::as_object) else { return false };
     CURSOR_GATES.iter().any(|(event, _)| {
         hooks
@@ -671,6 +675,23 @@ fn cursor_gates_installed(home: &Path) -> bool {
             .and_then(Value::as_array)
             .is_some_and(|list| list.iter().any(|e| is_our_command(e.get("command"), "cursor")))
     })
+}
+
+/// Our hooks are there, but not this version's question entry (an install from
+/// before it, or before its matcher grew): questions and mode switches would
+/// stay in Cursor's own window.
+fn cursor_outdated(root: &Value) -> bool {
+    let Some(hooks) = root.get("hooks").and_then(Value::as_object) else { return false };
+    let ours = |e: &Value| is_our_command(e.get("command"), "cursor");
+    let any_ours = hooks.values().filter_map(Value::as_array).flatten().any(ours);
+    let current = hooks.get("preToolUse").and_then(Value::as_array).is_some_and(|list| {
+        list.iter().any(|e| {
+            ours(e)
+                && e.get("command").and_then(Value::as_str).is_some_and(|c| c.contains("--ask"))
+                && e.get("matcher").and_then(Value::as_str) == Some(CURSOR_QUESTION_MATCHER)
+        })
+    });
+    any_ours && !current
 }
 
 // ── Codex — ~/.codex/hooks.json ───────────────────────────────────────────────
@@ -1219,6 +1240,23 @@ mod tests {
         // Reinstalling without approvals takes the gates out and duplicates nothing.
         let again = cursor_install(&gated, &command, &cursor_extra_entries(&relay, InstallOptions::default())).unwrap();
         assert_eq!(again, plain);
+    }
+
+    #[test]
+    fn an_older_cursor_install_is_outdated() {
+        let relay = linux();
+        let command = relay.command(Shell::Cmd, "--agent cursor");
+        let current = cursor_install(&json!({}), &command, &cursor_extra_entries(&relay, InstallOptions::default())).unwrap();
+        assert!(!cursor_outdated(&current));
+        // Before the question entry, or with an older matcher.
+        let bare = cursor_install(&json!({}), &command, &[]).unwrap();
+        assert!(cursor_outdated(&bare));
+        let mut old = current.clone();
+        old["hooks"]["preToolUse"][0]["matcher"] = json!("AskQuestion|AskUserQuestion");
+        assert!(cursor_outdated(&old));
+        // Not ours at all: nothing to reinstall.
+        assert!(!cursor_outdated(&json!({ "hooks": { "stop": [{ "command": "mine.sh" }] } })));
+        assert!(!cursor_outdated(&json!({})));
     }
 
     #[test]

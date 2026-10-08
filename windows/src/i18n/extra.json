@@ -2769,6 +2769,17 @@
    "ru": "Сеанс завершился с ошибкой.",
    "id": "Sesi gagal."
   },
+  "Installed by an older version of Coucou: reinstall so questions and mode changes reach the island.": {
+   "zh-Hans": "由旧版 Coucou 安装：请重新安装，让提问和模式切换显示在灵动岛中。",
+   "hi": "Coucou के पुराने संस्करण से इंस्टॉल किया गया: दोबारा इंस्टॉल करें ताकि सवाल और मोड बदलाव आइलैंड में आएँ।",
+   "es": "Instalado con una versión anterior de Coucou: reinstálalo para que las preguntas y los cambios de modo lleguen a la isla.",
+   "ar": "مثبَّت بإصدار أقدم من Coucou: أعد التثبيت لتصل الأسئلة وتغييرات الوضع إلى الجزيرة.",
+   "fr": "Installé par une ancienne version de Coucou : réinstallez pour que les questions et les changements de mode arrivent dans l'île.",
+   "bn": "Coucou-এর পুরোনো সংস্করণ দিয়ে ইনস্টল করা: আবার ইনস্টল করুন যাতে প্রশ্ন ও মোড পরিবর্তন আইল্যান্ডে আসে।",
+   "pt-BR": "Instalado por uma versão anterior do Coucou: reinstale para que as perguntas e as mudanças de modo cheguem à ilha.",
+   "ru": "Установлено старой версией Coucou: переустановите, чтобы вопросы и смена режима появлялись на острове.",
+   "id": "Dipasang oleh versi Coucou yang lebih lama: pasang ulang agar pertanyaan dan pergantian mode muncul di pulau."
+  },
   "Approve shell and MCP commands from the island": {
    "zh-Hans": "在灵动岛中批准 shell 和 MCP 命令",
    "hi": "आइलैंड से shell और MCP कमांड स्वीकृत करें",
