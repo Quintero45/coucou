@@ -333,6 +333,7 @@ function buildOverview(actions: ViewActions): ViewHost {
       State.notify();
     },
     openSettings: () => actions.openSettingsWindow(),
+    openChat: () => actions.setView("prompt"),
   };
 
   /** The countdowns move every 30 s while a card is open, and only then. */
@@ -502,6 +503,7 @@ function buildOverview(actions: ViewActions): ViewHost {
         const key = [
           language(), task.id, detailOpen, task.state, task.steps.join("|"),
           isBot ? task.lastMessage ?? "" : "",
+          task.id === ASSISTANT_ID ? `${task.finalLine ?? ""}:${State.autonomousActs.join("|")}:${State.settings.assistantAutonomous}` : "",
           info?.loaded, info?.error, info?.configured,
           JSON.stringify(info?.data ?? {}),
         ].join("~");
@@ -537,6 +539,8 @@ function buildOverview(actions: ViewActions): ViewHost {
  * any other tagged agent — with something going on.
  */
 export function hasSessionTicker(task: AgentTask): boolean {
+  // ARIA shows her steps while she works, and her card the rest of the time.
+  if (task.id === ASSISTANT_ID) return task.state !== "idle";
   // A Grok Bot at rest shows its card (last answer, quick reply), not a ticker.
   if (task.id.startsWith(BOT_PREFIX)) return task.state !== "idle" || task.steps.length > 0;
   // A pill made for an agent's session (Gemini CLI, Codex… not declared) only
@@ -580,8 +584,11 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     {
       class: isBotPill ? "pill pill-bot" : "pill",
       title: phase ? `${label} · ${phase.label}` : label,
-      // A Grok Bot's pill opens its conversation straight away.
-      onclick: () => (hasChat(task.id) ? actions.openBotDetail(task.id) : actions.setFocus(task.id)),
+      // A Grok Bot's pill opens its conversation straight away; so does ARIA's.
+      onclick: () =>
+        task.id === ASSISTANT_ID
+          ? actions.setView("prompt")
+          : hasChat(task.id) ? actions.openBotDetail(task.id) : actions.setFocus(task.id),
     },
     canvas,
     lbl,

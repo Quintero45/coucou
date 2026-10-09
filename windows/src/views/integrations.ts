@@ -6,7 +6,7 @@
 
 import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
-import { BOT_PREFIX, CURSOR_AGENT_ID, State, botPhase, type AgentTask } from "../core/state";
+import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, State, botPhase, type AgentTask } from "../core/state";
 import { DECISION_LABELS, type BotApproval } from "../core/botlog";
 import {
   BotChat, CURSOR_CHAT, chatSlug, cursorOrderCancel, cursorOrderNow, retryToBot, sendToCursor, type BotChatEntry,
@@ -73,6 +73,31 @@ function get(id: string): Record<string, unknown> {
 function arr(id: string, key: string): Record<string, unknown>[] {
   const v = get(id)[key];
   return Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
+}
+
+// ── ARIA ──────────────────────────────────────────────────────────────────────
+
+/** Her pill at rest: her last answer, what she did without asking, and her chat. */
+function ariaCard(task: AgentTask, openChat: () => void): HTMLElement {
+  const autonomous = State.settings.assistantAutonomous;
+  const card = h(
+    "div",
+    { class: "int-card" },
+    header(task.color, task.name, t("Assistant")),
+    h("div", { class: "int-status" },
+      dot(autonomous ? "#22C55E" : "#8e939c", 5),
+      h("span", { text: task.finalLine || t("Ask me anything…") })),
+  );
+  const acts = State.autonomousActs.slice(-3).reverse();
+  if (autonomous && acts.length > 0) {
+    card.append(h("div", { class: "int-sub", text: t("Without asking") }));
+    acts.forEach((text, i) => card.append(listRow(task.color, i === 0, h("span", { text }))));
+  }
+  card.append(
+    h("div", { class: "int-actions" },
+      h("button", { class: "link-btn", style: `color:${task.color}d9`, text: t("Open the conversation"), onclick: openChat })),
+  );
+  return card;
 }
 
 // ── Not configured / idle ─────────────────────────────────────────────────────
@@ -1327,6 +1352,8 @@ export interface IntegrationCardHooks {
   openDetail(): void;
   closeDetail(): void;
   openSettings(): void;
+  /** ARIA's card: her conversation. */
+  openChat(): void;
 }
 
 /** True when this integration has data worth showing instead of the idle card. */
@@ -1352,6 +1379,7 @@ export function hasIntegrationData(id: string): boolean {
 }
 
 export function renderIntegrationCard(task: AgentTask, hooks: IntegrationCardHooks): HTMLElement {
+  if (task.id === ASSISTANT_ID) return ariaCard(task, hooks.openChat);
   if (task.id.startsWith(BOT_PREFIX)) return botCard(task, hooks);
   if (task.id === "integration_n8n") {
     const hasActivity = task.steps.length > 0 && (task.state === "finished" || task.state === "error");

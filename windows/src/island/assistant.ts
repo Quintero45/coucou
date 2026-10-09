@@ -28,6 +28,7 @@ let timeout: number | null = null;
 export function registerAssistantHandlers(island: Island) {
   void onEvent<AssistantActed>("assistant-acted", (act) => {
     const target = act.target.split("\n").find((l) => l.trim()) ?? "";
+    State.noteAutonomousAct(`${act.tool} · ${target}`.slice(0, 160));
     island.announce(t("Done without asking: {tool} · {target}", { tool: act.tool, target }));
   });
 

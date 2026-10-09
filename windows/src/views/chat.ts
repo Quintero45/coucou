@@ -9,11 +9,59 @@ import { renderMarkdown } from "./markdown";
 import { Bridge, onEvent, type ChatContext } from "../core/bridge";
 import { parseTodos, sendToAll, sendToBot as sendToGrokBot } from "../core/botchat";
 import { Sound } from "../core/sound";
-import { State, aiProvider, type ChatMessage } from "../core/state";
+import { ASSISTANT_ID, State, aiProvider, type ChatMessage } from "../core/state";
 import type { ViewHost } from "./views";
 import { t, tl } from "../i18n/i18n";
 
 let nextId = 1;
+
+// ── The conversation survives a restart ───────────────────────────────────────
+// The last messages stay in the island's localStorage, on this PC only; what
+// she learnt from them is in memory/ (history.jsonl, notes.md, skills).
+
+const CHAT_KEY = "aria.chat";
+const CHAT_KEPT = 60;
+
+function loadChat(): ChatMessage[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CHAT_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((m): m is ChatMessage =>
+        !!m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => ({ id: nextId++, role: m.role, content: m.content, steps: Array.isArray(m.steps) ? m.steps : undefined }));
+  } catch {
+    return [];
+  }
+}
+
+function saveChat() {
+  const kept = State.chatHistory
+    .filter((m) => m.content || m.steps?.length)
+    .slice(-CHAT_KEPT)
+    .map(({ role, content, steps }) => ({ role, content, steps }));
+  try {
+    localStorage.setItem(CHAT_KEY, JSON.stringify(kept));
+  } catch {
+    // Full or unavailable: the chat just won't come back after a restart.
+  }
+}
+
+/** ARIA's pill follows her turn: thinking, working on a step, then at rest. */
+function ariaPill(state: "thinking" | "working" | "idle", finalLine?: string) {
+  const task = State.tasks.find((x) => x.id === ASSISTANT_ID);
+  if (!task) return;
+  if (state === "thinking") {
+    task.steps = [];
+    task.stepIndex = 0;
+    delete task.stepSeq;
+  }
+  if (finalLine !== undefined) task.finalLine = finalLine;
+  State.updateTask(ASSISTANT_ID, state);
+}
+
+const firstLine = (text: string) =>
+  (text.split("\n").find((l) => l.trim()) ?? "").replace(/[*_`#>]/g, "").trim().slice(0, 140);
 
 function steps(message: ChatMessage): HTMLElement | null {
   if (!message.steps?.length) return null;
@@ -57,6 +105,7 @@ function contextChip(label: string): HTMLElement {
 }
 
 export function buildPrompt(onHeightChange: () => void): ViewHost {
+  if (State.chatHistory.length === 0) State.chatHistory = loadChat();
   const chipRow = h("div", { class: "chip-row" });
   const log = h("div", { class: "chat-log" });
   const input = h("input", {
@@ -113,6 +162,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     if (!live) return;
     (live.steps ??= []).push(label);
     State.stateOverride = "working";
+    State.appendStep(ASSISTANT_ID, label);
+    ariaPill("working");
     paintLive();
   });
 
@@ -152,6 +203,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     } else {
       message.content = `⚠ ${sent.message}`;
     }
+    saveChat();
   }
 
   async function submit() {
@@ -184,6 +236,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     liveRow = null;
     State.chatHistory.push(live);
     State.stateOverride = "thinking";
+    ariaPill("thinking");
     State.notify();
     onHeightChange();
 
@@ -192,10 +245,12 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       const reply = await Bridge.chatSend(query, context);
       message.content = reply.text;
       State.stateOverride = null;
+      ariaPill("idle", firstLine(reply.text));
       Sound.play("finish");
     } catch (err) {
       State.stateOverride = null;
       const text = String(err).replace(/^Error:\s*/, "");
+      ariaPill("idle", `⚠ ${firstLine(text)}`);
       if (message.content || message.steps?.length) {
         message.content += `${message.content ? "\n\n" : ""}⚠ ${text}`;
       } else {
@@ -205,6 +260,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       }
       Sound.play("error");
     } finally {
+      saveChat();
       live = null;
       liveRow = null;
       sending = false;
@@ -246,6 +302,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       const key = `${State.chatHistory.length}:${sending}`;
       if (key !== renderedKey) {
         renderedKey = key;
+        // A new chat (shortcut, a dropped file) empties what comes back after a restart too.
+        if (!sending) saveChat();
         clear(log);
         liveRow = null;
         for (const m of State.chatHistory) {

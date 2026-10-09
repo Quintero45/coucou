@@ -71,6 +71,12 @@ fn memory_tools() -> Vec<Tool> {
             risk: Risk::Read,
             schema: || schema(json!({ "text": { "type": "string" } }), &["text"]),
         },
+        Tool {
+            name: "recall",
+            description: "Search your past conversations with the owner (every finished exchange, kept on this PC) for messages containing all the given words. Use it when the owner refers to something from before, or to see how you solved something last time.",
+            risk: Risk::Read,
+            schema: || schema(json!({ "query": { "type": "string" } }), &["query"]),
+        },
     ]
 }
 
@@ -103,7 +109,7 @@ pub fn specs(app: &AppHandle) -> Vec<ToolSpec> {
 pub fn for_bots() -> Vec<Tool> {
     builtins()
         .into_iter()
-        .filter(|t| !matches!(t.name, "remember" | "forget") && available(t.name))
+        .filter(|t| !matches!(t.name, "remember" | "forget" | "recall") && available(t.name))
         .collect()
 }
 
@@ -185,6 +191,7 @@ pub async fn execute(name: &str, input: &Value) -> Outcome {
             Ok(n) => Outcome::ok(format!("Removed {n} note(s).")),
             Err(e) => Outcome::err(e),
         },
+        "recall" => Outcome::ok(memory::recall(input["query"].as_str().unwrap_or_default())),
         name if files::handles(name) => files::run(name, input).await,
         name if system::handles(name) => system::run(name, input).await,
         name if web::handles(name) => web::run(name, input).await,

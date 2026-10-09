@@ -20,6 +20,9 @@ use crate::{memory, policy, tools, Shared};
 const MAX_STEPS: usize = 16;
 /// Without asking, one message may also write, test and fix a skill.
 const MAX_STEPS_AUTONOMOUS: usize = 40;
+/// Past exchanges (history.jsonl) put in the system prompt, so a restart or a
+/// new chat does not lose the thread.
+const RECENT_EXCHANGES: usize = 4;
 
 /// Compiled in: the running app cannot be talked out of it.
 const CORE_DIRECTIVE: &str = include_str!("../../core-directive.md");
@@ -111,7 +114,9 @@ its script with run_powershell — and fix it until it works. Then tell the owne
         prompt.push_str(&format!(
             "\n\nYou keep your own memory in {dir}. When the owner shares a lasting preference, a fact about \
 themselves or their work, or a decision, save it with remember — no need to ask — and say so in a few words. \
-Drop notes that turn out wrong with forget. Don't save secrets, keys or passwords.",
+Drop notes that turn out wrong with forget. Don't save secrets, keys or passwords. \
+When something failed before it worked, remember the lesson (what failed, what worked) so you don't repeat it. \
+Every finished conversation is kept: search it with recall when the owner refers to something from before.",
             dir = memory::dir().display(),
         ));
     }
@@ -119,6 +124,14 @@ Drop notes that turn out wrong with forget. Don't save secrets, keys or password
     if notes.lines().any(|l| l.trim_start().starts_with("- ")) {
         prompt.push_str("\n\nYour memory notes:\n");
         prompt.push_str(&notes);
+    }
+    let recent = memory::recent(RECENT_EXCHANGES);
+    if !recent.is_empty() {
+        prompt.push_str(
+            "\n\nYour last exchanges with the owner, oldest first (they may already be in this conversation; \
+the replies are cut):\n",
+        );
+        prompt.push_str(&recent);
     }
     prompt
 }

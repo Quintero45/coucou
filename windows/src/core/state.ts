@@ -507,6 +507,24 @@ class AppState {
     this.sessionDiffs.delete(pillId);
   }
 
+  /** What ARIA did without asking (policy.rs autonomy), newest last, for her card. */
+  autonomousActs: string[] = [];
+
+  noteAutonomousAct(text: string) {
+    this.autonomousActs.push(text);
+    if (this.autonomousActs.length > 20) this.autonomousActs.shift();
+    this.notify();
+  }
+
+  /** ARIA's own pill: always there, right after the main one. Its card opens her chat. */
+  ensureAriaPill() {
+    if (this.tasks.some((t) => t.id === ASSISTANT_ID)) return;
+    this.tasks.push({ ...ARIA_TASK, state: "idle", steps: [] });
+    this.tasks = orderPills(this.tasks, this.mainPillId);
+    if (!this.focusId) this.focusId = this.tasks[0]?.id ?? null;
+    this.notify();
+  }
+
   /** The always-on workspace pill, once the setting has been checked. */
   get mainPillId(): string {
     return sanitizeDeclared(this.settings, this.os).mainPill;

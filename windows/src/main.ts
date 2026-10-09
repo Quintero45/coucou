@@ -38,6 +38,7 @@ async function main() {
   void Bridge.setSystemLanguages(systemLanguages());
   island.applySettings();
   State.loadIntegrationTasks();
+  State.ensureAriaPill();
   if (boot && !boot.cursorPoll) island.followPageCursor();
   await island.desktop.init();
 
