@@ -478,7 +478,14 @@ fn approval_decline(app: AppHandle, request_id: String) {
 /// text streams back as `chat-delta` events, tools as `chat-step`.
 #[tauri::command]
 async fn chat_send(app: AppHandle, query: String, context: Option<ChatContext>) -> Result<ChatReply, String> {
-    agent::send(app, query, context).await
+    let started = std::time::Instant::now();
+    let result = agent::send(app, query, context).await;
+    let secs = started.elapsed().as_secs();
+    match &result {
+        Ok(_) => log::line(format!("assistant: answered in {secs}s")),
+        Err(e) => log::line(format!("assistant: failed after {secs}s: {}", policy::redact(e))),
+    }
+    result
 }
 
 #[tauri::command]

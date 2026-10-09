@@ -48,7 +48,7 @@ function saveChat() {
 }
 
 /** ARIA's pill follows her turn: thinking, working on a step, then at rest. */
-function ariaPill(state: "thinking" | "working" | "idle", finalLine?: string) {
+function ariaPill(state: "thinking" | "working" | "idle", finalLine?: string, step?: string) {
   const task = State.tasks.find((x) => x.id === ASSISTANT_ID);
   if (!task) return;
   if (state === "thinking") {
@@ -57,7 +57,13 @@ function ariaPill(state: "thinking" | "working" | "idle", finalLine?: string) {
     delete task.stepSeq;
   }
   if (finalLine !== undefined) task.finalLine = finalLine;
-  State.updateTask(ASSISTANT_ID, state);
+  try {
+    if (step) State.appendStep(ASSISTANT_ID, step);
+    State.updateTask(ASSISTANT_ID, state);
+  } catch (err) {
+    // The pill is decoration: it never stops the chat itself.
+    void Bridge.log(`aria pill ${state} failed: ${String(err).slice(0, 200)}`);
+  }
 }
 
 const firstLine = (text: string) =>
@@ -162,9 +168,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     if (!live) return;
     (live.steps ??= []).push(label);
     State.stateOverride = "working";
-    State.appendStep(ASSISTANT_ID, label);
-    ariaPill("working");
     paintLive();
+    ariaPill("working", undefined, label);
   });
 
   function setSendMode(stop: boolean) {
@@ -232,16 +237,17 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
 
     State.chatHistory.push({ id: nextId++, role: "user", content: query });
     // In the history from the start, so the island grows to fit it as it streams.
-    live = { id: nextId++, role: "assistant", content: "", steps: [] };
+    const message: ChatMessage = { id: nextId++, role: "assistant", content: "", steps: [] };
+    live = message;
     liveRow = null;
-    State.chatHistory.push(live);
-    State.stateOverride = "thinking";
-    ariaPill("thinking");
-    State.notify();
-    onHeightChange();
-
-    const message = live;
+    State.chatHistory.push(message);
+    // Anything that throws from here on still lands in finally: a stuck
+    // `sending` would leave the box disabled until a restart.
     try {
+      State.stateOverride = "thinking";
+      ariaPill("thinking");
+      State.notify();
+      onHeightChange();
       const reply = await Bridge.chatSend(query, context);
       message.content = reply.text;
       State.stateOverride = null;
