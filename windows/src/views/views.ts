@@ -584,11 +584,9 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     {
       class: isBotPill ? "pill pill-bot" : "pill",
       title: phase ? `${label} · ${phase.label}` : label,
-      // A Grok Bot's pill opens its conversation straight away; so does ARIA's.
-      onclick: () =>
-        task.id === ASSISTANT_ID
-          ? actions.setView("prompt")
-          : hasChat(task.id) ? actions.openBotDetail(task.id) : actions.setFocus(task.id),
+      // A Grok Bot's pill opens its conversation straight away; ARIA's takes the
+      // left side like any pill, and her card opens the chat.
+      onclick: () => hasChat(task.id) ? actions.openBotDetail(task.id) : actions.setFocus(task.id),
     },
     canvas,
     lbl,

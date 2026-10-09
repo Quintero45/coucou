@@ -3637,6 +3637,16 @@ input[type="range"]::-webkit-slider-thumb {
   z-index: 5;
 }
 
+#bot-toast.inside {
+  width: 420px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7), 0 0 14px color-mix(in srgb, var(--bot) 25%, transparent);
+}
+
+#bot-toast.inside .bot-toast-text {
+  -webkit-line-clamp: 3;
+  word-break: break-word;
+}
+
 #bot-toast.on {
   display: flex;
   animation: bot-toast-in 0.28s cubic-bezier(0.3, 1.2, 0.4, 1) backwards;

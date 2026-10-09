@@ -27,9 +27,12 @@ let timeout: number | null = null;
 
 export function registerAssistantHandlers(island: Island) {
   void onEvent<AssistantActed>("assistant-acted", (act) => {
-    const target = act.target.split("\n").find((l) => l.trim()) ?? "";
-    State.noteAutonomousAct(`${act.tool} · ${target}`.slice(0, 160));
-    island.announce(t("Done without asking: {tool} · {target}", { tool: act.tool, target }));
+    // A script that runs one of her skills reads better as the skill's name.
+    const skill = /[\\/]skills[\\/]([\w.-]+)/i.exec(act.target)?.[1];
+    const target = skill ?? (act.target.split("\n").find((l) => l.trim()) ?? "").trim();
+    const tool = skill ? "skill" : act.tool.replace(/_/g, " ");
+    State.noteAutonomousAct(`${tool} · ${target}`.slice(0, 160));
+    island.announce(t("Done without asking: {tool} · {target}", { tool, target }));
   });
 
   void onEvent<AssistantApproval>("assistant-approval", (req) => {

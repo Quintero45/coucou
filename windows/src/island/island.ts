@@ -56,6 +56,7 @@ const DROP_LEAVE_FOLD_MS = 1000;
 const HOVER_OPEN_MS = 250;
 /** A Bot's answer toast next to the notch: width and how long it stays. */
 const TOAST_W = 300;
+const TOAST_W_INSIDE = 420;
 const TOAST_MS = 6000;
 
 /** The three views the drop sequence owns; leaving them stops the engine. */
@@ -939,9 +940,9 @@ export class Island {
       h("i", { class: "bot-toast-dot" }),
       h("div", { class: "bot-toast-body" },
         h("b", { class: "bot-toast-name", text: n.name }),
-        h("span", { class: "bot-toast-text", text: n.text.slice(0, 160) })),
+        h("span", { class: "bot-toast-text", text: n.text.slice(0, 240) })),
     );
-    this.toastEl.title = n.id ? t("Open the conversation") : "";
+    this.toastEl.title = n.id ? t("Open the conversation") : n.text.slice(0, 600);
     // A folded island has no room for it: come out to the compact notch first.
     if (State.mode === "hidden") this.reveal();
     this.toastShown = true;
@@ -1128,10 +1129,16 @@ export class Island {
     let rect = { x: (PANEL_W - w) / 2, y: 0, w, h: hh };
     // The toast under the notch must take clicks too: widen the hit rect to it.
     if (this.toastShown) {
-      const top = Math.max(hh, 6) + 8;
-      this.toastEl.style.top = `${top}px`;
       const th = this.toastEl.offsetHeight || 52;
-      rect = { x: Math.min(rect.x, (PANEL_W - TOAST_W) / 2), y: 0, w: Math.max(rect.w, TOAST_W), h: top + th };
+      // An open island fills most of the window: the toast would fall off its
+      // bottom edge, so it sits over the island's lower edge instead.
+      const below = Math.max(hh, 6) + 8;
+      const inside = State.mode === "expanded" || below + th > PANEL_H;
+      const top = inside ? Math.max(8, hh - th - 12) : below;
+      this.toastEl.style.top = `${top}px`;
+      this.toastEl.classList.toggle("inside", inside);
+      const tw = inside ? TOAST_W_INSIDE : TOAST_W;
+      rect = { x: Math.min(rect.x, (PANEL_W - tw) / 2), y: 0, w: Math.max(rect.w, tw), h: Math.max(hh, top + th) };
     }
     const p = this.pushedRect;
     if (Math.abs(p.x - rect.x) > 0.5 || Math.abs(p.w - rect.w) > 0.5 || Math.abs(p.h - rect.h) > 0.5) {
