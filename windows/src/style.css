@@ -4630,6 +4630,245 @@ input[type="range"]::-webkit-slider-thumb {
   pointer-events: none;
 }
 
+/* ── Music pill (views/media.ts) ──────────────────────────────────────────────
+   Whatever Windows lists as playing. The card keeps the integration card's
+   left gap for ARIA; the pill gets play/pause and next on its right. */
+
+.music-card {
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.music-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding-right: 22px;
+}
+
+.music-cover {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.music-cover.empty {
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.music-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.music-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.music-title b {
+  font: 600 12.5px var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.music-sub {
+  font: 400 11px var(--font);
+  color: var(--dim-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-progress {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.music-time {
+  min-width: 26px;
+  font: 500 9.5px var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--dim-3);
+}
+
+.music-time:last-child {
+  text-align: right;
+}
+
+.music-bar {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.music-bar.seek {
+  cursor: pointer;
+}
+
+.music-bar.seek::before {
+  /* A taller hit area than the 3 px line. */
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+.music-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+
+.music-knob {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.music-bar.seek:hover .music-knob {
+  opacity: 1;
+}
+
+.music-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.music-btn {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.music-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+
+.music-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.music-btn:disabled {
+  opacity: 0.3;
+}
+
+.music-btn.on {
+  color: var(--on);
+}
+
+.music-btn.play {
+  width: 28px;
+  height: 28px;
+  background: #fff;
+  color: #000;
+}
+
+.music-btn.play:hover {
+  background: #fff;
+  color: #000;
+  transform: scale(1.06);
+}
+
+.music-one {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  font: 700 7px var(--font);
+}
+
+.music-vol {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--dim-2);
+}
+
+.music-volume {
+  width: 62px;
+  height: 3px;
+  margin: 0;
+}
+
+.pill-music .lbl {
+  padding-left: 22px;
+  padding-right: 46px;
+}
+
+.pill-music-btns {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  display: flex;
+  gap: 2px;
+  transform: translateY(-50%);
+}
+
+.pill-music-btn {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.pill-music-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.pill-music-btn:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.pill-music-btn:disabled {
+  opacity: 0.35;
+}
+
+html[data-dir="rtl"] #views .music-card :is(.music-progress, .music-controls) {
+  direction: ltr;
+}
+
 /* ── Arabic: right to left ─────────────────────────────────────────────────────
    i18n.ts sets <html data-dir="rtl">. The text of the cards reads and aligns
    right to left; ARIA, the pills, the header and the cards themselves keep

@@ -6,7 +6,8 @@
 
 import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
-import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, State, botPhase, type AgentTask } from "../core/state";
+import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, MEDIA_ID, State, botPhase, type AgentTask } from "../core/state";
+import { musicCard } from "./media";
 import { DECISION_LABELS, type BotApproval } from "../core/botlog";
 import {
   BotChat, CURSOR_CHAT, chatSlug, cursorOrderCancel, cursorOrderNow, retryToBot, sendToCursor, type BotChatEntry,
@@ -1380,6 +1381,7 @@ export function hasIntegrationData(id: string): boolean {
 
 export function renderIntegrationCard(task: AgentTask, hooks: IntegrationCardHooks): HTMLElement {
   if (task.id === ASSISTANT_ID) return ariaCard(task, hooks.openChat);
+  if (task.id === MEDIA_ID) return musicCard(task);
   if (task.id.startsWith(BOT_PREFIX)) return botCard(task, hooks);
   if (task.id === "integration_n8n") {
     const hasActivity = task.steps.length > 0 && (task.state === "finished" || task.state === "error");

@@ -5232,6 +5232,116 @@
    "pt-BR": "Feito sem perguntar: {tool} · {target}",
    "ru": "Сделано без вопроса: {tool} · {target}",
    "id": "Dilakukan tanpa bertanya: {tool} · {target}"
+  },
+  "Music": {
+   "zh-Hans": "音乐",
+   "hi": "संगीत",
+   "es": "Música",
+   "ar": "موسيقى",
+   "fr": "Musique",
+   "bn": "সংগীত",
+   "pt-BR": "Música",
+   "ru": "Музыка",
+   "id": "Musik"
+  },
+  "Nothing is playing": {
+   "zh-Hans": "没有正在播放的内容",
+   "hi": "कुछ नहीं चल रहा",
+   "es": "No suena nada",
+   "ar": "لا شيء قيد التشغيل",
+   "fr": "Rien ne joue",
+   "bn": "কিছুই বাজছে না",
+   "pt-BR": "Nada tocando",
+   "ru": "Ничего не играет",
+   "id": "Tidak ada yang diputar"
+  },
+  "Unknown song": {
+   "zh-Hans": "未知歌曲",
+   "hi": "अज्ञात गाना",
+   "es": "Canción desconocida",
+   "ar": "أغنية غير معروفة",
+   "fr": "Titre inconnu",
+   "bn": "অজানা গান",
+   "pt-BR": "Música desconhecida",
+   "ru": "Неизвестная песня",
+   "id": "Lagu tidak dikenal"
+  },
+  "Jump to this point": {
+   "zh-Hans": "跳到此处",
+   "hi": "यहाँ जाएँ",
+   "es": "Saltar a este punto",
+   "ar": "انتقل إلى هذه النقطة",
+   "fr": "Aller à ce moment",
+   "bn": "এখানে যান",
+   "pt-BR": "Ir para este ponto",
+   "ru": "Перейти сюда",
+   "id": "Lompat ke titik ini"
+  },
+  "Repeat this song": {
+   "zh-Hans": "单曲循环",
+   "hi": "यह गाना दोहराएँ",
+   "es": "Repetir esta canción",
+   "ar": "تكرار هذه الأغنية",
+   "fr": "Répéter ce titre",
+   "bn": "এই গানটি পুনরাবৃত্তি",
+   "pt-BR": "Repetir esta música",
+   "ru": "Повторять эту песню",
+   "id": "Ulangi lagu ini"
+  },
+  "Repeat all": {
+   "zh-Hans": "全部循环",
+   "hi": "सब दोहराएँ",
+   "es": "Repetir todo",
+   "ar": "تكرار الكل",
+   "fr": "Tout répéter",
+   "bn": "সব পুনরাবৃত্তি",
+   "pt-BR": "Repetir tudo",
+   "ru": "Повторять всё",
+   "id": "Ulangi semua"
+  },
+  "Repeat": {
+   "zh-Hans": "循环",
+   "hi": "दोहराएँ",
+   "es": "Repetir",
+   "ar": "تكرار",
+   "fr": "Répéter",
+   "bn": "পুনরাবৃত্তি",
+   "pt-BR": "Repetir",
+   "ru": "Повтор",
+   "id": "Ulangi"
+  },
+  "Shuffle": {
+   "zh-Hans": "随机播放",
+   "hi": "शफ़ल",
+   "es": "Aleatorio",
+   "ar": "ترتيب عشوائي",
+   "fr": "Aléatoire",
+   "bn": "এলোমেলো",
+   "pt-BR": "Aleatório",
+   "ru": "Перемешать",
+   "id": "Acak"
+  },
+  "Previous": {
+   "zh-Hans": "上一首",
+   "hi": "पिछला",
+   "es": "Anterior",
+   "ar": "السابق",
+   "fr": "Précédent",
+   "bn": "আগের",
+   "pt-BR": "Anterior",
+   "ru": "Предыдущий",
+   "id": "Sebelumnya"
+  },
+  "Play": {
+   "zh-Hans": "播放",
+   "hi": "चलाएँ",
+   "es": "Reproducir",
+   "ar": "تشغيل",
+   "fr": "Lecture",
+   "bn": "চালান",
+   "pt-BR": "Reproduzir",
+   "ru": "Воспроизвести",
+   "id": "Putar"
   }
  }
 }

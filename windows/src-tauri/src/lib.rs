@@ -24,6 +24,7 @@ mod island;
 mod keyhold;
 mod log;
 mod mcp;
+mod media;
 mod meeting;
 mod memory;
 mod migrate;
@@ -488,6 +489,20 @@ async fn chat_send(app: AppHandle, query: String, context: Option<ChatContext>) 
     result
 }
 
+/// What plays now, for the music pill (the bar and the volume when the card opens).
+#[tauri::command]
+async fn media_state() -> media::Snapshot {
+    tauri::async_runtime::spawn_blocking(media::snapshot).await.unwrap_or_default()
+}
+
+/// A click on the music card: toggle, next, prev, seek (ms), shuffle, repeat, volume (0–1).
+#[tauri::command]
+async fn media_control(action: String, value: Option<f64>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || media::control(&action, value))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 fn chat_reset(assistant: State<Assistant>) {
     assistant.reset();
@@ -895,6 +910,8 @@ pub fn run() {
             chat_send,
             chat_reset,
             chat_stop,
+            media_state,
+            media_control,
             models_list,
             grokbot_list,
             grokbot_save,
@@ -996,6 +1013,7 @@ pub fn run() {
             hooks::ensure_hook_exe(&handle);
             mcp::start(handle.clone());
             cursor::init(handle.clone());
+            media::start(handle.clone());
             memory::ensure();
             // Hold Space to show the island (honours space_hold at fire time).
             keyhold::start(handle.clone());

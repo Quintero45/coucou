@@ -5,7 +5,8 @@
 import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
 import { Ticker } from "./ticker";
-import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, ARIA_TASK, State, aiProvider, botPhase, type AgentTask } from "../core/state";
+import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, ARIA_TASK, MEDIA_ID, State, aiProvider, botPhase, type AgentTask } from "../core/state";
+import { musicCardKey, musicPillButtons } from "./media";
 import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
 import { createMiniBot, pruneMiniBots } from "../aria/minibots";
 import { buildPrompt } from "./chat";
@@ -504,6 +505,7 @@ function buildOverview(actions: ViewActions): ViewHost {
           language(), task.id, detailOpen, task.state, task.steps.join("|"),
           isBot ? task.lastMessage ?? "" : "",
           task.id === ASSISTANT_ID ? `${task.finalLine ?? ""}:${State.autonomousActs.join("|")}:${State.settings.assistantAutonomous}` : "",
+          task.id === MEDIA_ID ? musicCardKey() : "",
           info?.loaded, info?.error, info?.configured,
           JSON.stringify(info?.data ?? {}),
         ].join("~");
@@ -521,7 +523,7 @@ function buildOverview(actions: ViewActions): ViewHost {
       const noBots = State.settings.grokBots.length === 0;
       // A Bot pill also redraws when its state word changes.
       const pillKey = others
-        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${BotLive.avatarState(t)}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}`)
+        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${BotLive.avatarState(t)}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}${t.id === MEDIA_ID ? `:${t.name}:${State.media?.playing}:${State.media?.canNext}` : ""}`)
         .join("|") + (noBots ? "|+bot" : "") + `|${language()}`;
       if (pillKey !== pillIds) {
         pillIds = pillKey;
@@ -541,6 +543,7 @@ function buildOverview(actions: ViewActions): ViewHost {
 export function hasSessionTicker(task: AgentTask): boolean {
   // ARIA shows her steps while she works, and her card the rest of the time.
   if (task.id === ASSISTANT_ID) return task.state !== "idle";
+  if (task.id === MEDIA_ID) return false;
   // A Grok Bot at rest shows its card (last answer, quick reply), not a ticker.
   if (task.id.startsWith(BOT_PREFIX)) return task.state !== "idle" || task.steps.length > 0;
   // A pill made for an agent's session (Gemini CLI, Codex… not declared) only
@@ -591,6 +594,10 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     canvas,
     lbl,
   );
+  if (task.id === MEDIA_ID) {
+    pill.classList.add("pill-music");
+    pill.append(musicPillButtons(State.media));
+  }
   // The avatar's mood (style.css animates the mini-bot's frame, not its canvas).
   pill.dataset.botState = mood;
   // Each pill nods on its own rhythm, so a row of them never moves in step.

@@ -3,7 +3,7 @@
 import "./style.css";
 import { Bridge, IS_TAURI, onEvent } from "./core/bridge";
 import { Sound } from "./core/sound";
-import { State, type Settings } from "./core/state";
+import { State, type MediaInfo, type Settings } from "./core/state";
 import { Island } from "./island/island";
 import { registerHookHandlers } from "./island/hooks";
 import { registerAssistantHandlers } from "./island/assistant";
@@ -39,6 +39,9 @@ async function main() {
   island.applySettings();
   State.loadIntegrationTasks();
   State.ensureAriaPill();
+  // The music pill: what plays now, then every change media.rs reports.
+  await onEvent<MediaInfo>("media", (m) => State.setMedia(m));
+  void Bridge.mediaState().then((m) => m && State.setMedia(m));
   if (boot && !boot.cursorPoll) island.followPageCursor();
   await island.desktop.init();
 

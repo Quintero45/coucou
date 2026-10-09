@@ -93,6 +93,43 @@ export const ARIA_TASK: AgentTask = {
   source: "agent", isIntegration: false,
 };
 
+/** The music pill (media.rs): there while a player has something loaded. */
+export const MEDIA_ID = "music";
+
+/** What media.rs reports from the system media controls. */
+export interface MediaInfo {
+  active: boolean;
+  app: string;
+  title: string;
+  artist: string;
+  album: string;
+  playing: boolean;
+  positionMs: number;
+  durationMs: number;
+  /** Unix ms at which positionMs was true. */
+  atMs: number;
+  shuffle: boolean | null;
+  repeat: "none" | "track" | "list" | null;
+  canPrev: boolean;
+  canNext: boolean;
+  canSeek: boolean;
+  canShuffle: boolean;
+  canRepeat: boolean;
+  cover: string | null;
+  volume: number | null;
+}
+
+/** Spotify keeps its green; any other player wears the music pink. */
+export function mediaColor(app: string): string {
+  return app.toLowerCase().includes("spotify") ? "#1ED760" : "#F472B6";
+}
+
+/** Where the song is now, moved on from the last report while it plays. */
+export function mediaPosition(m: MediaInfo, now = Date.now()): number {
+  const pos = m.playing ? m.positionMs + Math.max(0, now - m.atMs) : m.positionMs;
+  return m.durationMs > 0 ? Math.min(pos, m.durationMs) : pos;
+}
+
 export interface AiProvider {
   id: string;
   pill: string;
@@ -522,6 +559,36 @@ class AppState {
     this.tasks.push({ ...ARIA_TASK, state: "idle", steps: [] });
     this.tasks = orderPills(this.tasks, this.mainPillId);
     if (!this.focusId) this.focusId = this.tasks[0]?.id ?? null;
+    this.notify();
+  }
+
+  /** What plays now (media.rs), null until the first report. */
+  media: MediaInfo | null = null;
+
+  /** A report from media.rs: the music pill comes and goes with the player. */
+  setMedia(m: MediaInfo) {
+    this.media = m;
+    const idx = this.tasks.findIndex((t) => t.id === MEDIA_ID);
+    if (!m.active) {
+      if (idx >= 0) {
+        this.tasks.splice(idx, 1);
+        if (this.focusId === MEDIA_ID) this.focusId = this.mainPillId;
+      }
+      this.notify();
+      return;
+    }
+    const name = m.app || t("Music");
+    const color = mediaColor(m.app);
+    if (idx < 0) {
+      // Right after the main pill, so it is among the four shown.
+      this.insertAfterMain({
+        id: MEDIA_ID, name, color, state: "idle", stepIndex: 0, steps: [],
+        source: "agent", isIntegration: true,
+      });
+      return;
+    }
+    this.tasks[idx].name = name;
+    this.tasks[idx].color = color;
     this.notify();
   }
 

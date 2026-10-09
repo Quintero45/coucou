@@ -5,7 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { GrokBot, Settings } from "./state";
+import type { GrokBot, MediaInfo, Settings } from "./state";
 
 export type { GrokBot };
 
@@ -152,6 +152,12 @@ export const Bridge = {
   chatReset: () => call<void>("chat_reset"),
   /** Stops the assistant after the current step. */
   chatStop: () => call<void>("chat_stop"),
+
+  // ── Music pill (media.rs) ─────────────────────────────────────────────────
+  mediaState: () => call<MediaInfo>("media_state"),
+  /** toggle, next, prev, seek (ms), shuffle, repeat, volume (0–1). */
+  mediaControl: (action: "toggle" | "next" | "prev" | "seek" | "shuffle" | "repeat" | "volume", value?: number) =>
+    call<void>("media_control", { action, value: value ?? null }),
   /** Models the provider offers (needs its key, or the local server running). */
   modelsList: (provider: string) => callOrThrow<string[]>("models_list", { provider }),
 
