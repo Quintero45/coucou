@@ -438,6 +438,13 @@ pub fn names_core(target: &str) -> bool {
     core_names().any(|name| words.contains(&name.as_str()))
 }
 
+/// Sending an email always waits for the owner's click, "Without asking" or
+/// not: Resend's send_email, an MCP server's send_mail, gmail_reply…
+pub fn never_autonomous(tool: &str) -> bool {
+    let t = tool.to_ascii_lowercase();
+    t.contains("mail") && ["send", "reply", "forward"].iter().any(|v| t.contains(v))
+}
+
 fn autonomous(app: &AppHandle) -> bool {
     app.try_state::<crate::Shared>().is_some_and(|s| s.settings.lock().unwrap().assistant_autonomous)
 }
@@ -451,7 +458,7 @@ pub async fn approve(app: &AppHandle, tool: &str, target: &str) -> bool {
 /// Same, with the full text under review (a skill's code, a diff) shown in a
 /// scrollable box on the card. "Always" is never offered for these.
 pub async fn approve_with_detail(app: &AppHandle, tool: &str, target: &str, detail: Option<&str>) -> bool {
-    if autonomous(app) && !names_core(target) {
+    if autonomous(app) && !names_core(target) && !never_autonomous(tool) {
         audit(tool, "allowed (autonomous)", target);
         let _ = app.emit_to(WINDOW_LABEL, "assistant-acted", json!({ "tool": tool, "target": redact(target) }));
         return true;
@@ -541,6 +548,16 @@ mod tests {
         assert!(!names_core(r"C:\Users\Dell\AppData\Local\ARIA\bin\aria-hook.exe --agent cursor"));
         assert!(!names_core("Get-ChildItem C:\\Users\\Dell\\Documents"));
         assert!(!names_core("send an email to someone about the policy"));
+    }
+
+    #[test]
+    fn sending_mail_never_goes_autonomous() {
+        for t in ["send_email", "mcp__gmail__send_mail", "gmail_reply", "Outlook_Forward_Mail"] {
+            assert!(never_autonomous(t), "{t}");
+        }
+        for t in ["compose_email", "read_mail", "run_powershell", "write_file"] {
+            assert!(!never_autonomous(t), "{t}");
+        }
     }
 
     #[test]

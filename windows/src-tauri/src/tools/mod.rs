@@ -100,6 +100,7 @@ pub fn specs(app: &AppHandle) -> Vec<ToolSpec> {
     out.extend(mcp::specs(app));
     out.extend(crate::grokbot::specs(app));
     out.extend(selfmod::specs());
+    out.push(crate::mail::compose_spec());
     out
 }
 
@@ -162,6 +163,9 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Outcome {
     }
     if let Some(outcome) = selfmod::run(app, call).await {
         return outcome;
+    }
+    if call.name == "compose_email" {
+        return crate::mail::compose(app, &call.input);
     }
     let Some(tool) = builtins().into_iter().find(|t| t.name == call.name && available(t.name)) else {
         return Outcome::err(format!("Unknown tool {}", call.name));

@@ -10,6 +10,7 @@ mod codex_plan;
 mod config_file;
 mod context;
 mod custom_sounds;
+mod mail;
 mod cursor;
 mod cursorlink;
 mod desktop;
@@ -980,6 +981,10 @@ pub fn run() {
             custom_sounds::custom_sound,
             custom_sounds::reveal_sounds_folder,
             custom_sounds::reload_sounds,
+            mail::mail_status,
+            mail::mail_contacts,
+            mail::mail_send,
+            mail::mail_draft,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

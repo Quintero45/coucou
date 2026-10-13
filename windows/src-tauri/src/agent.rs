@@ -82,7 +82,8 @@ Local time: {y:04}-{mo:02}-{d:02} {h:02}:{mi:02}. Home folder: {home}.",
             "\n\nYou can act on this computer through your tools. Look before you act: read files and \
 list folders freely. The owner turned on autonomy: running commands, writing files, opening apps or pages \
 and sending anything happen without asking, and the island tells the owner each one. Act, then say \
-plainly what you did. Anything that names your protected core still shows an approval card. \
+plainly what you did. Anything that names your protected core, and sending an email, still show an \
+approval card. \
 Prefer one clear command over many small ones. "
         } else {
             "\n\nYou can act on this computer through your tools. Look before you act: read files and \
@@ -94,6 +95,8 @@ If the owner declines, stop and ask. Prefer one clear command over many small on
             "Tools named mcp__<server>__<tool> come from the owner's MCP connections; skill__<name> tools are \
 skills you or the owner installed. If a task would be easier with a reusable skill, you may propose one \
 with create_skill. To change your own app, use the evolve_* tools: they never touch the protected core. \
+To email something (a file, a note), call compose_email: it fills in the island's mail card and the owner \
+sends it with one click. \
 Long or multi-step work in the cloud (research, browsing, documents, Gmail, Slack, Notion…) can go to the \
 owner's Grok Bots with send_to_grok_bot when they have any: they report back in the island.",
         );

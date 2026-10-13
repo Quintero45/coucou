@@ -11,6 +11,7 @@ import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
 import { createMiniBot, pruneMiniBots } from "../aria/minibots";
 import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
+import { buildMail } from "./mail";
 import {
   botCanReply, createBotChat, createBotReply, reducedMotion, renderIntegrationCard,
   type BotReplyHandlers, type IntegrationCardHooks,
@@ -1134,8 +1135,8 @@ export function buildViews(
   map.set("choose", buildChoose(actions));
   map.set("recap", buildRecap(actions));
   map.set("wardrobe", buildWardrobe(actions));
-  // Not in the Windows v1: sending a file by email, window attach + web result.
-  map.set("mail", buildPlaceholder(tl("Sending by email isn't in this version."), ""));
+  map.set("mail", buildMail(actions));
+  // Not in the Windows v1: the web search result.
   map.set("searching", buildPlaceholder(tl("Searching…"), ""));
   map.set("result", buildPlaceholder(tl("Result"), ""));
   return map;

@@ -429,6 +429,10 @@ export class Island {
           : null;
         this.setView("prompt");
       },
+      mail: () => {
+        State.mailDraft = { to: "", subject: "", body: "", path: State.droppedFile?.path };
+        this.setView("mail");
+      },
       cancel: () => this.discardDrop(),
     });
 
@@ -1704,14 +1708,16 @@ export class Island {
       if (on) view.sync();
     }
 
-    // The chat is the only view with a text field, so it is the only time the
-    // island is allowed to take keyboard focus.
+    // The chat and the mail card are the views with text fields, so they are
+    // the only times the island is allowed to take keyboard focus.
     if (this.lastSyncedView !== State.view) {
-      const wasChat = this.lastSyncedView === "prompt";
+      const typing = (v: string | null) => v === "prompt" || v === "mail";
+      const wasChat = typing(this.lastSyncedView);
       this.lastSyncedView = State.view;
-      if (State.view === "prompt") {
+      if (typing(State.view)) {
         void Bridge.focusWindow(true);
-        window.setTimeout(() => this.views.get("prompt")?.focus?.(), 120);
+        const view = State.view;
+        window.setTimeout(() => this.views.get(view)?.focus?.(), 120);
       } else if (wasChat) {
         void Bridge.focusWindow(false);
       }

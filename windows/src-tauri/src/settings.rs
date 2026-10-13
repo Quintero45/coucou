@@ -73,6 +73,9 @@ pub struct Settings {
     /// ("fr", "pt-BR", "zh-Hans"…). Kept as it comes, like `aria_outfit`: a
     /// code this build doesn't know reads as "".
     pub language: String,
+    /// The sender address Resend needs when Outlook is not there to send the
+    /// mail card's emails (mail.rs). An address, not a secret.
+    pub mail_from: String,
     /// ARIA on the desktop: whether she lives there, and her spot. Owned by
     /// the Rust side (desktop.rs) — what a webview sends back is ignored.
     pub desktop_aria: DesktopAriaPref,
@@ -158,6 +161,7 @@ impl Default for Settings {
             aria_outfit: "auto".into(),
             pill_colors: BTreeMap::new(),
             language: String::new(),
+            mail_from: String::new(),
             desktop_aria: DesktopAriaPref::default(),
         }
     }
@@ -449,6 +453,7 @@ mod tests {
   "ariaOutfit": "witchHat",
   "pillColors": { "integration_claude": "#2DD4BF" },
   "language": "pt-BR",
+  "mailFrom": "aria@ejemplo.mx",
   "desktopAria": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
 }"##;
 
@@ -873,6 +878,7 @@ mod tests {
                 "ariaOutfit",
                 "pillColors",
                 "language",
+                "mailFrom",
                 "desktopAria",
             ]
         );

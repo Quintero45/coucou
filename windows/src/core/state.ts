@@ -332,6 +332,8 @@ export interface Settings {
    * else English), or one of src/i18n's ten codes ("fr", "pt-BR", "zh-Hans"…).
    */
   language: string;
+  /** Sender address for Resend when Outlook can't send the mail card (mail.rs). */
+  mailFrom: string;
   /** ARIA on the desktop. Rust owns it: whatever the page sends back is ignored. */
   desktopAria?: {
     onDesktop: boolean;
@@ -369,7 +371,17 @@ export const DEFAULT_SETTINGS: Settings = {
   ariaOutfit: DEFAULT_OUTFIT,
   pillColors: {},
   language: "",
+  mailFrom: "",
 };
+
+/** The mail card's fields, filled by the owner or by ARIA (compose_email). */
+export interface MailDraft {
+  to: string;
+  subject: string;
+  body: string;
+  /** The file to attach, if any. */
+  path?: string;
+}
 
 type Listener = () => void;
 
@@ -403,6 +415,8 @@ class AppState {
   droppedFile: { name: string; path: string } | null = null;
   /** The window ARIA was dropped on from the desktop: the next chat's context. */
   droppedWindow: DroppedWindow | null = null;
+  /** What the mail card opens with; it keeps its own copy as the owner types. */
+  mailDraft: MailDraft | null = null;
   noteMessage: string | null = null;
   /** Text to put in the chat input the next time it shows ("@Bot "). */
   chatDraft: string | null = null;

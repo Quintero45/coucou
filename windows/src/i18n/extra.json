@@ -1629,17 +1629,6 @@
    "ru": "Отправить сообщение",
    "id": "Kirim pesan"
   },
-  "Sending by email isn't in this version.": {
-   "zh-Hans": "此版本暂不支持通过邮件发送。",
-   "hi": "ईमेल से भेजना इस संस्करण में नहीं है।",
-   "es": "El envío por correo no está en esta versión.",
-   "ar": "الإرسال بالبريد الإلكتروني غير متاح في هذا الإصدار.",
-   "fr": "L'envoi par e-mail n'est pas dans cette version.",
-   "bn": "ইমেলে পাঠানো এই সংস্করণে নেই।",
-   "pt-BR": "O envio por e-mail não está nesta versão.",
-   "ru": "Отправки по почте в этой версии нет.",
-   "id": "Mengirim lewat email belum ada di versi ini."
-  },
   "Services": {
    "zh-Hans": "服务",
    "hi": "सेवाएँ",
@@ -5211,17 +5200,6 @@
    "ru": "Без вопросов",
    "id": "Tanpa bertanya"
   },
-  "ARIA acts without waiting for your click: commands, files, apps, emails, skills and changes to her own code. The island tells you each action and aria.log keeps them. Anything that names her protected core still asks.": {
-   "zh-Hans": "ARIA 无需等你点击就会行动：命令、文件、应用、邮件、技能以及对她自身代码的修改。灵动岛会告诉你每一个操作，aria.log 会记录下来。凡是涉及她受保护核心的操作仍会询问你。",
-   "hi": "ARIA आपके क्लिक का इंतज़ार किए बिना काम करती है: कमांड, फ़ाइलें, ऐप, ईमेल, स्किल और उसके अपने कोड में बदलाव। आइलैंड आपको हर कार्य बताता है और aria.log उन्हें सहेजता है। जो कुछ भी उसके संरक्षित कोर का नाम लेता है, उसके लिए वह अब भी पूछती है।",
-   "es": "ARIA actúa sin esperar tu clic: comandos, archivos, apps, emails, skills y cambios en su propio código. La isla te avisa de cada acción y aria.log las guarda. Lo que nombre su núcleo protegido sigue preguntando.",
-   "ar": "تتصرف ARIA دون انتظار نقرتك: الأوامر والملفات والتطبيقات والرسائل الإلكترونية والمهارات والتغييرات في شيفرتها الخاصة. تخبرك الجزيرة بكل إجراء ويحتفظ بها aria.log. أي شيء يذكر نواتها المحمية لا يزال يطلب الإذن.",
-   "fr": "ARIA agit sans attendre votre clic : commandes, fichiers, applis, e-mails, skills et modifications de son propre code. L'île vous signale chaque action et aria.log les garde. Tout ce qui nomme son noyau protégé demande toujours.",
-   "bn": "ARIA আপনার ক্লিকের অপেক্ষা না করেই কাজ করে: কমান্ড, ফাইল, অ্যাপ, ইমেল, স্কিল এবং তার নিজের কোডে পরিবর্তন। আইল্যান্ড প্রতিটি কাজ আপনাকে জানায় এবং aria.log সেগুলো রাখে। তার সুরক্ষিত কোরের নাম থাকা যেকোনো কিছুতে সে এখনও জিজ্ঞেস করে।",
-   "pt-BR": "A ARIA age sem esperar seu clique: comandos, arquivos, apps, e-mails, skills e mudanças no próprio código. A ilha avisa cada ação e o aria.log guarda todas. O que mencionar o núcleo protegido dela continua pedindo.",
-   "ru": "ARIA действует, не дожидаясь вашего клика: команды, файлы, приложения, письма, навыки и изменения собственного кода. Остров сообщает о каждом действии, а aria.log их сохраняет. Всё, что касается её защищённого ядра, по-прежнему требует подтверждения.",
-   "id": "ARIA bertindak tanpa menunggu klik Anda: perintah, file, aplikasi, email, skill, dan perubahan pada kodenya sendiri. Pulau memberi tahu setiap tindakan dan aria.log menyimpannya. Apa pun yang menyebut inti terlindunginya tetap meminta izin."
-  },
   "Done without asking: {tool} · {target}": {
    "zh-Hans": "已直接执行：{tool} · {target}",
    "hi": "बिना पूछे किया: {tool} · {target}",
@@ -5452,6 +5430,204 @@
    "pt-BR": "Janela: {title}",
    "ru": "Окно: {title}",
    "id": "Jendela: {title}"
+  },
+  "From": {
+   "zh-Hans": "发件人",
+   "hi": "प्रेषक",
+   "es": "De",
+   "ar": "من",
+   "fr": "De",
+   "bn": "প্রেরক",
+   "pt-BR": "De",
+   "ru": "От",
+   "id": "Dari"
+  },
+  "Message": {
+   "zh-Hans": "消息",
+   "hi": "संदेश",
+   "es": "Mensaje",
+   "ar": "الرسالة",
+   "fr": "Message",
+   "bn": "বার্তা",
+   "pt-BR": "Mensagem",
+   "ru": "Сообщение",
+   "id": "Pesan"
+  },
+  "Write it for me": {
+   "zh-Hans": "帮我写",
+   "hi": "मेरे लिए लिखो",
+   "es": "Redáctalo tú",
+   "ar": "اكتبه لي",
+   "fr": "Écris-le pour moi",
+   "bn": "আমার হয়ে লেখো",
+   "pt-BR": "Escreva para mim",
+   "ru": "Напиши за меня",
+   "id": "Tuliskan untukku"
+  },
+  "Writing…": {
+   "zh-Hans": "正在写…",
+   "hi": "लिख रही है…",
+   "es": "Redactando…",
+   "ar": "جارٍ الكتابة…",
+   "fr": "Rédaction…",
+   "bn": "লিখছে…",
+   "pt-BR": "Escrevendo…",
+   "ru": "Пишу…",
+   "id": "Menulis…"
+  },
+  "Outlook is not here: it will go through Resend.": {
+   "zh-Hans": "此电脑没有 Outlook：将通过 Resend 发送。",
+   "hi": "यहाँ Outlook नहीं है: यह Resend से जाएगा।",
+   "es": "Outlook no está aquí: se enviará por Resend.",
+   "ar": "Outlook غير موجود هنا: سيُرسل عبر Resend.",
+   "fr": "Outlook n'est pas là : l'envoi passera par Resend.",
+   "bn": "এখানে Outlook নেই: এটি Resend দিয়ে যাবে।",
+   "pt-BR": "O Outlook não está aqui: vai pelo Resend.",
+   "ru": "Outlook здесь нет: письмо уйдёт через Resend.",
+   "id": "Outlook tidak ada di sini: akan dikirim lewat Resend."
+  },
+  "Sent to {to}.": {
+   "zh-Hans": "已发送给 {to}。",
+   "hi": "{to} को भेजा गया।",
+   "es": "Enviado a {to}.",
+   "ar": "أُرسل إلى {to}.",
+   "fr": "Envoyé à {to}.",
+   "bn": "{to}-কে পাঠানো হয়েছে।",
+   "pt-BR": "Enviado para {to}.",
+   "ru": "Отправлено: {to}.",
+   "id": "Terkirim ke {to}."
+  },
+  "Email": {
+   "zh-Hans": "邮件",
+   "hi": "ईमेल",
+   "es": "Correo",
+   "ar": "البريد",
+   "fr": "E-mail",
+   "bn": "ইমেল",
+   "pt-BR": "E-mail",
+   "ru": "Почта",
+   "id": "Email"
+  },
+  "Add at least one recipient.": {
+   "zh-Hans": "请至少添加一位收件人。",
+   "hi": "कम से कम एक प्राप्तकर्ता जोड़ें।",
+   "es": "Añade al menos un destinatario.",
+   "ar": "أضف مستلمًا واحدًا على الأقل.",
+   "fr": "Ajoute au moins un destinataire.",
+   "bn": "অন্তত একজন প্রাপক যোগ করুন।",
+   "pt-BR": "Adicione pelo menos um destinatário.",
+   "ru": "Добавьте хотя бы одного получателя.",
+   "id": "Tambahkan setidaknya satu penerima."
+  },
+  "{address} is not a valid address.": {
+   "zh-Hans": "{address} 不是有效的地址。",
+   "hi": "{address} मान्य पता नहीं है।",
+   "es": "{address} no es una dirección válida.",
+   "ar": "{address} ليس عنوانًا صالحًا.",
+   "fr": "{address} n'est pas une adresse valide.",
+   "bn": "{address} বৈধ ঠিকানা নয়।",
+   "pt-BR": "{address} não é um endereço válido.",
+   "ru": "{address} — неверный адрес.",
+   "id": "{address} bukan alamat yang valid."
+  },
+  "Outlook did not recognise a recipient.": {
+   "zh-Hans": "Outlook 无法识别某位收件人。",
+   "hi": "Outlook एक प्राप्तकर्ता को नहीं पहचान सका।",
+   "es": "Outlook no reconoció un destinatario.",
+   "ar": "لم يتعرف Outlook على أحد المستلمين.",
+   "fr": "Outlook n'a pas reconnu un destinataire.",
+   "bn": "Outlook একজন প্রাপককে চিনতে পারেনি।",
+   "pt-BR": "O Outlook não reconheceu um destinatário.",
+   "ru": "Outlook не распознал получателя.",
+   "id": "Outlook tidak mengenali salah satu penerima."
+  },
+  "The file is no longer there.": {
+   "zh-Hans": "文件已不存在。",
+   "hi": "फ़ाइल अब वहाँ नहीं है।",
+   "es": "El archivo ya no está.",
+   "ar": "لم يعد الملف موجودًا.",
+   "fr": "Le fichier n'est plus là.",
+   "bn": "ফাইলটি আর নেই।",
+   "pt-BR": "O arquivo não está mais lá.",
+   "ru": "Файла больше нет.",
+   "id": "Berkas sudah tidak ada."
+  },
+  "The file is over 20 MB.": {
+   "zh-Hans": "文件超过 20 MB。",
+   "hi": "फ़ाइल 20 MB से बड़ी है।",
+   "es": "El archivo pasa de 20 MB.",
+   "ar": "الملف أكبر من 20 ميغابايت.",
+   "fr": "Le fichier dépasse 20 Mo.",
+   "bn": "ফাইলটি 20 MB-এর বেশি।",
+   "pt-BR": "O arquivo passa de 20 MB.",
+   "ru": "Файл больше 20 МБ.",
+   "id": "Berkas lebih dari 20 MB."
+  },
+  "Outlook is not set up on this PC and Resend is not connected: nothing was sent.": {
+   "zh-Hans": "此电脑未设置 Outlook，也未连接 Resend：没有发送任何内容。",
+   "hi": "इस PC पर Outlook सेट नहीं है और Resend जुड़ा नहीं है: कुछ नहीं भेजा गया।",
+   "es": "Outlook no está configurado en este PC y Resend no está conectado: no se envió nada.",
+   "ar": "Outlook غير مُعدّ على هذا الحاسوب وResend غير متصل: لم يُرسل شيء.",
+   "fr": "Outlook n'est pas configuré sur ce PC et Resend n'est pas connecté : rien n'a été envoyé.",
+   "bn": "এই পিসিতে Outlook সেট করা নেই এবং Resend সংযুক্ত নয়: কিছুই পাঠানো হয়নি।",
+   "pt-BR": "O Outlook não está configurado neste PC e o Resend não está conectado: nada foi enviado.",
+   "ru": "Outlook на этом ПК не настроен, а Resend не подключён: ничего не отправлено.",
+   "id": "Outlook belum disiapkan di PC ini dan Resend tidak terhubung: tidak ada yang dikirim."
+  },
+  "Write the sender address Resend should use.": {
+   "zh-Hans": "请填写 Resend 使用的发件地址。",
+   "hi": "वह प्रेषक पता लिखें जो Resend इस्तेमाल करे।",
+   "es": "Escribe la dirección de remitente que debe usar Resend.",
+   "ar": "اكتب عنوان المرسل الذي يجب أن يستخدمه Resend.",
+   "fr": "Écris l'adresse d'expéditeur que Resend doit utiliser.",
+   "bn": "Resend যে প্রেরকের ঠিকানা ব্যবহার করবে তা লিখুন।",
+   "pt-BR": "Escreva o endereço de remetente que o Resend deve usar.",
+   "ru": "Укажите адрес отправителя для Resend.",
+   "id": "Tulis alamat pengirim yang harus dipakai Resend."
+  },
+  "ARIA could not write it this time.": {
+   "zh-Hans": "ARIA 这次没能写出来。",
+   "hi": "ARIA इस बार इसे नहीं लिख सकी।",
+   "es": "ARIA no pudo redactarlo esta vez.",
+   "ar": "لم تتمكن ARIA من كتابته هذه المرة.",
+   "fr": "ARIA n'a pas pu l'écrire cette fois.",
+   "bn": "ARIA এবার এটি লিখতে পারেনি।",
+   "pt-BR": "A ARIA não conseguiu escrever desta vez.",
+   "ru": "ARIA не смогла написать это в этот раз.",
+   "id": "ARIA tidak bisa menuliskannya kali ini."
+  },
+  "Outlook: {error}": {
+   "zh-Hans": "Outlook：{error}",
+   "hi": "Outlook: {error}",
+   "es": "Outlook: {error}",
+   "ar": "Outlook: {error}",
+   "fr": "Outlook : {error}",
+   "bn": "Outlook: {error}",
+   "pt-BR": "Outlook: {error}",
+   "ru": "Outlook: {error}",
+   "id": "Outlook: {error}"
+  },
+  "Resend: {error}": {
+   "zh-Hans": "Resend：{error}",
+   "hi": "Resend: {error}",
+   "es": "Resend: {error}",
+   "ar": "Resend: {error}",
+   "fr": "Resend : {error}",
+   "bn": "Resend: {error}",
+   "pt-BR": "Resend: {error}",
+   "ru": "Resend: {error}",
+   "id": "Resend: {error}"
+  },
+  "ARIA acts without waiting for your click: commands, files, apps, skills and changes to her own code. The island tells you each action and aria.log keeps them. Sending an email and anything that names her protected core still ask.": {
+   "zh-Hans": "ARIA 无需等你点击即可行动：命令、文件、应用、技能以及对她自身代码的修改。岛会告诉你每个操作，aria.log 会记录它们。发送邮件以及任何涉及她受保护核心的操作仍会询问。",
+   "hi": "ARIA आपके क्लिक का इंतज़ार किए बिना काम करती है: कमांड, फ़ाइलें, ऐप्स, स्किल्स और अपने कोड में बदलाव। आइलैंड हर कार्रवाई बताता है और aria.log उन्हें रखता है। ईमेल भेजना और उसके संरक्षित कोर का नाम लेने वाली हर चीज़ अब भी पूछती है।",
+   "es": "ARIA actúa sin esperar tu clic: comandos, archivos, apps, skills y cambios en su propio código. La isla te avisa de cada acción y aria.log las guarda. Enviar un correo y lo que nombre su núcleo protegido siguen preguntando.",
+   "ar": "تتصرف ARIA دون انتظار نقرتك: الأوامر والملفات والتطبيقات والمهارات والتغييرات على شيفرتها. تخبرك الجزيرة بكل إجراء ويحفظها aria.log. إرسال بريد إلكتروني وكل ما يذكر نواتها المحمية ما زالا يطلبان الإذن.",
+   "fr": "ARIA agit sans attendre votre clic : commandes, fichiers, applis, skills et modifications de son propre code. L'île vous signale chaque action et aria.log les garde. Envoyer un e-mail et tout ce qui nomme son noyau protégé demandent toujours.",
+   "bn": "ARIA আপনার ক্লিকের অপেক্ষা না করেই কাজ করে: কমান্ড, ফাইল, অ্যাপ, স্কিল এবং নিজের কোডে পরিবর্তন। দ্বীপ প্রতিটি কাজ জানায় এবং aria.log সেগুলো রাখে। ইমেল পাঠানো এবং তার সুরক্ষিত কোরের নাম নেওয়া যেকোনো কিছু এখনও জিজ্ঞাসা করে।",
+   "pt-BR": "A ARIA age sem esperar seu clique: comandos, arquivos, apps, skills e mudanças no próprio código. A ilha avisa cada ação e o aria.log guarda todas. Enviar um e-mail e o que mencionar o núcleo protegido dela continuam pedindo.",
+   "ru": "ARIA действует, не дожидаясь вашего клика: команды, файлы, приложения, навыки и изменения собственного кода. Остров сообщает о каждом действии, а aria.log их хранит. Отправка письма и всё, что касается её защищённого ядра, по-прежнему требуют подтверждения.",
+   "id": "ARIA bertindak tanpa menunggu klik Anda: perintah, file, aplikasi, skill, dan perubahan pada kodenya sendiri. Pulau memberi tahu setiap tindakan dan aria.log menyimpannya. Mengirim email dan apa pun yang menyebut inti terlindunginya tetap meminta izin."
   }
  }
 }

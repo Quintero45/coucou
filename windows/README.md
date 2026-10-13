@@ -582,10 +582,14 @@ own window.
   `Esc` in the island, and reopened by clicking the island or Open in the tray.
 - Apple Music, the one pill from the Mac catalog with nothing behind it here,
   is left out.
-- Not in this version: sending a dropped file by email and dragging ARIA onto
-  a window to attach it as context. On the Mac, email goes through Resend or
-  Apple Mail's scripting; neither has a safe equivalent that attaches a file
-  here, and the drop card would need a third button it doesn't have.
+- Email: the drop card's **Email** button (or asking ARIA, who fills the card
+  in with `compose_email`) opens a mail card. Only the click on **Send** sends
+  it, "Without asking" or not: through classic Outlook's automation with the
+  account already set up there, else the Resend integration (with the sender
+  address typed in the card). 20 MB at most; `aria.log` keeps the recipients,
+  the subject and the file's name, never the text.
+- Dropping ARIA from the desktop onto another app's window starts a chat about
+  it: its title, program and a screenshot go with the first message.
 - Cal.com shows the next bookings as a list rather than the Mac's calendar.
 - The Cursor pill carries both Cursor Agent's own hooks and Claude Code running
   in Cursor's terminal.

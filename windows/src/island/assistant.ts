@@ -35,6 +35,15 @@ export function registerAssistantHandlers(island: Island) {
     island.announce(t("Done without asking: {tool} · {target}", { tool, target }));
   });
 
+  // compose_email (mail.rs): the card opens filled in; sending stays a click.
+  void onEvent<{ to: string; subject: string; body: string; path: string | null }>("mail-compose", (d) => {
+    if (State.paused) return;
+    State.mailDraft = { to: d.to ?? "", subject: d.subject ?? "", body: d.body ?? "", path: d.path ?? undefined };
+    Sound.play("approval");
+    island.alert("mail");
+    State.notify();
+  });
+
   void onEvent<AssistantApproval>("assistant-approval", (req) => {
     if (State.paused || State.pendingApproval) {
       void Bridge.approvalDecline(req.requestId);

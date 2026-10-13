@@ -161,6 +161,15 @@ export const Bridge = {
   /** Stops the assistant after the current step. */
   chatStop: () => call<void>("chat_stop"),
 
+  // ── Mail card (mail.rs) ───────────────────────────────────────────────────
+  mailStatus: (path?: string) => call<MailStatus>("mail_status", { path: path ?? null }),
+  mailContacts: () => call<MailContact[]>("mail_contacts"),
+  /** The card's Send click. Throws one of mail.rs's error codes. */
+  mailSend: (request: { to: string; subject: string; body: string; path?: string }) =>
+    callOrThrow<{ via: "outlook" | "resend"; to: string[] }>("mail_send", { request }),
+  mailDraft: (fileName: string, to: string, hint: string) =>
+    callOrThrow<{ subject: string; body: string }>("mail_draft", { fileName, to, hint }),
+
   // ── Music pill (media.rs) ─────────────────────────────────────────────────
   mediaState: () => call<MediaInfo>("media_state"),
   /** toggle, next, prev, seek (ms), shuffle, repeat, volume (0–1). */
@@ -355,6 +364,18 @@ export interface IntegrationUpdate {
   data: Record<string, unknown>;
   error: string | null;
   event: { success: boolean; label: string; detail: string | null } | null;
+}
+
+export interface MailStatus {
+  outlook: boolean;
+  resend: boolean;
+  resendFrom: string;
+  size?: number;
+}
+
+export interface MailContact {
+  name: string;
+  address: string;
 }
 
 export type ChatContext =

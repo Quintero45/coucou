@@ -241,7 +241,7 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
       h("div", { class: "row" },
         h("label", { text: t("Without asking") }),
         autonomous,
-        h("span", { class: "hint", text: t("ARIA acts without waiting for your click: commands, files, apps, emails, skills and changes to her own code. The island tells you each action and aria.log keeps them. Anything that names her protected core still asks.") }),
+        h("span", { class: "hint", text: t("ARIA acts without waiting for your click: commands, files, apps, skills and changes to her own code. The island tells you each action and aria.log keeps them. Sending an email and anything that names her protected core still ask.") }),
       ),
     );
 
