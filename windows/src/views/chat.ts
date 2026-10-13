@@ -220,10 +220,11 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     saveChat();
   }
 
-  async function submit(fromVoice = false) {
+  /** `answer` gets the reply ("" when it failed) for a request heard by voice or sent from the phone. */
+  async function submit(answer?: (text: string) => void) {
     const query = input.value.trim();
     if (!query || sending) {
-      if (fromVoice) void Bridge.voiceReply("");
+      answer?.("");
       return;
     }
     input.value = "";
@@ -234,7 +235,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     const target = botTarget(query);
     if (target) {
       await sendToBot(target, query);
-      if (fromVoice) void Bridge.voiceReply("");
+      answer?.("");
       sending = false;
       setSendMode(false);
       renderedKey = "";
@@ -279,7 +280,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       }
       Sound.play("error");
     } finally {
-      if (fromVoice) void Bridge.voiceReply(spoken);
+      answer?.(spoken);
       saveChat();
       live = null;
       liveRow = null;
@@ -342,7 +343,12 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       if (State.voiceAsk !== null && !sending) {
         input.value = State.voiceAsk;
         State.voiceAsk = null;
-        queueMicrotask(() => void submit(true));
+        queueMicrotask(() => void submit((text) => void Bridge.voiceReply(text)));
+      } else if (State.phoneAsk !== null && !sending) {
+        const { id, text } = State.phoneAsk;
+        input.value = text;
+        State.phoneAsk = null;
+        queueMicrotask(() => void submit((reply) => void Bridge.phoneChatReply(id, reply)));
       }
       if (State.chatDraft !== null && !sending) {
         input.value = State.chatDraft;

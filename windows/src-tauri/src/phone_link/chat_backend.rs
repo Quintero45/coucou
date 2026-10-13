@@ -6,11 +6,14 @@
 // Failures are sorted into a few kinds here and only the kind goes on: a provider's message may
 // contain part of a key, so it is neither forwarded nor logged.
 
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot;
 
 use super::chat::{BoxFuture, ChatBackend, ChatConfig, ChatFail, ModelOption};
 use crate::providers::{self, Endpoint, Msg, Part, Provider, Request};
@@ -24,6 +27,54 @@ const MAX_MODEL_CHARS: usize = 200;
 const KEPT: usize = 40;
 
 const PROVIDERS: [&str; 6] = ["anthropic", "xai", "openai", "google", "ollama", "lmstudio"];
+
+/// ARIA herself: the message goes to the island's chat, with her provider (Cursor included),
+/// her tools and her approval cards, and her answer comes back. Offered whenever chat is on.
+pub const ARIA_MODEL: &str = "aria/aria";
+/// Tools and approval cards can take a while; past this the phone is told it failed.
+const ARIA_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+type Waiters = Mutex<HashMap<u64, oneshot::Sender<String>>>;
+
+fn waiters() -> &'static Waiters {
+    static W: OnceLock<Waiters> = OnceLock::new();
+    W.get_or_init(Waiters::default)
+}
+
+/// The island's answer to a message from the phone ("" when it failed).
+#[tauri::command]
+pub fn phone_chat_reply(id: u64, text: String) {
+    if let Some(tx) = waiters().lock().unwrap().remove(&id) {
+        let _ = tx.send(text);
+    }
+}
+
+/// Removes the waiter when the turn ends, answered or not (the phone left, a timeout).
+struct Waiting(u64);
+
+impl Drop for Waiting {
+    fn drop(&mut self) {
+        waiters().lock().unwrap().remove(&self.0);
+    }
+}
+
+async fn ask_aria(app: &AppHandle, text: String) -> Result<String, ChatFail> {
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    let id = NEXT.fetch_add(1, Ordering::Relaxed);
+    let (tx, rx) = oneshot::channel();
+    waiters().lock().unwrap().insert(id, tx);
+    let _guard = Waiting(id);
+    log::line("phone link: message for ARIA sent to the island chat");
+    app.emit("phone-ask", serde_json::json!({ "id": id, "text": text })).map_err(|_| ChatFail::Internal)?;
+    match tokio::time::timeout(ARIA_TIMEOUT, rx).await {
+        Ok(Ok(answer)) if !answer.trim().is_empty() => Ok(answer),
+        _ => Err(ChatFail::Provider),
+    }
+}
+
+fn aria_option() -> ModelOption {
+    ModelOption { id: ARIA_MODEL.into(), provider: "aria".into(), label: "ARIA".into() }
+}
 
 const SYSTEM: &str = "You are ARIA, the owner's assistant, answering from their phone. \
 Answer in the language they write in, briefly. You have no tools here: if they ask for \
@@ -59,10 +110,16 @@ fn provider_of(id: &str) -> Option<Provider> {
 impl ChatBackend for AppChat {
     fn config(&self) -> ChatConfig {
         let s = self.settings();
-        ChatConfig { enabled: s.phone_chat, allowed: options(&s.phone_chat_models) }
+        let mut allowed = vec![aria_option()];
+        allowed.extend(options(&s.phone_chat_models));
+        ChatConfig { enabled: s.phone_chat, allowed }
     }
 
     fn send(&self, model_id: &str, text: String, deltas: UnboundedSender<String>) -> BoxFuture<Result<String, ChatFail>> {
+        if model_id == ARIA_MODEL {
+            let app = self.app.clone();
+            return Box::pin(async move { ask_aria(&app, text).await });
+        }
         let settings = self.settings();
         let history = self.history.clone();
         let id = model_id.to_string();
@@ -217,6 +274,23 @@ mod tests {
         assert_eq!(classify(true, "Cannot reach http://127.0.0.1:11434"), ChatFail::Unreachable);
         assert_eq!(classify(true, "Ollama 500: model crashed"), ChatFail::Provider);
         assert_eq!(classify(false, "something 14012 happened"), ChatFail::Provider);
+    }
+
+    #[test]
+    fn aria_is_offered_by_name_and_never_stored_as_a_provider_model() {
+        assert_eq!(aria_option(), ModelOption { id: ARIA_MODEL.into(), provider: "aria".into(), label: "ARIA".into() });
+        assert_eq!(parse_model_id(ARIA_MODEL), None);
+        assert!(clean_models(&ids(&[ARIA_MODEL])).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_reply_reaches_only_the_message_it_answers() {
+        let (tx, rx) = oneshot::channel();
+        waiters().lock().unwrap().insert(9_001, tx);
+        phone_chat_reply(9_002, "wrong".into());
+        phone_chat_reply(9_001, "hola".into());
+        assert_eq!(rx.await.unwrap(), "hola");
+        assert!(!waiters().lock().unwrap().contains_key(&9_001));
     }
 
     #[test]

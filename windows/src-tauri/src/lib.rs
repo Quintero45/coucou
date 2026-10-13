@@ -1007,6 +1007,7 @@ pub fn run() {
             voice::listen::voice_voices,
             voice::listen::voice_clear_history,
             phone_link::phone_link_status,
+            phone_link::chat_backend::phone_chat_reply,
             phone_link::phone_link_set_enabled,
             phone_link::phone_link_pairing,
             phone_link::phone_link_new_pairing,

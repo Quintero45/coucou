@@ -218,6 +218,8 @@ export const Bridge = {
     call<void>("voice_island", { view, mode, pendingApproval }),
   /** The chat answered a request heard by voice ("" when it failed). */
   voiceReply: (text: string) => call<void>("voice_reply", { text }),
+  /** The chat answered a message from the phone ("" when it failed). */
+  phoneChatReply: (id: number, text: string) => call<void>("phone_chat_reply", { id, text }),
   voiceResume: () => call<void>("voice_resume"),
   voiceStopSpeaking: () => call<void>("voice_stop_speaking"),
   voiceTry: (voice: string) => call<void>("voice_try", { voice }),

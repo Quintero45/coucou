@@ -445,6 +445,8 @@ class AppState {
   chatDraft: string | null = null;
   /** A request heard by "Hey ARIA": the chat sends it as soon as it shows. */
   voiceAsk: string | null = null;
+  /** A message from the phone for ARIA: the chat sends it and the answer goes back to the phone. */
+  phoneAsk: { id: number; text: string } | null = null;
   searchResult: SearchResult | null = null;
   chatHistory: ChatMessage[] = [];
   pendingApproval: ApprovalInfo | null = null;

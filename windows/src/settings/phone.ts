@@ -393,7 +393,7 @@ function chatBlock(makeToggle: Toggle, settings: Settings): HTMLElement {
     }
     emptyNote.hidden = allowed.length > 0;
   };
-  const emptyNote = h("div", { class: "hint", text: t("Nothing is allowed yet: the phone cannot chat until you tick a model.") });
+  const emptyNote = h("div", { class: "hint", text: t("The phone always talks to ARIA. Tick a model to also chat with it directly.") });
 
   /** One provider: a button that asks it for its models (only now), then a tick box per model. */
   const providerRow = (p: AiProvider): HTMLElement => {

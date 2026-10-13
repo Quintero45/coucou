@@ -224,6 +224,16 @@ export function registerPhoneLink(island: Island): () => void {
     if (!running || typeof ask?.conn !== "number") return;
     void Bridge.phoneLinkSendDiff(ask.conn, linkDiff(String(ask.pillId), Number(ask.fileId)));
   });
+  // A message for ARIA from the phone's chat: sent as if typed, same tools and approval cards.
+  void onEvent<{ id: number; text: string }>("phone-ask", ({ id, text }) => {
+    if (State.paused) {
+      void Bridge.phoneChatReply(id, "");
+      return;
+    }
+    State.phoneAsk = { id, text };
+    island.alert("prompt");
+    State.notify();
+  });
   void refresh();
   return () => {
     unsubscribe();

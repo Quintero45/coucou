@@ -6102,16 +6102,16 @@
    "ru": "Выбрать модели",
    "id": "Pilih model"
   },
-  "Nothing is allowed yet: the phone cannot chat until you tick a model.": {
-   "zh-Hans": "尚未允许任何模型：勾选一个模型后，手机才能聊天。",
-   "hi": "अभी कुछ भी अनुमत नहीं है: जब तक आप कोई मॉडल नहीं चुनते, फ़ोन चैट नहीं कर सकता।",
-   "es": "Aún no hay nada permitido: el teléfono no podrá chatear hasta que marques un modelo.",
-   "ar": "لا يوجد شيء مسموح به بعد: لا يمكن للهاتف الدردشة حتى تحدّد نموذجًا.",
-   "fr": "Rien n'est autorisé pour l'instant : le téléphone ne peut pas discuter tant que vous n'avez pas coché un modèle.",
-   "bn": "এখনও কিছু অনুমোদিত নয়: আপনি একটি মডেল না বাছা পর্যন্ত ফোন চ্যাট করতে পারবে না।",
-   "pt-BR": "Nada foi permitido ainda: o celular não poderá conversar até você marcar um modelo.",
-   "ru": "Пока ничего не разрешено: телефон не сможет общаться, пока вы не отметите модель.",
-   "id": "Belum ada yang diizinkan: ponsel tidak bisa mengobrol sampai Anda mencentang sebuah model."
+  "The phone always talks to ARIA. Tick a model to also chat with it directly.": {
+   "zh-Hans": "手机始终可以与 ARIA 对话。勾选一个模型，也可以直接与它聊天。",
+   "hi": "फ़ोन हमेशा ARIA से बात करता है। किसी मॉडल से सीधे चैट करने के लिए उसे भी चुनें।",
+   "es": "El teléfono siempre habla con ARIA. Marca un modelo para chatear también con él directamente.",
+   "ar": "يتحدث الهاتف دائمًا مع ARIA. حدّد نموذجًا للدردشة معه مباشرةً أيضًا.",
+   "fr": "Le téléphone parle toujours à ARIA. Cochez un modèle pour discuter aussi directement avec lui.",
+   "bn": "ফোন সবসময় ARIA-র সঙ্গে কথা বলে। সরাসরি কোনো মডেলের সঙ্গেও চ্যাট করতে সেটি বাছুন।",
+   "pt-BR": "O celular sempre fala com a ARIA. Marque um modelo para conversar também diretamente com ele.",
+   "ru": "Телефон всегда общается с ARIA. Отметьте модель, чтобы общаться и с ней напрямую.",
+   "id": "Ponsel selalu berbicara dengan ARIA. Centang sebuah model untuk juga mengobrol langsung dengannya."
   },
   "No provider is ready: add an API key or connect a local model first.": {
    "zh-Hans": "没有可用的提供商：请先添加 API 密钥或连接本地模型。",

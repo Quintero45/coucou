@@ -17,7 +17,7 @@
 
 mod admission;
 mod chat;
-mod chat_backend;
+pub mod chat_backend;
 mod discovery;
 mod hub;
 #[cfg(test)]
