@@ -502,7 +502,7 @@ function buildOverview(actions: ViewActions): ViewHost {
       } else if (task) {
         const info = State.integrations[task.id];
         const key = [
-          language(), task.id, detailOpen, task.state, task.steps.join("|"),
+          language(), task.id, task.color, detailOpen, task.state, task.steps.join("|"),
           isBot ? task.lastMessage ?? "" : "",
           task.id === ASSISTANT_ID ? `${task.finalLine ?? ""}:${State.autonomousActs.join("|")}:${State.settings.assistantAutonomous}` : "",
           task.id === MEDIA_ID ? musicCardKey() : "",
@@ -523,7 +523,7 @@ function buildOverview(actions: ViewActions): ViewHost {
       const noBots = State.settings.grokBots.length === 0;
       // A Bot pill also redraws when its state word changes.
       const pillKey = others
-        .map((t) => `${t.id}:${t.pillBadge ?? ""}:${BotLive.avatarState(t)}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}${t.id === MEDIA_ID ? `:${t.name}:${State.media?.playing}:${State.media?.canNext}` : ""}`)
+        .map((t) => `${t.id}:${t.color}:${t.pillBadge ?? ""}:${BotLive.avatarState(t)}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}${t.id === MEDIA_ID ? `:${t.name}:${State.media?.playing}:${State.media?.canNext}` : ""}`)
         .join("|") + (noBots ? "|+bot" : "") + `|${language()}`;
       if (pillKey !== pillIds) {
         pillIds = pillKey;

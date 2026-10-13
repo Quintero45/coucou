@@ -11,6 +11,7 @@ import type { FileDiff } from "./diff";
 import type { Bindings } from "./shortcuts";
 import { DEFAULT_OUTFIT, type Outfit } from "../aria/wardrobe";
 import { t } from "../i18n/i18n";
+import { pillColor } from "./pill-colors";
 
 export type AgentSource = "claudeCode" | "n8n" | "agent";
 export type PillBadge = "approval" | "finished" | "error";
@@ -173,10 +174,10 @@ export interface SearchResult {
   note?: string;
 }
 
-/** A fresh, idle task for a catalog pill. */
-function taskFor(def: PillDefinition, name = def.name): AgentTask {
+/** A fresh, idle task for a catalog pill, in the colour the user gave it if any. */
+function taskFor(def: PillDefinition, colors: unknown, name = def.name): AgentTask {
   return {
-    id: def.id, name, color: def.color, state: "idle", stepIndex: 0, steps: [],
+    id: def.id, name, color: pillColor(def.id, def.color, colors), state: "idle", stepIndex: 0, steps: [],
     source: def.source, isIntegration: true,
   };
 }
@@ -184,7 +185,7 @@ function taskFor(def: PillDefinition, name = def.name): AgentTask {
 /** Agent name (aria_agent) → its catalog pill, when there is one. */
 export function catalogAgent(name: string): AgentTask | null {
   const def = pillDefinition(`agent_${name}`);
-  return def ? { ...taskFor(def), isIntegration: false } : null;
+  return def ? { ...taskFor(def, State.settings.pillColors), isIntegration: false } : null;
 }
 
 /** One of the owner's Grok Bots (grokbot.rs). The webhook key stays in the Credential Manager. */
@@ -314,6 +315,12 @@ export interface Settings {
    */
   ariaOutfit: string;
   /**
+   * A colour of the user's own for a pill, by pill ID ("#RRGGBB").
+   * Empty means the catalog's colours; read it through core/pill-colors.ts.
+   * Same key and values as the Mac's "pillColors".
+   */
+  pillColors: Record<string, string>;
+  /**
    * Interface language: "" follows the system (when ARIA has its language,
    * else English), or one of src/i18n's ten codes ("fr", "pt-BR", "zh-Hans"…).
    */
@@ -353,6 +360,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showCodexPlanInNotch: false,
   shortcuts: {},
   ariaOutfit: DEFAULT_OUTFIT,
+  pillColors: {},
   language: "",
 };
 
@@ -642,9 +650,14 @@ class AppState {
       const hidden = isHiddenAgent(def.id, this.settings);
       const shouldLoad = !hidden && (def.id === d.mainPill || d.activeIntegrations.includes(def.id));
       const idx = this.tasks.findIndex((t) => t.id === def.id);
-      if (shouldLoad && idx < 0) this.tasks.push(taskFor(def));
+      if (shouldLoad && idx < 0) this.tasks.push(taskFor(def, this.settings.pillColors));
       const busy = idx >= 0 && (this.tasks[idx].state !== "idle" || this.tasks[idx].steps.length > 0);
       if (!shouldLoad && idx >= 0 && (hidden || !busy)) this.tasks.splice(idx, 1);
+    }
+    // A colour picked in Settings reaches the pills that are already up.
+    for (const t of this.tasks) {
+      const def = pillDefinition(t.id);
+      if (def) t.color = pillColor(def.id, def.color, this.settings.pillColors);
     }
     this.tasks = orderPills(this.tasks, d.mainPill);
     if (!this.focusId || !this.tasks.some((t) => t.id === this.focusId)) {
@@ -689,7 +702,7 @@ class AppState {
     if (this.tasks.some((t) => t.id === id)) return;
     const def = pillDefinition(id);
     this.insertAfterMain({
-      id, name, color: def?.color ?? color,
+      id, name, color: def ? pillColor(def.id, def.color, this.settings.pillColors) : color,
       state: "idle", stepIndex: 0, steps: [],
       source: "agent", isIntegration: false,
     });
@@ -705,7 +718,7 @@ class AppState {
     if (!t) {
       const def = pillDefinition(id);
       if (!def) return null;
-      t = taskFor(def, name);
+      t = taskFor(def, this.settings.pillColors, name);
       this.insertAfterMain(t);
     }
     t.name = name;

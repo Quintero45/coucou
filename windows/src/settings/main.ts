@@ -20,6 +20,7 @@ import {
 } from "../core/pills";
 import { h, clear } from "../views/dom";
 import { agentsSection } from "./agents";
+import { colorDot } from "./colors";
 import { renderDiff, statusDot } from "./parts";
 import {
   LANGUAGES, N_, isRtl, onLanguageChange, resolveLanguage, setLanguage, systemLanguages, t,
@@ -42,6 +43,12 @@ async function save() {
 /** What a stored secret's field shows instead of its value. */
 function stored(): string {
   return `••••••••  ${t("(stored)")}`;
+}
+
+/** A colour was picked for a pill (see ./colors.ts): the island follows. */
+function pickColor(next: Record<string, string>) {
+  settings.pillColors = next;
+  void save();
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
@@ -361,7 +368,7 @@ function activePillsSection(connected: Record<string, boolean>): HTMLElement {
     const on = settings.activeIntegrations.includes(def.id);
     const full = !isMain && !on && settings.activeIntegrations.length >= MAX_ACTIVE;
     const el = h("div", { class: full ? "pill-row full" : "pill-row" },
-      h("i", { class: "dot", style: `background:${def.color};width:10px;height:10px` }),
+      colorDot(def, "width:10px;height:10px", () => settings.pillColors, pickColor),
       h("span", { class: "name", text: def.name }),
     );
     if (isMain) {
@@ -514,7 +521,7 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
       h("div", { style: "display:flex;gap:12px;align-items:flex-start" },
         h("div", { style: "display:flex;align-items:center;gap:8px;min-width:132px;padding-top:4px" },
           sw,
-          h("i", { class: "dot", style: `background:${def.color}` }),
+          colorDot(def, "", () => settings.pillColors, pickColor),
           h("span", { style: "font-size:12.5px", text: def.name }),
         ),
         rows,

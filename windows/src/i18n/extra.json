@@ -5408,6 +5408,28 @@
    "pt-BR": "Coloque na pasta de sons um arquivo com o nome de um dos sons da ARIA (finish.wav, approval.mp3, greet.m4a…) para substituí-lo e depois recarregue.",
    "ru": "Положите в папку звуков файл с именем одного из звуков ARIA (finish.wav, approval.mp3, greet.m4a…), чтобы заменить его, затем перезагрузите.",
    "id": "Taruh file bernama seperti salah satu suara ARIA (finish.wav, approval.mp3, greet.m4a…) di folder suara untuk menggantinya, lalu muat ulang."
+  },
+  "Color": {
+   "zh-Hans": "颜色",
+   "hi": "रंग",
+   "es": "Color",
+   "ar": "اللون",
+   "fr": "Couleur",
+   "bn": "রং",
+   "pt-BR": "Cor",
+   "ru": "Цвет",
+   "id": "Warna"
+  },
+  "Default": {
+   "zh-Hans": "默认",
+   "hi": "डिफ़ॉल्ट",
+   "es": "Predeterminado",
+   "ar": "الافتراضي",
+   "fr": "Par défaut",
+   "bn": "ডিফল্ট",
+   "pt-BR": "Padrão",
+   "ru": "По умолчанию",
+   "id": "Bawaan"
   }
  }
 }

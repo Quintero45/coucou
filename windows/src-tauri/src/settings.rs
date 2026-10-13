@@ -64,6 +64,11 @@ pub struct Settings {
     /// season), "none" or an outfit id — the Mac's raw values. The island reads
     /// anything it doesn't know as "auto", so the value is stored as it comes.
     pub aria_outfit: String,
+    /// A colour of the user's own for a pill, by pill ID ("#RRGGBB"), picked in
+    /// Settings → Active pills. Empty means the catalog's colours. Kept as it
+    /// comes, like `aria_outfit`: src/core/pill-colors.ts reads whatever is not
+    /// a colour as "no choice".
+    pub pill_colors: BTreeMap<String, String>,
     /// Interface language: "" follows the system, else one of i18n::LANGUAGES
     /// ("fr", "pt-BR", "zh-Hans"…). Kept as it comes, like `aria_outfit`: a
     /// code this build doesn't know reads as "".
@@ -151,6 +156,7 @@ impl Default for Settings {
             show_codex_plan_in_notch: false,
             shortcuts: Default::default(),
             aria_outfit: "auto".into(),
+            pill_colors: BTreeMap::new(),
             language: String::new(),
             desktop_aria: DesktopAriaPref::default(),
         }
@@ -414,6 +420,7 @@ mod tests {
     use serde_json::{json, Value};
 
     /// A settings.json in which no value is the default one.
+    // Two #: the colours in it are written "#RRGGBB".
     const CUSTOM: &str = r##"{
   "soundEnabled": false,
   "soundVolume": 0.5,
@@ -440,6 +447,7 @@ mod tests {
   "showCodexPlanInNotch": true,
   "shortcuts": { "openChat": { "keys": "Ctrl+Shift+K", "enabled": false } },
   "ariaOutfit": "witchHat",
+  "pillColors": { "integration_claude": "#2DD4BF" },
   "language": "pt-BR",
   "desktopAria": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
 }"##;
@@ -578,6 +586,24 @@ mod tests {
         let loaded = parse(&custom_with("desktopAria", Some(json!({ "onDesktop": true })))).unwrap();
         assert!(loaded.desktop_aria.on_desktop);
         assert_eq!(loaded.desktop_aria.spot, None);
+    }
+
+    #[test]
+    fn a_file_from_before_the_colours_paints_every_pill_as_the_catalog_says() {
+        let loaded = parse(&custom_with("pillColors", None)).unwrap();
+        assert!(loaded.pill_colors.is_empty());
+        assert_eq!(loaded.mochi_outfit, "witchHat");
+    }
+
+    #[test]
+    fn pill_colours_are_kept_as_written_and_cost_nothing_else_when_unusable() {
+        // A pill a newer build added keeps its colour through a save by this one.
+        let loaded = parse(&custom_with("pillColors", Some(json!({ "agent_new": "#abcdef" })))).unwrap();
+        assert_eq!(loaded.pill_colors.get("agent_new").map(String::as_str), Some("#abcdef"));
+        // Not a map of strings: the colours fall back, and nothing else does.
+        let loaded = parse(&custom_with("pillColors", Some(json!(["#2DD4BF"])))).unwrap();
+        assert!(loaded.pill_colors.is_empty());
+        assert_eq!(loaded.model, "some-model");
     }
 
     #[test]
@@ -845,6 +871,7 @@ mod tests {
                 "showCodexPlanInNotch",
                 "shortcuts",
                 "ariaOutfit",
+                "pillColors",
                 "language",
                 "desktopAria",
             ]
