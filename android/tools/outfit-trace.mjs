@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Runs the PC's outfit drawing (windows/src/mochi/outfits.ts) against a recording context and prints every
+// Runs the PC's outfit drawing (windows/src/aria/outfits.ts) against a recording context and prints every
 // drawing call as JSON. The Kotlin port (mochi/outfit/Outfits.kt) is replayed on the same cases and its calls
 // are compared number by number (OutfitParityTest), so the phone draws what the PC draws.
 //
 //   node --import windows/tests/setup.mjs android/tools/outfit-trace.mjs > trace.json
 //
 // The case list is part of the output: the Kotlin test replays exactly those cases.
-import { drawOutfitBehind, drawOutfitFront, drawWardrobeIcon, makeHead } from "../../windows/src/mochi/outfits.ts";
+import { drawOutfitBehind, drawOutfitFront, drawWardrobeIcon, makeHead } from "../../windows/src/aria/outfits.ts";
 
 // ── CSS colours (the same forms the outfits use) ─────────────────────────────────
 function css(s) {

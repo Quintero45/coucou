@@ -16,16 +16,16 @@ val releaseKeyAlias = signingValue("COUCOU_KEY_ALIAS")
 val releaseKeyPassword = signingValue("COUCOU_KEY_PASSWORD") ?: releaseStorePassword
 
 android {
-    namespace = "com.coucou.android"
+    namespace = "dev.miller.aria.android"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.coucou.android"
+        applicationId = "dev.miller.aria.android"
         minSdk = 30
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        // English only: libraries' other languages are left out of the app too.
-        resourceConfigurations += listOf("en")
+        // The desktop app's 10 languages (android/i18n); libraries' other languages are left out.
+        resourceConfigurations += listOf("en", "es", "fr", "pt-rBR", "ru", "in", "b+zh+Hans", "hi", "ar", "bn")
     }
     signingConfigs {
         val keystore = releaseKeystore

@@ -36,12 +36,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Scanning the pairing QR code with the camera app opens coucou://pair?... here. -->
+            <!-- Scanning the pairing QR code with the camera app opens aria://pair?... here. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="coucou" android:host="pair" />
+                <data android:scheme="aria" android:host="pair" />
             </intent-filter>
         </activity>
 
@@ -74,7 +74,7 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/coucou_widget_info" />
         </receiver>
 
-        <!-- The quick-settings tile: on while the computer is connected; a tap opens Coucou. -->
+        <!-- The quick-settings tile: on while the computer is connected; a tap opens ARIA. -->
         <service
             android:name=".app.GlanceTile"
             android:exported="true"

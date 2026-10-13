@@ -23,7 +23,7 @@ approve a permission without an explicit click; don't restyle Louis's shipped de
 
 ## Where things are
 
-- `android/app/src/main/kotlin/com/coucou/android`: `mochi/` (engine, painter, `outfit/`), `link/` (protocol, pairing, TLS client, discovery,
+- `android/app/src/main/kotlin/dev/miller/aria/android`: `mochi/` (engine, painter, `outfit/`), `link/` (protocol, pairing, TLS client, discovery,
   `WebSocket.kt`, `RelayLink.kt`, `RelayCrypto.kt`, `Transport.kt`, `LinkHealth.kt` (what Home says, the alarm and battery rules), `Reconnect.kt`, `Diagnostics.kt`), `core/` (pure rules), `ui/` (Compose), `app/` (`AppModel`, notifications,
   `LinkService`, `SecureStore`, biometric gate), `scan/` (QR), `sound/`. Overview and features: `android/README.md`.
 - Desktop side: `windows/src-tauri/src/phone_link/` (hub = rules, server = TLS, pairing, admission, discovery, chat, `relay_client.rs`,

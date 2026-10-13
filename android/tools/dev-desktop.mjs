@@ -362,7 +362,7 @@ const server = tls.createServer({ key, cert, minVersion: "TLSv1.2" }, (sock) => 
 
 server.listen(Number(arg("port", "47821")), "0.0.0.0", () => {
   const port = server.address().port;
-  const link = `coucou://pair?v=${V}&host=${HOST}&port=${port}&fp=${certSha256}&token=${TOKEN}&name=${encodeURIComponent(NAME)}`;
+  const link = `aria://pair?v=${V}&host=${HOST}&port=${port}&fp=${certSha256}&token=${TOKEN}&name=${encodeURIComponent(NAME)}`;
   log(JSON.stringify({ listening: port, fp: certSha256, link }));
-  if (!flag("quiet")) console.error(`\nPairing link (paste it in Coucou for Android):\n${link}\n`);
+  if (!flag("quiet")) console.error(`\nPairing link (paste it in ARIA for Android):\n${link}\n`);
 });

@@ -10,4 +10,6 @@
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
     android:initialLayout="@layout/widget_glance"
+    android:previewLayout="@layout/widget_glance"
+    android:previewImage="@mipmap/ic_launcher"
     android:description="@string/widget_description" />

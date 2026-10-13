@@ -1,3 +1,7 @@
+ARIA FOR ANDROID: LICENCES AND NOTICES
+
+ARIA for Android is a personal, unpublished build by Miller, based on Coucou for Android by Rhytam Biswas and on Coucou by Louis Raillé (MIT). The character, the icon and the sounds below still come from Coucou; this build is not distributed until they are redrawn or licensed. The notices of the original app follow unchanged.
+
 COUCOU FOR ANDROID: LICENCES AND NOTICES
 
 Coucou for Android, by Rhytam Biswas, is part of Coucou by Louis Raillé (https://github.com/Louis-CFM/coucou). It is free, has no ads and no analytics.

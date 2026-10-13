@@ -341,7 +341,7 @@ One secret is needed, the access key, and it never goes in git: `openssl rand -b
 8. Kill the relay URL (change it on the PC): the PC shows "Relay unavailable", the agent is never delayed, and the LAN still works at home.
 9. "Pair again" on the PC: the phone is cut off at once and must scan the new code; the old phone cannot reconnect.
 10. **Doze/battery:** phone on mobile data, screen off, stationary, 30 minutes: does an approval still arrive? Then overnight:
-    `adb shell dumpsys batterystats --reset` before, `--charged com.coucou.android` after; report the percentage used.
+    `adb shell dumpsys batterystats --reset` before, `--charged dev.miller.aria.android` after; report the percentage used.
 11. `npx wrangler tail` during a session: it should show connections and **no frame contents** (there are none to show).
 
 ## 14. What I will not be able to test, said now
