@@ -104,6 +104,15 @@ function typingDots(): HTMLElement {
 }
 
 /** The coloured chip showing what the question is about (a dropped file). */
+/** What the first message of a chat carries: the dropped file, or the window she was dropped on. */
+export function firstContext(): ChatContext | null {
+  const file = State.droppedFile;
+  if (file) return { kind: "file", name: file.name, path: file.path };
+  const win = State.droppedWindow;
+  if (win) return { kind: "window", appName: win.appName, title: win.title, screenshot: win.screenshot };
+  return null;
+}
+
 function contextChip(label: string): HTMLElement {
   const chip = h("div", { class: "chip" }, h("i", { class: "chip-dot" }), h("span", { text: label }));
   requestAnimationFrame(() => chip.classList.add("settled"));
@@ -231,9 +240,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       return;
     }
 
-    const file = State.droppedFile;
-    const context: ChatContext | null =
-      State.chatHistory.length === 0 && file ? { kind: "file", name: file.name, path: file.path } : null;
+    const context = State.chatHistory.length === 0 ? firstContext() : null;
 
     State.chatHistory.push({ id: nextId++, role: "user", content: query });
     // In the history from the start, so the island grows to fit it as it streams.
@@ -297,8 +304,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   return {
     el,
     sync() {
-      const file = State.droppedFile;
-      const wantChip = file?.name ?? "";
+      const win = State.droppedWindow;
+      const wantChip = State.droppedFile?.name ?? (win ? t("Window: {title}", { title: win.title }) : "");
       if (chipRow.dataset.label !== wantChip) {
         chipRow.dataset.label = wantChip;
         clear(chipRow);

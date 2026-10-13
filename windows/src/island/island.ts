@@ -18,7 +18,7 @@ import { saveSettingsMerged } from "../core/savesettings";
 import { BotLive } from "../core/botlive";
 import { registerBotEvents } from "./botevents";
 import { APPROVAL_ANSWER, CURSOR_WRITE, callCmd } from "../core/botcmds";
-import { ARIA_TASK, ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
+import { ARIA_TASK, ASSISTANT_ID, BOT_PREFIX, State, type DroppedWindow } from "../core/state";
 import { islandDances } from "../core/dance";
 import { BotEngine, hexToRGB } from "../aria/engine";
 import { Greeting } from "../aria/greeting";
@@ -184,6 +184,7 @@ export class Island {
       reveal: () => this.reveal(),
       wardrobeFromDesktop: () => this.wardrobeFromDesktop(),
       dizzyFromDesktop: () => this.handleDizzy(),
+      attachWindow: (w) => this.attachWindow(w),
     });
     this.build();
     this.wireFsm();
@@ -1044,6 +1045,7 @@ export class Island {
    */
   private swallow(path: string) {
     const name = path.split(/[\\/]/).pop() || "file";
+    State.droppedWindow = null;
     State.droppedFile = { name, path };
     State.promptContext = { kind: "file", name, path };
     State.chatHistory = [];
@@ -1081,8 +1083,24 @@ export class Island {
       });
   }
 
+  /**
+   * ARIA was dropped on another app's window: a new chat about it, with its
+   * title and picture as the first message's context. Nothing is sent yet.
+   */
+  private attachWindow(w: DroppedWindow) {
+    if (State.paused || State.stateOverride === "thinking") return;
+    State.droppedFile = null;
+    State.droppedWindow = w;
+    State.promptContext = { kind: "window", appName: w.appName, title: w.title, screenshot: w.screenshot };
+    State.chatHistory = [];
+    void Bridge.chatReset();
+    Sound.play("approve");
+    this.alert("prompt");
+  }
+
   /** "Cancel" on the dropped file: forget it, so the chat does not pick it up. */
   private discardDrop() {
+    State.droppedWindow = null;
     State.droppedFile = null;
     State.promptContext = null;
     this.setView(State.defaultView());

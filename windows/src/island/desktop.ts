@@ -6,7 +6,7 @@
 import { Bridge, emitToWindow, onEvent, type DesktopMode } from "../core/bridge";
 import type { BotEmoteName } from "../core/layout";
 import { Sound } from "../core/sound";
-import { State } from "../core/state";
+import { State, type DroppedWindow } from "../core/state";
 import { desktopDances } from "../core/dance";
 import {
   DESKTOP_EVENTS, DesktopAriaController, alertActive, type DesktopSnapshot,
@@ -24,6 +24,8 @@ export interface DesktopHost {
   wardrobeFromDesktop(): void;
   /** Three pokes on the desktop ARIA. */
   dizzyFromDesktop(): void;
+  /** She was dropped on another app's window: a chat about it. */
+  attachWindow(w: DroppedWindow): void;
 }
 
 export class DesktopLink {
@@ -73,6 +75,9 @@ export class DesktopLink {
     await onEvent<{ from: "island" | "desktop"; home: boolean }>(DESKTOP_EVENTS.dropped, (e) =>
       this.onDropped(e.from, e.home),
     );
+    await onEvent<DroppedWindow>(DESKTOP_EVENTS.window, (w) => {
+      if (w?.title) this.host.attachWindow(w);
+    });
     await onEvent<null>(DESKTOP_EVENTS.home, () => void this.controller.flyHome());
     await onEvent<null>(DESKTOP_EVENTS.wardrobe, () => this.host.wardrobeFromDesktop());
     await onEvent<null>(DESKTOP_EVENTS.dizzy, () => this.host.dizzyFromDesktop());

@@ -612,6 +612,13 @@ async fn finish_drop(app: &AppHandle, d: &Desktop, pos: (f64, f64), from: Source
             refresh(app, d);
         }
     } else {
+        let (x, y) = (center.0.round() as i32, center.1.round() as i32);
+        let island_app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Some(w) = crate::context::window_at(x, y) {
+                let _ = island_app.emit_to(island::WINDOW_LABEL, "desktop-aria-window", w);
+            }
+        });
         let spot = logic::settle(pos, &displays(app, d), SIZE, MARGIN);
         refresh(app, d);
         if spot != pos {

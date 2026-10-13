@@ -167,6 +167,7 @@ export function runIslandKey(host: ShortcutHost, action: IslandKeyAction) {
       if (State.stateOverride === "thinking") return;
       State.chatHistory = [];
       State.droppedFile = null;
+      State.droppedWindow = null;
       State.promptContext = null;
       void Bridge.chatReset();
       Sound.play("blip");

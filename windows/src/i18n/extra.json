@@ -5441,6 +5441,17 @@
    "pt-BR": "Os números vêm da ferramenta de linha de comando do Claude Code. O app Claude para desktop não os envia, então o medidor fica vazio se você usa só o app para desktop.",
    "ru": "Данные приходят из консольного инструмента Claude Code. Настольное приложение Claude их не передаёт, поэтому индикатор останется пустым, если вы пользуетесь только им.",
    "id": "Angka-angka ini berasal dari alat baris perintah Claude Code. Aplikasi desktop Claude tidak mengirimkannya, jadi pengukur tetap kosong jika Anda hanya memakai aplikasi desktop."
+  },
+  "Window: {title}": {
+   "zh-Hans": "窗口：{title}",
+   "hi": "विंडो: {title}",
+   "es": "Ventana: {title}",
+   "ar": "النافذة: {title}",
+   "fr": "Fenêtre : {title}",
+   "bn": "উইন্ডো: {title}",
+   "pt-BR": "Janela: {title}",
+   "ru": "Окно: {title}",
+   "id": "Jendela: {title}"
   }
  }
 }

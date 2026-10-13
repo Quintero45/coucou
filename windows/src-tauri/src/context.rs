@@ -58,6 +58,46 @@ fn capture() -> Result<ContextCapture, String> {
     Ok(out)
 }
 
+/// Another app's window ARIA was dropped on: what the chat gets as context.
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DroppedWindow {
+    /// The program, without ".exe" ("chrome", "Code").
+    pub app_name: String,
+    pub title: String,
+    /// Inbox id of a PNG of the window, when it could be captured.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screenshot: Option<String>,
+}
+
+/// The top window of another app under a screen point (physical pixels), with
+/// a picture of it; `None` over the desktop, the taskbar or ARIA's own windows.
+/// Call it off the main thread.
+pub fn window_at(x: i32, y: i32) -> Option<DroppedWindow> {
+    let w = imp::window_at(x, y)?;
+    crate::log::line(format!(
+        "desktop ARIA: dropped on \"{}\" ({}) screenshot={}",
+        w.title.chars().take(80).collect::<String>(),
+        w.app_name,
+        if w.screenshot.is_some() { "yes" } else { "no" },
+    ));
+    Some(w)
+}
+
+/// "chrome.exe" → "chrome".
+fn app_name(process: &str) -> String {
+    let p = process.trim();
+    match p.len().checked_sub(4) {
+        Some(i) if p.is_char_boundary(i) && p[i..].eq_ignore_ascii_case(".exe") => p[..i].to_string(),
+        _ => p.to_string(),
+    }
+}
+
+/// Window classes that are the desktop or the taskbar, not an app.
+fn is_shell_class(class: &str) -> bool {
+    matches!(class, "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd" | "NotifyIconOverflowWindow")
+}
+
 /// Poll thread, about twice a second: remembers the owner's foreground window
 /// so a capture taken while one of ours has focus still finds it.
 pub fn remember_foreground() {
@@ -678,6 +718,10 @@ mod imp {
         fn IsWindow(hwnd: Hwnd) -> i32;
         fn IsWindowVisible(hwnd: Hwnd) -> i32;
         fn IsIconic(hwnd: Hwnd) -> i32;
+        fn GetTopWindow(hwnd: Hwnd) -> Hwnd;
+        fn GetWindow(hwnd: Hwnd, cmd: u32) -> Hwnd;
+        fn GetClassNameW(hwnd: Hwnd, buf: *mut u16, max: i32) -> i32;
+        fn GetWindowLongPtrW(hwnd: Hwnd, index: i32) -> isize;
         fn GetDC(hwnd: Hwnd) -> Handle;
         fn ReleaseDC(hwnd: Hwnd, dc: Handle) -> i32;
         fn PrintWindow(hwnd: Hwnd, dc: Handle, flags: u32) -> i32;
@@ -718,6 +762,10 @@ mod imp {
     const SRCCOPY: u32 = 0x00CC_0020;
     const CAPTUREBLT: u32 = 0x4000_0000;
     const DWMWA_EXTENDED_FRAME_BOUNDS: u32 = 9;
+    const DWMWA_CLOAKED: u32 = 14;
+    const GW_HWNDNEXT: u32 = 2;
+    const GWL_EXSTYLE: i32 = -20;
+    const WS_EX_TRANSPARENT: isize = 0x20;
     const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
     const CF_UNICODETEXT: u32 = 13;
     /// Larger windows are not captured (a runaway rect would mean gigabytes).
@@ -736,6 +784,52 @@ mod imp {
         if hwnd != 0 && !is_ours(hwnd) {
             LAST_FOREIGN.store(hwnd, Ordering::Relaxed);
         }
+    }
+
+    fn class_name(hwnd: Hwnd) -> String {
+        let mut buf = [0u16; 128];
+        let n = unsafe { GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32) }.max(0) as usize;
+        String::from_utf16_lossy(&buf[..n])
+    }
+
+    fn cloaked(hwnd: Hwnd) -> bool {
+        let mut v = 0u32;
+        let hr = unsafe {
+            DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &mut v as *mut u32 as *mut c_void, std::mem::size_of::<u32>() as u32)
+        };
+        hr == 0 && v != 0
+    }
+
+    /// Top-level windows front to back: the first one of another app that is
+    /// shown, has a title and covers the point.
+    pub fn window_at(x: i32, y: i32) -> Option<DroppedWindow> {
+        let mut hwnd = unsafe { GetTopWindow(0) };
+        let mut guard = 0;
+        while hwnd != 0 && guard < 4096 {
+            guard += 1;
+            let candidate = hwnd;
+            hwnd = unsafe { GetWindow(candidate, GW_HWNDNEXT) };
+            if unsafe { IsWindowVisible(candidate) } == 0 || unsafe { IsIconic(candidate) } != 0 || is_ours(candidate) {
+                continue;
+            }
+            let mut r = Rect::default();
+            if unsafe { GetWindowRect(candidate, &mut r) } == 0 || x < r.left || x >= r.right || y < r.top || y >= r.bottom {
+                continue;
+            }
+            if cloaked(candidate) || unsafe { GetWindowLongPtrW(candidate, GWL_EXSTYLE) } & WS_EX_TRANSPARENT != 0 {
+                continue;
+            }
+            if is_shell_class(&class_name(candidate)) {
+                return None;
+            }
+            let title = title(candidate);
+            if title.trim().is_empty() {
+                continue;
+            }
+            let screenshot = screenshot(candidate).map(|f| f.id);
+            return Some(DroppedWindow { app_name: app_name(&process_name(candidate)), title, screenshot });
+        }
+        None
     }
 
     fn target() -> Option<Hwnd> {
@@ -1011,6 +1105,10 @@ mod imp {
     use super::*;
 
     pub fn remember_foreground() {}
+
+    pub fn window_at(_x: i32, _y: i32) -> Option<DroppedWindow> {
+        None
+    }
 
     pub fn screen_frame() -> Option<(Vec<u8>, usize, usize, String)> {
         None
@@ -1290,5 +1388,17 @@ mod tests {
         assert_eq!(v["window_title"], "Doc");
         assert!(v.get("selected_text").is_none());
         assert!(v.get("screenshot").is_none());
+    }
+
+    #[test]
+    fn dropped_window_names_the_app() {
+        assert_eq!(app_name("chrome.exe"), "chrome");
+        assert_eq!(app_name("Code.EXE"), "Code");
+        assert_eq!(app_name("ñ"), "ñ");
+        assert_eq!(app_name(""), "");
+        assert!(is_shell_class("Progman") && is_shell_class("Shell_TrayWnd"));
+        assert!(!is_shell_class("Chrome_WidgetWin_1"));
+        let w = DroppedWindow { app_name: "chrome".into(), title: "Inbox".into(), screenshot: None };
+        assert_eq!(serde_json::to_value(&w).unwrap(), serde_json::json!({"appName": "chrome", "title": "Inbox"}));
     }
 }

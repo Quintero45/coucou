@@ -158,8 +158,15 @@ export function aiProvider(id: string): AiProvider {
   return AI_PROVIDERS.find((p) => p.id === id) ?? AI_PROVIDERS[0];
 }
 
+/** context.rs DroppedWindow: `screenshot` is an inbox id. */
+export interface DroppedWindow {
+  appName: string;
+  title: string;
+  screenshot?: string;
+}
+
 export type PromptContext =
-  | { kind: "window"; appName: string; title: string; url?: string }
+  | { kind: "window"; appName: string; title: string; url?: string; screenshot?: string }
   | { kind: "file"; name: string; path?: string };
 
 export interface ResultItem {
@@ -394,6 +401,8 @@ class AppState {
 
   promptContext: PromptContext | null = null;
   droppedFile: { name: string; path: string } | null = null;
+  /** The window ARIA was dropped on from the desktop: the next chat's context. */
+  droppedWindow: DroppedWindow | null = null;
   noteMessage: string | null = null;
   /** Text to put in the chat input the next time it shows ("@Bot "). */
   chatDraft: string | null = null;

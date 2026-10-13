@@ -16,7 +16,16 @@ pub const DEFAULT_MODEL: &str = "claude-opus-5";
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ChatContext {
     File { name: String, path: String },
-    Window { app_name: String, title: String, url: Option<String> },
+    Window {
+        #[serde(rename = "appName", alias = "app_name")]
+        app_name: String,
+        title: String,
+        #[serde(default)]
+        url: Option<String>,
+        /// Inbox id of a PNG of the window.
+        #[serde(default)]
+        screenshot: Option<String>,
+    },
 }
 
 /// The parts the first message carries for its context.
@@ -30,12 +39,23 @@ pub fn context_parts(context: &ChatContext) -> Vec<Part> {
             parts.push(Part::Text(format!("File: {name} ({path})")));
             parts
         }
-        ChatContext::Window { app_name, title, url } => {
+        ChatContext::Window { app_name, title, url, screenshot } => {
+            let mut parts = Vec::new();
+            let shot = screenshot.as_deref().and_then(crate::files::inbox_file);
+            if let Some(part) = shot.and_then(|p| file_part("window.png", &p.to_string_lossy())) {
+                parts.push(part);
+            }
             let mut text = format!("Context — App: {app_name}, Window: {title}");
             if let Some(url) = url {
                 text.push_str(&format!(", URL: {url}"));
             }
-            vec![Part::Text(text)]
+            if parts.is_empty() {
+                text.push_str(" (no screenshot)");
+            } else {
+                text.push_str(" (screenshot attached)");
+            }
+            parts.push(Part::Text(text));
+            parts
         }
     }
 }
@@ -94,7 +114,22 @@ fn base64(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::base64;
+    use super::{base64, context_parts, ChatContext};
+    use crate::providers::Part;
+
+    #[test]
+    fn window_context_reads_the_island_shape() {
+        let c: ChatContext = serde_json::from_value(serde_json::json!({
+            "kind": "window", "appName": "chrome", "title": "Inbox", "screenshot": "nope/../x.png"
+        }))
+        .unwrap();
+        let parts = context_parts(&c);
+        assert_eq!(parts.len(), 1, "an id outside the inbox is not attached");
+        match &parts[0] {
+            Part::Text(t) => assert!(t.contains("App: chrome, Window: Inbox") && t.contains("no screenshot"), "{t}"),
+            _ => panic!("text expected"),
+        }
+    }
 
     #[test]
     fn base64_matches_rfc4648_vectors() {

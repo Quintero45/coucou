@@ -359,7 +359,7 @@ export interface IntegrationUpdate {
 
 export type ChatContext =
   | { kind: "file"; name: string; path: string }
-  | { kind: "window"; appName: string; title: string; url?: string };
+  | { kind: "window"; appName: string; title: string; url?: string; screenshot?: string };
 
 /** A file copied into the inbox by `ingestFiles`. `id` is the inbox file name. */
 export interface IngestedFile {

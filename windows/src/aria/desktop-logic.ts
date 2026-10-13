@@ -35,6 +35,8 @@ export const DESKTOP_EVENTS = {
   dizzy: "desktop-aria-dizzy",
   /** Rust → island: a drag ended, `{ from: "island" | "desktop", home }`. */
   dropped: "desktop-aria-dropped",
+  /** Dropped on another app's window (context.rs DroppedWindow). */
+  window: "desktop-aria-window",
   /** Rust → desktop window */
   cursor: "desktop-cursor",
   visible: "desktop-visible",
