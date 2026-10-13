@@ -109,3 +109,64 @@ pub fn clear_legacy(key: &str) -> Result<(), String> {
         Err(e) => Err(e.to_string()),
     }
 }
+
+// ── Entries only Rust reads and writes ────────────────────────────────────────
+//
+// The phone link's certificate, key and pairing token, and the relay's room,
+// end-to-end key and access key. No window can reach them: `get`, `set`,
+// `clear` and `present` refuse them.
+
+pub const INTERNAL_KEYS: &[&str] = &[
+    "phone-link-cert",
+    "phone-link-key",
+    "phone-link-token",
+    "phone-relay-room",
+    "phone-relay-key",
+    "phone-relay-access",
+];
+
+/// Whether the keystore would accept this key through `get_internal` / `set_internal`.
+pub fn is_internal(key: &str) -> bool {
+    INTERNAL_KEYS.contains(&key)
+}
+
+fn internal_entry(key: &str) -> Result<Entry, String> {
+    if !is_internal(key) {
+        return Err(format!("unknown key {key}"));
+    }
+    Entry::new(SERVICE, key).map_err(|e| e.to_string())
+}
+
+pub fn get_internal(key: &str) -> Option<String> {
+    internal_entry(key).ok()?.get_password().ok().filter(|v| !v.is_empty())
+}
+
+pub fn set_internal(key: &str, value: &str) -> Result<(), String> {
+    let entry = internal_entry(key)?;
+    if value.is_empty() {
+        // Empty means "forget it"; some keystores refuse an empty password.
+        return match entry.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        };
+    }
+    entry.set_password(value).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn internal_keys_never_reach_a_window() {
+        for key in INTERNAL_KEYS {
+            assert!(!KNOWN_KEYS.contains(key), "{key}");
+            assert!(entry(key).is_none(), "{key}");
+            assert!(set(key, "x").is_err(), "{key}");
+            assert!(clear(key).is_err(), "{key}");
+            assert!(!present(key), "{key}");
+        }
+        // And the other way round: a key of the island is not an internal one.
+        assert!(set_internal("github-token", "x").is_err());
+    }
+}

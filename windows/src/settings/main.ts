@@ -7,6 +7,7 @@ import { assistantSection, connectionsSection, coreSection, grokBotsSection, ski
 import { coucouSection } from "./coucou";
 import { soundsSection } from "./sounds";
 import { voiceSection } from "./voice";
+import { phoneSection } from "./phone";
 import { saveSettingsMerged } from "../core/savesettings";
 import { Bridge, onEvent, type AgentHookStatus, type HookPreview, type HookStatus, type ShortcutsReport } from "../core/bridge";
 import {
@@ -1031,6 +1032,7 @@ async function render() {
     ...(settings.showAgents ? [planSection(status)] : []),
     activePillsSection(connected),
     integrationsSection(present),
+    phoneSection(settings.phoneLink ?? false, toggle, settings),
     generalSection(),
     shortcutsSection(shortcutReport),
     core,

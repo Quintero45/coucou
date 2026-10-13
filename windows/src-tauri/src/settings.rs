@@ -85,6 +85,30 @@ pub struct Settings {
     pub voice_name: String,
     /// What she heard and says, as a line under the island.
     pub voice_subtitles: bool,
+    /// The phone link (phone_link/) is on: a TLS server for the Android app on
+    /// the local network. Off until the owner turns it on in Settings → Phone.
+    /// Every `phone_*` field is owned by the Rust side (its commands check the
+    /// calling window), so what a webview sends back is ignored.
+    pub phone_link: bool,
+    /// The phone may chat through this computer's providers (phone_link/chat.rs).
+    pub phone_chat: bool,
+    /// Which models the phone may use, as "provider/model". Empty allows none.
+    pub phone_chat_models: Vec<String>,
+    /// The phone may see session details (steps, last line, project folder name, colour).
+    pub phone_details: bool,
+    /// The phone may answer the questions Claude Code asks (cap `answers`).
+    pub phone_answers: bool,
+    /// The files an agent changed, and their diffs on request (cap `diffs`).
+    pub phone_diffs: bool,
+    /// The Claude and Codex plan usage (cap `usage`).
+    pub phone_usage: bool,
+    /// The service pills whose cards the phone may see, by pill id (cap `services`).
+    pub phone_services: Vec<String>,
+    /// Reach the phone through the owner's own relay away from this network.
+    /// Its access key, room and pairing key live in the Credential Manager.
+    pub phone_relay: bool,
+    /// The relay's address (`wss://…`). Not a secret.
+    pub phone_relay_url: String,
     /// ARIA on the desktop: whether she lives there, and her spot. Owned by
     /// the Rust side (desktop.rs) — what a webview sends back is ignored.
     pub desktop_aria: DesktopAriaPref,
@@ -175,6 +199,16 @@ impl Default for Settings {
             voice_speak: true,
             voice_name: "piper".into(),
             voice_subtitles: true,
+            phone_link: false,
+            phone_chat: false,
+            phone_chat_models: Vec::new(),
+            phone_details: false,
+            phone_answers: false,
+            phone_diffs: false,
+            phone_usage: false,
+            phone_services: Vec::new(),
+            phone_relay: false,
+            phone_relay_url: String::new(),
             desktop_aria: DesktopAriaPref::default(),
         }
     }
@@ -471,6 +505,16 @@ mod tests {
   "voiceSpeak": false,
   "voiceName": "Microsoft Sabina Desktop",
   "voiceSubtitles": false,
+  "phoneLink": true,
+  "phoneChat": true,
+  "phoneChatModels": ["openai/gpt-x"],
+  "phoneDetails": true,
+  "phoneAnswers": true,
+  "phoneDiffs": true,
+  "phoneUsage": true,
+  "phoneServices": ["integration_stripe"],
+  "phoneRelay": true,
+  "phoneRelayUrl": "wss://relay.example.workers.dev",
   "desktopAria": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
 }"##;
 
@@ -900,6 +944,16 @@ mod tests {
                 "voiceSpeak",
                 "voiceName",
                 "voiceSubtitles",
+                "phoneLink",
+                "phoneChat",
+                "phoneChatModels",
+                "phoneDetails",
+                "phoneAnswers",
+                "phoneDiffs",
+                "phoneUsage",
+                "phoneServices",
+                "phoneRelay",
+                "phoneRelayUrl",
                 "desktopAria",
             ]
         );

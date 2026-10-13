@@ -600,6 +600,16 @@ own window.
   are downloaded to `%LOCALAPPDATA%\ARIA\voice\` the first time. No audio is
   saved; "Pausa" stops listening. The open microphone is the one thing that
   uses CPU while the island is hidden.
+- ARIA for Android (Settings → Android phone, off by default; based on Coucou's
+  Android link, MIT): the phone in `android/` pairs by scanning a code, finds
+  the computer again with `_aria._tcp` on the local network and talks over a
+  TLS link pinned to the computer's certificate. It shows the sessions, answers
+  permission requests and Claude Code's questions (each confirmed with the
+  phone's lock), and can chat through this computer's keys with the models you
+  tick. The certificate, token and relay keys live in the Credential Manager,
+  never in a window. An optional relay you deploy yourself
+  ([docs/RELAY_DEPLOY.md](../docs/RELAY_DEPLOY.md)) reaches it away from home;
+  the protocol is in [docs/ANDROID_LINK.md](../docs/ANDROID_LINK.md).
 - Cal.com shows the next bookings as a list rather than the Mac's calendar.
 - The Cursor pill carries both Cursor Agent's own hooks and Claude Code running
   in Cursor's terminal.

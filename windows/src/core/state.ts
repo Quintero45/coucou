@@ -322,6 +322,17 @@ export interface Settings {
    */
   ariaOutfit: string;
   /**
+   * The phone link for ARIA for Android is on. Rust owns it (only the switch in
+   * Settings → Android phone turns it on): whatever the page sends back is ignored.
+   */
+  phoneLink?: boolean;
+  /** The phone may chat through this computer's API keys. Rust owns it too. */
+  phoneChat?: boolean;
+  /** The phone may see session details (steps, last line, folder name, colour). Rust owns it too. */
+  phoneDetails?: boolean;
+  /** Which models the phone may use, "provider/model". Rust owns it too. */
+  phoneChatModels?: string[];
+  /**
    * A colour of the user's own for a pill, by pill ID ("#RRGGBB").
    * Empty means the catalog's colours; read it through core/pill-colors.ts.
    * Same key and values as the Mac's "pillColors".

@@ -39,7 +39,7 @@ function approves(validAgent: string): boolean {
 let pendingTimeout: number | null = null;
 
 /** Takes the approval or question card down and gives the island back. */
-function dropPendingCard(island: Island): void {
+export function dropPendingCard(island: Island): void {
   if (!State.pendingApproval) return;
   State.endApproval();
   island.dropPin();
