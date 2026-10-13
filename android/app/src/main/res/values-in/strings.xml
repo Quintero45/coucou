@@ -15,7 +15,7 @@
     <string name="status_connecting">Menghubungkan…</string>
     <string name="status_not_connected">Tidak terhubung</string>
     <string name="demo_mode">Mode demo</string>
-    <string name="demo_try">Coba mode demo</string>
+    <string name="demo_try">Mode demo</string>
     <string name="pair_button">Pasangkan</string>
     <string name="approval_title">Perlu persetujuan</string>
     <string name="action_unpair">Putuskan komputer ini</string>

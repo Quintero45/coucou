@@ -15,7 +15,7 @@
     <string name="status_connecting">Connexion…</string>
     <string name="status_not_connected">Non connecté</string>
     <string name="demo_mode">Mode démo</string>
-    <string name="demo_try">Essayer le mode démo</string>
+    <string name="demo_try">Mode démo</string>
     <string name="pair_button">Associer</string>
     <string name="approval_title">Approbation requise</string>
     <string name="action_unpair">Déconnecter cet ordinateur</string>

@@ -15,13 +15,13 @@
     <string name="status_connecting">সংযোগ হচ্ছে…</string>
     <string name="status_not_connected">সংযুক্ত নয়</string>
     <string name="demo_mode">ডেমো মোড</string>
-    <string name="demo_try">ডেমো মোড চালিয়ে দেখুন</string>
+    <string name="demo_try">ডেমো মোড</string>
     <string name="pair_button">যুক্ত করুন</string>
     <string name="approval_title">অনুমোদন প্রয়োজন</string>
     <string name="action_unpair">এই কম্পিউটার বিচ্ছিন্ন করুন</string>
     <string name="demo_leave">ডেমো মোড ছাড়ুন</string>
     <string name="gallery">ARIA গ্যালারি</string>
-    <string name="pair_paste_short">লিংক পেস্ট করুন</string>
+    <string name="pair_paste_short">লিংক পেস্ট</string>
     <string name="pairing_headline">আপনার কম্পিউটারে সংযোগ করুন</string>
     <string name="pairing_help">আপনার কম্পিউটারে ARIA খুলুন, তারপর সেটিংস &gt; Android ফোন, এবং সেখানে দেখানো কোডটি স্ক্যান করুন।</string>
     <string name="pairing_footer">Android-এর জন্য ARIA, Rhytam Biswas-এর কাজের উপর ভিত্তি করে তৈরি।</string>

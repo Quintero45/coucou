@@ -15,7 +15,7 @@
     <string name="status_connecting">कनेक्ट हो रहा है…</string>
     <string name="status_not_connected">कनेक्ट नहीं है</string>
     <string name="demo_mode">डेमो मोड</string>
-    <string name="demo_try">डेमो मोड आज़माएँ</string>
+    <string name="demo_try">डेमो मोड</string>
     <string name="pair_button">जोड़ें</string>
     <string name="approval_title">मंज़ूरी चाहिए</string>
     <string name="action_unpair">इस कंप्यूटर को डिस्कनेक्ट करें</string>

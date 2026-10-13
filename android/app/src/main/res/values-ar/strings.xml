@@ -15,7 +15,7 @@
     <string name="status_connecting">جارٍ الاتصال…</string>
     <string name="status_not_connected">غير متصل</string>
     <string name="demo_mode">الوضع التجريبي</string>
-    <string name="demo_try">جرّب الوضع التجريبي</string>
+    <string name="demo_try">الوضع التجريبي</string>
     <string name="pair_button">إقران</string>
     <string name="approval_title">مطلوب موافقة</string>
     <string name="action_unpair">فصل هذا الكمبيوتر</string>

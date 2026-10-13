@@ -8,7 +8,6 @@ import android.provider.Settings
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.WindowManager
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -79,7 +78,6 @@ import dev.miller.aria.android.core.HomeText
 import dev.miller.aria.android.core.Nav
 import dev.miller.aria.android.core.Pills
 import dev.miller.aria.android.core.Screen
-import dev.miller.aria.android.core.SecureScreens
 import dev.miller.aria.android.link.ApprovalRequest
 import dev.miller.aria.android.link.QuestionRequest
 import dev.miller.aria.android.link.LinkState
@@ -198,14 +196,6 @@ class MainActivity : ComponentActivity() {
                         if (pending != null && screen != Screen.SCAN) ApprovalSheet(model, pending, onAllow = ::approve, onDismiss = { closedApproval = pending.fingerprint })
                         questionPill?.let { QuestionSheet(model, it, onDismiss = { questionPill = null }, onSend = ::sendAnswer) }
                         DiffSheet(model)
-                        // Pairing, chat, an approval and a question never show in screenshots or in the recent-apps card.
-                        val secure = SecureScreens.needed(
-                            screen, pairing = model.mode == Mode.NONE, approvalSheetShown = pending != null && screen != Screen.SCAN,
-                            questionSheetShown = questionPill != null, pairConfirmShown = model.pairRequest != null,
-                        )
-                        SideEffect {
-                            if (secure) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                        }
                         // A scanned code or a link from the camera app: the user decides before anything is paired.
                         model.pairRequest?.let { PairConfirm(model, it) }
                     }

@@ -15,7 +15,7 @@
     <string name="status_connecting">Подключение…</string>
     <string name="status_not_connected">Не подключено</string>
     <string name="demo_mode">Демо-режим</string>
-    <string name="demo_try">Попробовать демо-режим</string>
+    <string name="demo_try">Демо-режим</string>
     <string name="pair_button">Подключить</string>
     <string name="approval_title">Нужно разрешение</string>
     <string name="action_unpair">Отключить этот компьютер</string>

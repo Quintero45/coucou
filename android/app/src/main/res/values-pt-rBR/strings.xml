@@ -15,13 +15,13 @@
     <string name="status_connecting">Conectando…</string>
     <string name="status_not_connected">Desconectado</string>
     <string name="demo_mode">Modo demo</string>
-    <string name="demo_try">Testar o modo demo</string>
+    <string name="demo_try">Modo demo</string>
     <string name="pair_button">Parear</string>
     <string name="approval_title">Aprovação necessária</string>
     <string name="action_unpair">Desconectar este computador</string>
     <string name="demo_leave">Sair do modo demo</string>
     <string name="gallery">Galeria da ARIA</string>
-    <string name="pair_paste_short">Colar o link</string>
+    <string name="pair_paste_short">Colar link</string>
     <string name="pairing_headline">Conecte-se ao seu computador</string>
     <string name="pairing_help">No seu computador, abra a ARIA, depois Configurações, Celular Android, e escaneie o código exibido.</string>
     <string name="pairing_footer">ARIA para Android, baseada no trabalho de Rhytam Biswas.</string>
