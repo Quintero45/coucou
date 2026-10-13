@@ -82,7 +82,7 @@
     <string name="msg_rejected">Komputer menolak ponsel ini. Pasangkan lagi.</string>
     <string name="msg_link_error">Kesalahan tautan</string>
     <string name="msg_need_lock">Atur kunci layar untuk menyetujui dari ponsel Anda.</string>
-    <string name="approval_hint">Izinkan di ponsel meminta sidik jari atau kunci layar. Tolak tidak.</string>
+    <string name="approval_hint">Izinkan dan Tolak langsung menjawab, tanpa sidik jari.</string>
     <string name="overlay_title">Tampilkan ARIA di atas aplikasi lain</string>
     <string name="overlay_hint">Sebuah pulau turun dari atas layar saat agen bekerja, lalu naik kembali.</string>
     <string name="msg_overlay_permission">Izinkan “tampilkan di atas aplikasi lain” untuk ARIA, lalu kembali ke sini.</string>

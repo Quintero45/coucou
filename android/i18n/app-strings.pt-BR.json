@@ -81,7 +81,7 @@
     "msg_rejected": "O computador recusou este celular. Pareie novamente.",
     "msg_link_error": "Erro no link",
     "msg_need_lock": "Defina um bloqueio de tela para aprovar pelo celular.",
-    "approval_hint": "Permitir no celular pede a digital ou o bloqueio de tela. Negar não pede.",
+    "approval_hint": "Permitir e Negar respondem na hora, sem pedir a digital.",
     "overlay_title": "Mostrar a ARIA sobre outros apps",
     "overlay_hint": "Uma ilha desce do topo da tela enquanto um agente trabalha e depois sobe de volta.",
     "msg_overlay_permission": "Permita “sobrepor a outros apps” para a ARIA e depois volte.",

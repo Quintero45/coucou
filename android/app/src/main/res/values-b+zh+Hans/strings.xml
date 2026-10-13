@@ -82,7 +82,7 @@
     <string name="msg_rejected">电脑拒绝了这部手机。请重新配对。</string>
     <string name="msg_link_error">连接错误</string>
     <string name="msg_need_lock">请设置屏幕锁定，以便在手机上批准。</string>
-    <string name="approval_hint">在手机上点“允许”需要验证指纹或屏幕锁定，点“拒绝”则不需要。</string>
+    <string name="approval_hint">“允许”和“拒绝”会立即生效，无需验证指纹。</string>
     <string name="overlay_title">在其他应用上方显示 ARIA</string>
     <string name="overlay_hint">代理工作时，一个小岛会从屏幕顶部落下，结束后再收回。</string>
     <string name="msg_overlay_permission">请为 ARIA 允许“显示在其他应用的上层”，然后返回。</string>

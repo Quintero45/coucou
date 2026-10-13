@@ -280,16 +280,10 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    /** Allow: only after the biometric / screen-lock check. */
+    /** Allow: answered at once, like Deny; the owner chose no fingerprint for approvals. */
     private fun approve(r: ApprovalRequest) {
-        if (confirming) return // a second tap must not open a second prompt
         if (!ApprovalSheetPlan.canAllowHere(r)) { model.message = getString(R.string.approval_on_computer); return }
-        confirming = true
-        BiometricGate.confirm(
-            this, getString(R.string.action_allow), "${r.tool}: ${r.command}", getString(R.string.msg_need_lock),
-            onSuccess = { confirming = false; model.decide(r.fingerprint, allow = true) },
-            onFail = { confirming = false; if (it.isNotBlank()) model.message = it },
-        )
+        model.decide(r.fingerprint, allow = true)
     }
 }
 
@@ -396,7 +390,6 @@ private fun Home(
         item { Box(Modifier.padding(horizontal = Gutter)) { RecentPanel(model.decisions, onHistory) } }
 
         // Only when the switch is on but Android still refuses: the one thing Home must say about it.
-        if (model.overlayWished && !model.overlayPermission) item { Box(Modifier.padding(horizontal = Gutter)) { OverlayHint(onOverlay) } }
         item { Spacer(Modifier.height(Gutter)) }
     }
     // After the list, so it draws over it.

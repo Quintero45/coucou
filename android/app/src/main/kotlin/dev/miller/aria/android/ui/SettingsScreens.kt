@@ -173,9 +173,6 @@ fun SettingsScreen(model: AppModel, onHistory: () -> Unit, onGallery: () -> Unit
 
         if (model.batteryHintVisible) item { BatteryCard(model) }
 
-        item { SectionHeading(stringResource(R.string.settings_section_display)) }
-        item { Panel { SettingSwitch(stringResource(R.string.overlay_title), stringResource(R.string.overlay_hint), model.overlayOn, onOverlay) } }
-
         item { SectionHeading(stringResource(R.string.settings_section_sound)) }
         item {
             Panel {

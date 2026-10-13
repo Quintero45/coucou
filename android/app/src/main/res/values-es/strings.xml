@@ -82,7 +82,7 @@
     <string name="msg_rejected">La computadora rechazó este teléfono. Vincúlalo de nuevo.</string>
     <string name="msg_link_error">Error en el enlace</string>
     <string name="msg_need_lock">Configura un bloqueo de pantalla para aprobar desde tu teléfono.</string>
-    <string name="approval_hint">Permitir en el teléfono pide la huella o el bloqueo de pantalla. Denegar no.</string>
+    <string name="approval_hint">Permitir y Denegar responden al instante, sin pedir la huella.</string>
     <string name="overlay_title">Mostrar ARIA sobre otras apps</string>
     <string name="overlay_hint">Una isla baja desde la parte superior de la pantalla mientras un agente trabaja y luego vuelve a subir.</string>
     <string name="msg_overlay_permission">Permite “mostrar sobre otras apps” para ARIA y luego vuelve.</string>

@@ -138,7 +138,13 @@ class Notifications(private val context: Context) {
             .addAction(Notification.Action.Builder(null, context.getString(R.string.action_deny), deny).build())
             .apply {
                 // A command the phone cannot show in full is answered on the computer: no Allow here.
-                if (ApprovalSheetPlan.canAllowHere(r)) addAction(Notification.Action.Builder(null, context.getString(R.string.action_allow), open(r.fingerprint, true, id + 1)).build())
+                if (ApprovalSheetPlan.canAllowHere(r)) {
+                    val allow = PendingIntent.getBroadcast(
+                        context, id + 1, Intent(context, ActionReceiver::class.java).setAction(ACTION_ALLOW).putExtra(EXTRA_FP, r.fingerprint),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    addAction(Notification.Action.Builder(null, context.getString(R.string.action_allow), allow).build())
+                }
             }
             .build()
         runCatching { nm.notify(id, n) } // POST_NOTIFICATIONS may be denied: the in-app card still works
@@ -215,6 +221,7 @@ class Notifications(private val context: Context) {
         private const val STATUS_TAG = "status"
         const val ONGOING_ID = 1
         const val ACTION_DENY = "dev.miller.aria.android.DENY"
+        const val ACTION_ALLOW = "dev.miller.aria.android.ALLOW"
         const val EXTRA_FP = "fingerprint"
         const val EXTRA_ALLOW = "allow"
         /** Even ids for the request, +1 for its Allow action; never collides with ONGOING_ID. */
@@ -222,11 +229,18 @@ class Notifications(private val context: Context) {
     }
 }
 
-/** Handles the Deny button. Denying needs no biometric check: it can only make things safer. */
+/**
+ * Handles the Allow and Deny buttons of a request, without opening the app or asking for the fingerprint (the
+ * owner's choice). Not exported: only this app's own notifications reach it.
+ */
 class ActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Notifications.ACTION_DENY) return
+        val allow = when (intent.action) {
+            Notifications.ACTION_ALLOW -> true
+            Notifications.ACTION_DENY -> false
+            else -> return
+        }
         val fp = intent.getStringExtra(Notifications.EXTRA_FP) ?: return
-        (context.applicationContext as CoucouApp).model.decide(fp, allow = false)
+        (context.applicationContext as CoucouApp).model.decide(fp, allow)
     }
 }

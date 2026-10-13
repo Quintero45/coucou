@@ -313,13 +313,8 @@ class AppModel(private val context: Context) : LinkListener {
         refreshIsland()
     }
 
-    private fun islandAllowed(): Boolean {
-        val connected = mode != Mode.PAIRED || linkState == LinkState.CONNECTED
-        val why = OverlayPolicy.blocker(choice.wished, overlay.permitted(), inForeground)
-            ?: if (!connected) "not connected to a computer" else null
-        if (why != null) Log.d("CoucouOverlay", "no island: $why")
-        return why == null
-    }
+    /** ARIA's phone shows no island over other apps: requests and updates come as notifications only. */
+    private fun islandAllowed(): Boolean = false
 
     /**
      * What the island shows right now (an agent at work, a question, a request), from the current

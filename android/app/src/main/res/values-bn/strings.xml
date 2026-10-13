@@ -82,7 +82,7 @@
     <string name="msg_rejected">ডেস্কটপ এই ফোনটি প্রত্যাখ্যান করেছে। আবার যুক্ত করুন।</string>
     <string name="msg_link_error">লিংকে ত্রুটি</string>
     <string name="msg_need_lock">ফোন থেকে অনুমোদন দিতে একটি স্ক্রিন লক সেট করুন।</string>
-    <string name="approval_hint">ফোনে অনুমতি দিতে আঙুলের ছাপ বা স্ক্রিন লক চাওয়া হয়। প্রত্যাখ্যানে চাওয়া হয় না।</string>
+    <string name="approval_hint">অনুমতি দিন ও প্রত্যাখ্যান সঙ্গে সঙ্গে উত্তর দেয়, আঙুলের ছাপ ছাড়াই।</string>
     <string name="overlay_title">অন্য অ্যাপের উপরে ARIA দেখান</string>
     <string name="overlay_hint">কোনো এজেন্ট কাজ করার সময় স্ক্রিনের উপর থেকে একটি আইল্যান্ড নেমে আসে, তারপর আবার উপরে চলে যায়।</string>
     <string name="msg_overlay_permission">ARIA-র জন্য “অন্য অ্যাপের উপরে দেখান” অনুমতি দিন, তারপর ফিরে আসুন।</string>

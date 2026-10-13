@@ -30,7 +30,7 @@ class SheetsTest {
         // The same rule at every door: the sheet's callback, the model, the notification and the island.
         assertTrue(main.contains("ApprovalSheetPlan.canAllowHere(r)"))
         assertTrue(src("app/AppModel.kt").substringAfter("fun decide(fingerprint").substringBefore("link?.decide").contains("canAllowHere(request)"))
-        assertTrue(src("app/Notifications.kt").contains("if (ApprovalSheetPlan.canAllowHere(r)) addAction"))
+        assertTrue(src("app/Notifications.kt").contains("if (ApprovalSheetPlan.canAllowHere(r)) {"))
         assertTrue(src("ui/IslandOverlay.kt").contains("if (s.canAllow)"))
     }
 
@@ -40,9 +40,8 @@ class SheetsTest {
     }
 
     @Test fun homeNoLongerDrawsARawCommand() {
-        // the only place left is the lock prompt, which must keep repeating the exact command
-        assertEquals(1, Regex("""r\.command""").findAll(main).count())
-        assertTrue(main.contains("\"${'$'}{r.tool}: ${'$'}{r.command}\""))
+        // Allow answers at once (no lock prompt), so MainActivity never draws the command
+        assertEquals(0, Regex("""r\.command""").findAll(main).count())
         assertFalse(main.contains("fun ApprovalCard"))
         assertFalse(src("ui/HomePanel.kt").contains(".command"))
     }
@@ -52,12 +51,17 @@ class SheetsTest {
         assertTrue(sheets.contains("R.string.approval_wants"))
     }
 
-    @Test fun allowStillGoesThroughTheLockAndDenyNeedsNone() {
+    @Test fun allowAndDenyAnswerAtOnceAndOnlyQuestionsAskForTheLock() {
         assertFalse("the sheet never allows by itself", Regex("""allow\s*=\s*true""").containsMatchIn(sheets))
         assertTrue(sheets.contains("onAllow(r)"))
         assertTrue(main.contains("onAllow = ::approve"))
-        assertTrue(main.contains("BiometricGate.confirm("))
+        val approve = main.substringAfter("private fun approve(").substringBefore("\n    }")
+        assertTrue(approve.contains("model.decide(r.fingerprint, allow = true)"))
+        assertFalse(approve.contains("BiometricGate"))
+        assertTrue("questions keep the lock", main.substringAfter("private fun sendAnswer(").contains("BiometricGate.confirm("))
         assertTrue(sheets.contains("model.decide(r.fingerprint, allow = false)"))
+        val notifications = src("app/Notifications.kt")
+        assertTrue(notifications.contains("Notifications.ACTION_ALLOW -> true") && notifications.contains("Notifications.ACTION_DENY -> false"))
     }
 
     @Test fun bothButtonsIgnoreTapsDuringTheFirstMoments() {

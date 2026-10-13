@@ -5948,17 +5948,6 @@
    "ru": "Отправляйте сессии ваших агентов в ARIA for Android и отвечайте на запросы разрешений с телефона. По умолчанию выключено; слушает только в вашей локальной сети.",
    "id": "Kirim sesi agen Anda ke ARIA for Android dan jawab permintaan izin dari ponsel. Nonaktif secara default; hanya mendengarkan di jaringan lokal Anda."
   },
-  "Allow on the phone asks for the fingerprint or the screen lock. Deny does not.": {
-   "zh-Hans": "在手机上点“允许”需要指纹或锁屏验证；“拒绝”则不需要。",
-   "hi": "फ़ोन पर अनुमति देने के लिए फ़िंगरप्रिंट या स्क्रीन लॉक माँगा जाता है। अस्वीकार के लिए नहीं।",
-   "es": "Permitir en el teléfono pide la huella o el bloqueo de pantalla. Denegar no.",
-   "ar": "السماح على الهاتف يتطلب بصمة الإصبع أو قفل الشاشة. أما الرفض فلا يتطلبها.",
-   "fr": "Autoriser sur le téléphone demande l'empreinte ou le verrouillage d'écran. Refuser, non.",
-   "bn": "ফোনে অনুমতি দিতে ফিঙ্গারপ্রিন্ট বা স্ক্রিন লক লাগে। প্রত্যাখ্যানে লাগে না।",
-   "pt-BR": "Permitir no celular pede a digital ou o bloqueio de tela. Negar não pede.",
-   "ru": "Чтобы разрешить на телефоне, нужен отпечаток пальца или блокировка экрана. Для отказа — не нужен.",
-   "id": "Mengizinkan di ponsel meminta sidik jari atau kunci layar. Menolak tidak."
-  },
   "Phone link": {
    "zh-Hans": "手机连接",
    "hi": "फ़ोन लिंक",
@@ -6420,6 +6409,17 @@
    "pt-BR": "Este código também inclui a chave de acesso e a chave de ponta a ponta do relay {host}. «Parear de novo» cria uma chave e uma sala novas.",
    "ru": "Этот код также содержит ключ доступа и сквозной ключ для ретранслятора {host}. «Сопрячь заново» создаёт новый ключ и новую комнату.",
    "id": "Kode ini juga memuat kunci akses dan kunci ujung ke ujung untuk relay {host}. «Sandingkan ulang» membuat kunci dan ruang baru."
+  },
+  "Allow and Deny answer at once, without the fingerprint.": {
+   "es": "Permitir y Denegar responden al instante, sin pedir la huella.",
+   "fr": "Autoriser et Refuser répondent tout de suite, sans empreinte.",
+   "pt-BR": "Permitir e Negar respondem na hora, sem pedir a digital.",
+   "ru": "«Разрешить» и «Отклонить» срабатывают сразу, без отпечатка пальца.",
+   "id": "Izinkan dan Tolak langsung menjawab, tanpa sidik jari.",
+   "zh-Hans": "“允许”和“拒绝”会立即生效，无需验证指纹。",
+   "hi": "अनुमति दें और मना करें तुरंत जवाब देते हैं, फ़िंगरप्रिंट के बिना।",
+   "ar": "السماح والرفض يُرسلان فورًا، دون البصمة.",
+   "bn": "অনুমতি দিন ও প্রত্যাখ্যান সঙ্গে সঙ্গে উত্তর দেয়, আঙুলের ছাপ ছাড়াই।"
   }
  }
 }

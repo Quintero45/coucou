@@ -82,7 +82,7 @@
     <string name="msg_rejected">Компьютер отклонил этот телефон. Подключите заново.</string>
     <string name="msg_link_error">Ошибка связи</string>
     <string name="msg_need_lock">Установите блокировку экрана, чтобы разрешать запросы с телефона.</string>
-    <string name="approval_hint">«Разрешить» на телефоне запрашивает отпечаток пальца или блокировку экрана. «Отклонить» — нет.</string>
+    <string name="approval_hint">«Разрешить» и «Отклонить» срабатывают сразу, без отпечатка пальца.</string>
     <string name="overlay_title">Показывать ARIA поверх других приложений</string>
     <string name="overlay_hint">Пока агент работает, сверху экрана опускается островок, а потом снова поднимается.</string>
     <string name="msg_overlay_permission">Разрешите ARIA «показ поверх других приложений» и вернитесь.</string>

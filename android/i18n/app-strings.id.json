@@ -81,7 +81,7 @@
     "msg_rejected": "Komputer menolak ponsel ini. Pasangkan lagi.",
     "msg_link_error": "Kesalahan tautan",
     "msg_need_lock": "Atur kunci layar untuk menyetujui dari ponsel Anda.",
-    "approval_hint": "Izinkan di ponsel meminta sidik jari atau kunci layar. Tolak tidak.",
+    "approval_hint": "Izinkan dan Tolak langsung menjawab, tanpa sidik jari.",
     "overlay_title": "Tampilkan ARIA di atas aplikasi lain",
     "overlay_hint": "Sebuah pulau turun dari atas layar saat agen bekerja, lalu naik kembali.",
     "msg_overlay_permission": "Izinkan “tampilkan di atas aplikasi lain” untuk ARIA, lalu kembali ke sini.",

@@ -17,9 +17,15 @@ class ScreenLayoutTest {
     private val settings get() = src("ui/SettingsScreens.kt")
     private val homePanel get() = src("ui/HomePanel.kt")
 
-    @Test fun settingsHoldsDisconnectGalleryOverlayAndTheRequiredNotice() {
+    @Test fun settingsHasNoIslandSwitch() {
+        assertFalse(settings.contains("R.string.overlay_title"))
+        assertFalse(File("src/main/AndroidManifest.xml").readText().contains("SYSTEM_ALERT_WINDOW"))
+        assertTrue(src("app/AppModel.kt").contains("private fun islandAllowed(): Boolean = false"))
+    }
+
+    @Test fun settingsHoldsDisconnectGalleryAndTheRequiredNotice() {
         for (s in listOf(
-            "R.string.action_unpair", "R.string.demo_leave", "R.string.gallery", "R.string.overlay_title",
+            "R.string.action_unpair", "R.string.demo_leave", "R.string.gallery",
             "R.string.about_unofficial", "R.string.about_repo", "R.string.about_assets", "R.string.settings_section_about",
         )) assertTrue("Settings must carry $s", settings.contains(s))
     }

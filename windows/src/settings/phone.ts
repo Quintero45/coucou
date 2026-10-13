@@ -104,7 +104,7 @@ export function phoneSection(on: boolean, makeToggle: Toggle, settings: Settings
     {},
     h("h2", {}, h("span", { text: t("Android phone") })),
     h("div", { class: "hint", text: t("Send your agents' sessions to ARIA for Android and answer permission requests from the phone. Off by default; it only listens on your local network.") }),
-    h("div", { class: "hint", text: t("Allow on the phone asks for the fingerprint or the screen lock. Deny does not.") }),
+    h("div", { class: "hint", text: t("Allow and Deny answer at once, without the fingerprint.") }),
     h("div", { class: "row" }, h("label", { text: t("Phone link") }), switchEl),
     note,
     detail,

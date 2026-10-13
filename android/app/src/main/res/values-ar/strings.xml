@@ -82,7 +82,7 @@
     <string name="msg_rejected">رفض الكمبيوتر هذا الهاتف. أقرن من جديد.</string>
     <string name="msg_link_error">خطأ في الرابط</string>
     <string name="msg_need_lock">عيّن قفلًا للشاشة لتتمكن من الموافقة من هاتفك.</string>
-    <string name="approval_hint">السماح على الهاتف يطلب البصمة أو قفل الشاشة. الرفض لا يطلب ذلك.</string>
+    <string name="approval_hint">السماح والرفض يُرسلان فورًا، دون البصمة.</string>
     <string name="overlay_title">عرض ARIA فوق التطبيقات الأخرى</string>
     <string name="overlay_hint">تنزل جزيرة من أعلى الشاشة أثناء عمل وكيل، ثم تعود إلى الأعلى.</string>
     <string name="msg_overlay_permission">اسمح لـARIA بـ«الظهور فوق التطبيقات الأخرى»، ثم عُد.</string>

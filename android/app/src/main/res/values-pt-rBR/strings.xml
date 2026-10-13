@@ -82,7 +82,7 @@
     <string name="msg_rejected">O computador recusou este celular. Pareie novamente.</string>
     <string name="msg_link_error">Erro no link</string>
     <string name="msg_need_lock">Defina um bloqueio de tela para aprovar pelo celular.</string>
-    <string name="approval_hint">Permitir no celular pede a digital ou o bloqueio de tela. Negar não pede.</string>
+    <string name="approval_hint">Permitir e Negar respondem na hora, sem pedir a digital.</string>
     <string name="overlay_title">Mostrar a ARIA sobre outros apps</string>
     <string name="overlay_hint">Uma ilha desce do topo da tela enquanto um agente trabalha e depois sobe de volta.</string>
     <string name="msg_overlay_permission">Permita “sobrepor a outros apps” para a ARIA e depois volte.</string>

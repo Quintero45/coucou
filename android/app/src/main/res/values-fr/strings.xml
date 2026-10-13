@@ -82,7 +82,7 @@
     <string name="msg_rejected">L\'ordinateur a refusé ce téléphone. Associez-le à nouveau.</string>
     <string name="msg_link_error">Erreur de lien</string>
     <string name="msg_need_lock">Définissez un verrouillage d\'écran pour approuver depuis votre téléphone.</string>
-    <string name="approval_hint">Autoriser sur le téléphone demande l\'empreinte ou le verrouillage d\'écran. Refuser, non.</string>
+    <string name="approval_hint">Autoriser et Refuser répondent tout de suite, sans empreinte.</string>
     <string name="overlay_title">Afficher ARIA par-dessus les autres applis</string>
     <string name="overlay_hint">Une île descend du haut de l\'écran pendant qu\'un agent travaille, puis remonte.</string>
     <string name="msg_overlay_permission">Autorisez « superposition aux autres applis » pour ARIA, puis revenez.</string>
