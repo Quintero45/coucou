@@ -34,6 +34,7 @@ import { t } from "../i18n/i18n";
 import { IslandStateMachine } from "./fsm";
 import { refreshHookPills } from "./integrations";
 import { DesktopLink } from "./desktop";
+import type { ViewCommand } from "./shortcuts";
 import { DRAG_THRESHOLD } from "../aria/desktop-logic";
 
 const BOT_OVERHANG = 40;
@@ -684,6 +685,25 @@ export class Island {
    *  It gives it back when it closes, or when the chat is left. */
   takeKeyboard() {
     void Bridge.focusWindow(true);
+  }
+
+  /** The desktop shortcut needs a desktop ARIA: none on GNOME's Wayland. */
+  canLeaveIsland(): boolean {
+    return this.desktop.supported;
+  }
+
+  /** The desktop shortcut (macOS DesktopMochiController.flyOutOrHome). */
+  flyOutOrHome() {
+    // The greeting and the drop sequence draw an ARIA of their own: she stays
+    // for them, as he does for a drag (canDragOut).
+    const busy = State.mode === "expanded" && (State.view === "greeting" || this.uploadActive);
+    if (busy && !State.ariaOnDesktop) return;
+    this.desktop.flyOutOrHome();
+  }
+
+  /** Ctrl+O / Ctrl+E go to the view on screen. */
+  viewCommand(command: ViewCommand) {
+    this.views.get(State.view)?.command?.(command);
   }
 
   // ── File drop ───────────────────────────────────────────────────────────────

@@ -268,8 +268,9 @@ export const Bridge = {
   /** X11: top-left corner, physical pixels. */
   desktopDragMove: (x: number, y: number) => call<void>("desktop_aria_drag_move", { x, y }),
   desktopDragEnd: (x: number, y: number) => call<void>("desktop_aria_drag_end", { x, y }),
-  /** From the island to her spot. False: no spot on any connected display. */
-  desktopFlyOut: () => call<boolean>("desktop_aria_fly_out"),
+  /** From the island to her spot. False: no spot on any connected display.
+   *  `anywhere`: the first-visit corner then, rather than staying home. */
+  desktopFlyOut: (anywhere = false) => call<boolean>("desktop_aria_fly_out", { anywhere }),
   /** To the island, then hidden. `forget`: she lives in the island again. */
   desktopFlyHome: (forget: boolean) => call<boolean>("desktop_aria_fly_home", { forget }),
   /** Asleep, the cursor poll stops. */

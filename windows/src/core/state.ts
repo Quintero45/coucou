@@ -419,6 +419,10 @@ class AppState {
   /** Never reset, so an id can never point at a newer diff than the one tapped. */
   /** From 1: a diff id of 0 is a FileDiff that was never stored. */
   private nextDiffId = 1;
+  /** Ctrl+↑ / Ctrl+↓: the highlighted row of the card's list (AppState.cardSelection). */
+  cardSelection: number | null = null;
+  /** Rows in the list on screen, 0 when there is none (AppState.cardItemCount). */
+  cardItemCount = 0;
   /**
    * ARIA is out of the island — on the desktop, flying, or being dragged
    * there — so the island's own ARIA is hidden (AppState.ariaOnDesktop).

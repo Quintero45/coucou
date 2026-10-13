@@ -15,6 +15,7 @@ import {
   botCanReply, createBotChat, createBotReply, reducedMotion, renderIntegrationCard,
   type BotReplyHandlers, type IntegrationCardHooks,
 } from "./integrations";
+import { highlightRow, listRows, openRow } from "./github";
 import { pillDefinition, sessionSubtitle } from "../core/pills";
 import {
   PlanCard, buildPlanPill, claudePillVisible, codexPillVisible, planCardOpen, refreshCodexPlanUsage,
@@ -32,6 +33,7 @@ import { renderMarkdown } from "./markdown";
 import { buildChoices } from "./options";
 import { CURSOR_WRITE } from "../core/botcmds";
 import { language, t, tl, type Msg } from "../i18n/i18n";
+import type { ViewCommand } from "../island/shortcuts";
 
 export interface ViewActions {
   setView(v: IslandViewName): void;
@@ -104,6 +106,8 @@ export interface ViewHost {
   focus?(): void;
   /** Called every frame while the view is on screen. True = needs another frame. */
   tick?(nowMs: number): boolean | void;
+  /** Ctrl+O / Ctrl+E while the view is on screen (island/shortcuts.ts). */
+  command?(command: ViewCommand): void;
 }
 
 // ── Shared pieces ─────────────────────────────────────────────────────────────
@@ -301,6 +305,8 @@ function buildOverview(actions: ViewActions): ViewHost {
       State.notify();
     });
   }
+  /** The list row highlighted at the last sync, to scroll only when it moves. */
+  let shownSelection: number | null = null;
 
   // Leaving the overview or folding the island closes the diff, as on macOS.
   State.subscribe(() => {
@@ -395,6 +401,25 @@ function buildOverview(actions: ViewActions): ViewHost {
       if (mode !== "ticker") return false;
       ticker.tick(nowMs);
       return ticker.animating;
+    },
+    command(command) {
+      if (command === "openSelection") {
+        // Ctrl+O: what a click on the highlighted row does.
+        if (mode !== "card" || State.cardSelection == null) return;
+        openRow(listRows(leftBody)[State.cardSelection]);
+        return;
+      }
+      // Ctrl+E (⌘E, islandToggleDiff): closes the diff that is open, else
+      // opens the focused pill's latest edit.
+      if (liveDiff.id != null) {
+        actions.closeDiff();
+        return;
+      }
+      const task = State.focusTask;
+      const diffs = task ? State.sessionDiffs.get(task.id) : undefined;
+      const last = diffs?.[diffs.length - 1];
+      if (!task || last?.id == null) return;
+      actions.openDiff(task.id, last.id);
     },
     sync() {
       const task = State.focusTask;
@@ -518,6 +543,13 @@ function buildOverview(actions: ViewActions): ViewHost {
       }
 
       jump.style.display = detailOpen || isBot || mode === "plan" ? "none" : "";
+
+      // Ctrl+↓ Ctrl+↑ walk the open GitHub list (cardItemCount / cardSelection).
+      const rows = mode === "card" ? listRows(leftBody) : [];
+      State.cardItemCount = rows.length;
+      if (State.cardSelection != null && State.cardSelection >= rows.length) State.cardSelection = null;
+      highlightRow(rows, State.cardSelection, State.cardSelection !== shownSelection);
+      shownSelection = State.cardSelection;
 
       const others = State.otherTasks.slice(0, 4);
       const noBots = State.settings.grokBots.length === 0;

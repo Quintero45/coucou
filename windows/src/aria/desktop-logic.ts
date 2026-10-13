@@ -179,8 +179,12 @@ export type DesktopPhase =
 
 /** Everything the life cycle does to the world, injected so it can be tested. */
 export interface DesktopPorts {
-  /** Shows the window at the island and flies it to her spot. False: no spot. */
-  flyOut(): Promise<boolean>;
+  /**
+   * Shows the window at the island and flies it to her spot. False: no spot.
+   * `anywhere`: a spot on a display that is gone gives way to the first-visit
+   * corner instead of keeping her home (the user asked her out).
+   */
+  flyOut(anywhere: boolean): Promise<boolean>;
   /** Flies the window to the island and hides it. `forget`: she lives there again. */
   flyHome(forget: boolean): Promise<boolean>;
   /** The island's own ARIA hides while she is out. */
@@ -207,7 +211,7 @@ export class DesktopAriaController {
   }
 
   /** Launch, and back from an alert: fly out to her spot if she lives there. */
-  async launchFlyIfNeeded(): Promise<void> {
+  async launchFlyIfNeeded(anywhere = false): Promise<void> {
     if (!this.enabled || this.phase !== "home") return;
     // An alert is up: wait in the island, the alert's end flies her out.
     if (this.port.alertActive()) {
@@ -216,7 +220,7 @@ export class DesktopAriaController {
     }
     this.phase = "flyingOut";
     this.port.setAway(true);
-    const ok = await this.port.flyOut();
+    const ok = await this.port.flyOut(anywhere);
     if (this.phase !== "flyingOut") return;
     if (!ok) {
       // Her spot is on a display that is gone: she stays home.
@@ -249,6 +253,20 @@ export class DesktopAriaController {
     await this.port.flyHome(true);
     this.port.play("peek");
     this.port.setAway(false);
+  }
+
+  /**
+   * The desktop shortcut (DesktopMochiController.flyOutOrHome, ⌃⌥D on the
+   * Mac): out to his spot from the island, home from the desktop. In flight,
+   * or away for an alert, nothing.
+   */
+  async flyOutOrHome(): Promise<void> {
+    if (this.phase === "home") {
+      this.enabled = true;
+      await this.launchFlyIfNeeded(true);
+    } else if (this.phase === "onDesktop") {
+      await this.flyHome();
+    }
   }
 
   /** Call whenever the alert condition may have changed; only edges count. */

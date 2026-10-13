@@ -4405,6 +4405,11 @@ input[type="range"]::-webkit-slider-thumb {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* Ctrl+↓ / Ctrl+↑: the highlighted row (GitHubPRRowView's `selected`, white 12 %). */
+.gh-row.selected {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .gh-gap {
   width: 5px;
   flex: 0 0 5px;

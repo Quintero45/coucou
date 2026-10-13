@@ -569,21 +569,24 @@ fn remember_spot(app: &AppHandle, d: &Desktop, pos: (f64, f64), on_desktop: bool
 }
 
 /// Where she lands when she flies out, or `None` when her spot is on a display
-/// that is no longer connected.
-fn target_spot(app: &AppHandle, d: &Desktop) -> Option<(f64, f64)> {
+/// that is no longer connected — unless `anywhere`, the user sending her out
+/// with the desktop shortcut: then the first-visit corner.
+fn target_spot(app: &AppHandle, d: &Desktop, anywhere: bool) -> Option<(f64, f64)> {
     let all = displays(app, d);
     let saved = app.try_state::<crate::Shared>().and_then(|s| s.settings.lock().unwrap().desktop_aria.spot.clone());
+    // A fresh start in the corner of the island's display.
+    let corner = || {
+        let (cx, top, _) = island_anchor(app, d)?;
+        let home = logic::display_near((cx, top + 1.0), &all)?;
+        Some(logic::default_spot(&home, SIZE, MARGIN))
+    };
     match saved {
         Some(spot) if spot.space == d.mode.space() => {
-            logic::restore_spot((spot.x, spot.y), &all, SIZE, MARGIN)
+            let restored = logic::restore_spot((spot.x, spot.y), &all, SIZE, MARGIN);
+            if anywhere { restored.or_else(corner) } else { restored }
         }
-        // Never placed, or placed under another kind of session: a fresh start
-        // in the corner of the island's display.
-        _ => {
-            let (cx, top, _) = island_anchor(app, d)?;
-            let home = logic::display_near((cx, top + 1.0), &all)?;
-            Some(logic::default_spot(&home, SIZE, MARGIN))
-        }
+        // Never placed, or placed under another kind of session.
+        _ => corner(),
     }
 }
 
@@ -804,16 +807,17 @@ pub async fn desktop_aria_drag_end(app: AppHandle, x: f64, y: f64) {
 
 /// Launch or the end of an alert: from the island to her spot. False when the
 /// spot is on a display that is gone — she then stays home, and is forgotten
-/// there so the next launch doesn't try again.
+/// there so the next launch doesn't try again. `anywhere` (the desktop
+/// shortcut) lands her in the first-visit corner instead.
 #[tauri::command]
-pub async fn desktop_aria_fly_out(app: AppHandle) -> bool {
+pub async fn desktop_aria_fly_out(app: AppHandle, anywhere: Option<bool>) -> bool {
     let d = app.state::<Arc<Desktop>>().inner().clone();
     if d.mode == DesktopMode::Off || window(&app).is_none() {
         return false;
     }
     refresh_layer_display(&app, &d);
-    let Some(target) = target_spot(&app, &d) else {
-        crate::log::line("desktop ARIA: his spot is on a display that is gone — he stays home");
+    let Some(target) = target_spot(&app, &d, anywhere.unwrap_or(false)) else {
+        crate::log::line("desktop ARIA: her spot is on a display that is gone — she stays home");
         remember(&app, |p| p.on_desktop = false);
         return false;
     };

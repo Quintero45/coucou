@@ -592,7 +592,7 @@ mod tests {
     fn a_file_from_before_the_colours_paints_every_pill_as_the_catalog_says() {
         let loaded = parse(&custom_with("pillColors", None)).unwrap();
         assert!(loaded.pill_colors.is_empty());
-        assert_eq!(loaded.mochi_outfit, "witchHat");
+        assert_eq!(loaded.aria_outfit, "witchHat");
     }
 
     #[test]
