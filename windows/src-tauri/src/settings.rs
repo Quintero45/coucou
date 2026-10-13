@@ -76,6 +76,15 @@ pub struct Settings {
     /// The sender address Resend needs when Outlook is not there to send the
     /// mail card's emails (mail.rs). An address, not a secret.
     pub mail_from: String,
+    /// "Hey ARIA" (voice/): the microphone stays open for the wake phrase.
+    /// Off by default — the one thing that keeps using CPU while hidden.
+    pub voice_wake: bool,
+    /// ARIA answers out loud what was asked by voice.
+    pub voice_speak: bool,
+    /// Her voice: "piper" (es-MX, downloaded) or a Windows voice's name.
+    pub voice_name: String,
+    /// What she heard and says, as a line under the island.
+    pub voice_subtitles: bool,
     /// ARIA on the desktop: whether she lives there, and her spot. Owned by
     /// the Rust side (desktop.rs) — what a webview sends back is ignored.
     pub desktop_aria: DesktopAriaPref,
@@ -162,6 +171,10 @@ impl Default for Settings {
             pill_colors: BTreeMap::new(),
             language: String::new(),
             mail_from: String::new(),
+            voice_wake: false,
+            voice_speak: true,
+            voice_name: "piper".into(),
+            voice_subtitles: true,
             desktop_aria: DesktopAriaPref::default(),
         }
     }
@@ -454,6 +467,10 @@ mod tests {
   "pillColors": { "integration_claude": "#2DD4BF" },
   "language": "pt-BR",
   "mailFrom": "aria@ejemplo.mx",
+  "voiceWake": true,
+  "voiceSpeak": false,
+  "voiceName": "Microsoft Sabina Desktop",
+  "voiceSubtitles": false,
   "desktopAria": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
 }"##;
 
@@ -879,6 +896,10 @@ mod tests {
                 "pillColors",
                 "language",
                 "mailFrom",
+                "voiceWake",
+                "voiceSpeak",
+                "voiceName",
+                "voiceSubtitles",
                 "desktopAria",
             ]
         );

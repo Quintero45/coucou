@@ -170,6 +170,19 @@ export const Bridge = {
   mailDraft: (fileName: string, to: string, hint: string) =>
     callOrThrow<{ subject: string; body: string }>("mail_draft", { fileName, to, hint }),
 
+  // ── "Hey ARIA" (voice/listen.rs) ──────────────────────────────────────────
+  voiceStatus: () => call<VoiceStatus>("voice_status"),
+  /** What the island shows, so a wake waits while a card needs the owner. */
+  voiceIsland: (view: string, mode: string, pendingApproval: boolean) =>
+    call<void>("voice_island", { view, mode, pendingApproval }),
+  /** The chat answered a request heard by voice ("" when it failed). */
+  voiceReply: (text: string) => call<void>("voice_reply", { text }),
+  voiceResume: () => call<void>("voice_resume"),
+  voiceStopSpeaking: () => call<void>("voice_stop_speaking"),
+  voiceTry: (voice: string) => call<void>("voice_try", { voice }),
+  voiceVoices: () => call<string[]>("voice_voices"),
+  voiceClearHistory: () => call<void>("voice_clear_history"),
+
   // ── Music pill (media.rs) ─────────────────────────────────────────────────
   mediaState: () => call<MediaInfo>("media_state"),
   /** toggle, next, prev, seek (ms), shuffle, repeat, volume (0–1). */
@@ -376,6 +389,16 @@ export interface MailStatus {
 export interface MailContact {
   name: string;
   address: string;
+}
+
+export type VoiceState = "off" | "preparing" | "idle" | "listening" | "thinking" | "speaking" | "paused" | "error";
+
+export interface VoiceStatus {
+  state: VoiceState;
+  error: string | null;
+  listeningReady: boolean;
+  speakingReady: boolean;
+  history: { at: number; text: string }[];
 }
 
 export type ChatContext =

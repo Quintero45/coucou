@@ -334,6 +334,14 @@ export interface Settings {
   language: string;
   /** Sender address for Resend when Outlook can't send the mail card (mail.rs). */
   mailFrom: string;
+  /** "Hey ARIA": the microphone stays open for the wake phrase (voice/ in Rust). */
+  voiceWake: boolean;
+  /** She answers out loud what was asked by voice. */
+  voiceSpeak: boolean;
+  /** "piper" (her own es-MX voice) or a Windows voice's name. */
+  voiceName: string;
+  /** What she heard shows as a line in the island. */
+  voiceSubtitles: boolean;
   /** ARIA on the desktop. Rust owns it: whatever the page sends back is ignored. */
   desktopAria?: {
     onDesktop: boolean;
@@ -372,6 +380,10 @@ export const DEFAULT_SETTINGS: Settings = {
   pillColors: {},
   language: "",
   mailFrom: "",
+  voiceWake: false,
+  voiceSpeak: true,
+  voiceName: "piper",
+  voiceSubtitles: true,
 };
 
 /** The mail card's fields, filled by the owner or by ARIA (compose_email). */
@@ -420,6 +432,8 @@ class AppState {
   noteMessage: string | null = null;
   /** Text to put in the chat input the next time it shows ("@Bot "). */
   chatDraft: string | null = null;
+  /** A request heard by "Hey ARIA": the chat sends it as soon as it shows. */
+  voiceAsk: string | null = null;
   searchResult: SearchResult | null = null;
   chatHistory: ChatMessage[] = [];
   pendingApproval: ApprovalInfo | null = null;

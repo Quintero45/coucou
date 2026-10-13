@@ -7,6 +7,7 @@ import { State, type MediaInfo, type Settings } from "./core/state";
 import { Island } from "./island/island";
 import { registerHookHandlers } from "./island/hooks";
 import { registerAssistantHandlers } from "./island/assistant";
+import { registerVoiceHandlers } from "./island/voice";
 import { registerIntegrationHandlers, refreshConfigured } from "./island/integrations";
 import { registerShortcutHandlers } from "./island/shortcuts";
 import { Recap } from "./recap/recap";
@@ -146,6 +147,7 @@ async function main() {
 
   registerHookHandlers(island);
   registerAssistantHandlers(island);
+  registerVoiceHandlers(island);
   registerIntegrationHandlers(island);
   registerShortcutHandlers(island, () => setPaused(false));
 

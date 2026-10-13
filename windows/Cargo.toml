@@ -15,3 +15,9 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# sherpa-rs-sys's build script links the debug C runtime (msvcrtd) whenever it
+# is itself built with debug assertions, which mixes two heaps in dev builds
+# and tests (voice/). Build scripts never need them.
+[profile.dev.build-override]
+debug-assertions = false

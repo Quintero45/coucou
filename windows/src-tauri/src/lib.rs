@@ -132,6 +132,7 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
     if i18n::set_picked(&settings.language) {
         language_changed(&app);
     }
+    voice::listen::apply(&app);
     // Keep the other window in step (island ⇄ settings window).
     let _ = app.emit("settings-changed", settings);
 }
@@ -985,6 +986,14 @@ pub fn run() {
             mail::mail_contacts,
             mail::mail_send,
             mail::mail_draft,
+            voice::listen::voice_status,
+            voice::listen::voice_island,
+            voice::listen::voice_reply,
+            voice::listen::voice_resume,
+            voice::listen::voice_stop_speaking,
+            voice::listen::voice_try,
+            voice::listen::voice_voices,
+            voice::listen::voice_clear_history,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

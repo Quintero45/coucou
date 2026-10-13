@@ -28,6 +28,10 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 cpal = "0.15"
 rodio = { version = "0.20", default-features = false, features = ["wav"] }
 keyring = { version = "3", features = ["windows-native"] }
+# "Hey ARIA" (voice/): Silero VAD and the wake-phrase spotter, run locally by
+# sherpa-onnx (Apache 2.0), linked statically. The owner's authorised exception
+# to the no-dependency rule; needs LLVM's libclang to build (.cargo/config.toml).
+sherpa-rs = { version = "0.6.8", default-features = false, features = ["download-binaries", "static", "sys"] }
 # The island's file drop reads paths straight from WebView2 (webview_drop.rs).
 # Same versions as wry, so nothing new is compiled.
 webview2-com = "0.39"

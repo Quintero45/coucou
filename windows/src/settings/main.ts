@@ -6,6 +6,7 @@ import "./settings.css";
 import { assistantSection, connectionsSection, coreSection, grokBotsSection, skillsSection } from "./assistant";
 import { coucouSection } from "./coucou";
 import { soundsSection } from "./sounds";
+import { voiceSection } from "./voice";
 import { saveSettingsMerged } from "../core/savesettings";
 import { Bridge, onEvent, type AgentHookStatus, type HookPreview, type HookStatus, type ShortcutsReport } from "../core/bridge";
 import {
@@ -1022,6 +1023,7 @@ async function render() {
     assistant,
     bots,
     soundsSection(ctx),
+    voiceSection(ctx),
     connections,
     skills,
     ...(settings.showAgents ? [claudeSection(status)] : []),

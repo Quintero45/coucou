@@ -220,9 +220,12 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     saveChat();
   }
 
-  async function submit() {
+  async function submit(fromVoice = false) {
     const query = input.value.trim();
-    if (!query || sending) return;
+    if (!query || sending) {
+      if (fromVoice) void Bridge.voiceReply("");
+      return;
+    }
     input.value = "";
     sending = true;
     setSendMode(true);
@@ -231,6 +234,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     const target = botTarget(query);
     if (target) {
       await sendToBot(target, query);
+      if (fromVoice) void Bridge.voiceReply("");
       sending = false;
       setSendMode(false);
       renderedKey = "";
@@ -241,6 +245,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     }
 
     const context = State.chatHistory.length === 0 ? firstContext() : null;
+    let spoken = "";
 
     State.chatHistory.push({ id: nextId++, role: "user", content: query });
     // In the history from the start, so the island grows to fit it as it streams.
@@ -257,6 +262,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       onHeightChange();
       const reply = await Bridge.chatSend(query, context);
       message.content = reply.text;
+      spoken = reply.text;
       State.stateOverride = null;
       ariaPill("idle", firstLine(reply.text));
       Sound.play("finish");
@@ -273,6 +279,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       }
       Sound.play("error");
     } finally {
+      if (fromVoice) void Bridge.voiceReply(spoken);
       saveChat();
       live = null;
       liveRow = null;
@@ -332,6 +339,11 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       }
 
       const provider = aiProvider(State.settings.provider);
+      if (State.voiceAsk !== null && !sending) {
+        input.value = State.voiceAsk;
+        State.voiceAsk = null;
+        queueMicrotask(() => void submit(true));
+      }
       if (State.chatDraft !== null && !sending) {
         input.value = State.chatDraft;
         State.chatDraft = null;

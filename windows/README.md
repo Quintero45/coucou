@@ -436,7 +436,9 @@ is off or ARIA is paused.
 
 You need [Rust](https://rustup.rs), [Node 20+](https://nodejs.org), and the
 **MSVC build tools** (Visual Studio Build Tools with "Desktop development with
-C++"). WebView2 ships with Windows 10/11.
+C++"). WebView2 ships with Windows 10/11. "Hey ARIA" links sherpa-onnx, whose
+bindings need LLVM's libclang (`winget install LLVM.LLVM`); `.cargo/config.toml`
+looks for it in `C:\Program Files\LLVM\bin` and builds with the static C runtime.
 
 ```powershell
 cd windows
@@ -590,6 +592,14 @@ own window.
   the subject and the file's name, never the text.
 - Dropping ARIA from the desktop onto another app's window starts a chat about
   it: its title, program and a screenshot go with the first message.
+- "Hey ARIA" (Settings → Voice, off by default): say "Hey ARIA" or "Oye ARIA"
+  and what you need; the request goes to the chat as if typed, with the same
+  approval cards. Silero VAD and the wake-phrase spotter (sherpa-onnx) run
+  locally, Whisper writes the request, and she answers with Piper's Mexican
+  Spanish voice or a Windows one. The models (about 100 MB, pinned by SHA-256)
+  are downloaded to `%LOCALAPPDATA%\ARIA\voice\` the first time. No audio is
+  saved; "Pausa" stops listening. The open microphone is the one thing that
+  uses CPU while the island is hidden.
 - Cal.com shows the next bookings as a list rather than the Mac's calendar.
 - The Cursor pill carries both Cursor Agent's own hooks and Claude Code running
   in Cursor's terminal.

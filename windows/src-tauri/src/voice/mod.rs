@@ -1,6 +1,13 @@
 ﻿// The local speech engine's plumbing, shared by dictation and meetings
-// (meeting.rs, Whisper): its folder (%LOCALAPPDATA%\ARIA\voice\), resumable
-// downloads with progress on the `voice-engine` event, and unzipping.
+// (meeting.rs, Whisper) and "Hey ARIA" (listen.rs): its folder
+// (%LOCALAPPDATA%\ARIA\voice\), resumable downloads with progress on the
+// `voice-engine` event, and unzipping.
+
+pub mod listen;
+mod models;
+mod speech;
+mod turn;
+mod wake;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -324,11 +331,13 @@ pub(crate) fn resolve_bot(app: &AppHandle, who: &str) -> String {
 }
 
 /// Picks up, shortly after startup, the Whisper download a dropped connection
-/// or a restart left half done (its .part file is still there).
+/// or a restart left half done (its .part file is still there), then starts
+/// "Hey ARIA" if it is on.
 pub fn resume_pending(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(15)).await;
         crate::meeting::resume_pending(&app).await;
+        listen::apply(&app);
     });
 }
 
