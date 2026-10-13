@@ -13,6 +13,7 @@ import {
   recordPress, type Binding,
 } from "../core/shortcuts";
 import { CURSOR_AGENT_ID, DEFAULT_SETTINGS, isHiddenAgent, type Settings } from "../core/state";
+import { SOUND_NAMES } from "../core/sound";
 import {
   MAX_DECLARED, PILL_CATEGORIES, availablePills, chooseMainPill, isComingSoon, mainPillChoices,
   sanitizeDeclared, serverConnected, toggleDeclared, type PillDefinition,
@@ -537,6 +538,20 @@ function generalSection(): HTMLElement {
     void save();
   });
 
+  // Your own sounds: the folder, a reload, and how many are replaced.
+  const customCount = h("span", { class: "hint" });
+  const countCustom = () =>
+    void Bridge.customSounds(SOUND_NAMES).then((own) => {
+      const n = own?.length ?? 0;
+      customCount.textContent = n > 0 ? t("{0} custom", { 0: n }) : "";
+    });
+  countCustom();
+  const soundsFolder = h("button", { text: t("Open sounds folder"), onclick: () => void Bridge.revealSoundsFolder() });
+  const reloadSounds = h("button", {
+    text: t("Reload sounds"),
+    onclick: () => void Bridge.reloadSounds().then(() => window.setTimeout(countCustom, 300)),
+  });
+
   const autoClose = h("input", {
     type: "number", min: "5", max: "120", step: "1",
     value: String(Math.round(settings.autoCloseInterval)),
@@ -583,6 +598,13 @@ function generalSection(): HTMLElement {
       toggle(settings.soundEnabled, (v) => { settings.soundEnabled = v; void save(); }),
       volume,
     ),
+    h("div", { class: "row" }, soundsFolder, reloadSounds, customCount),
+    h("div", { class: "hint", text: t("Drop a file named like one of ARIA's sounds (finish.wav, approval.mp3, greet.m4a…) in the sounds folder to replace it, then Reload.") }),
+    h("div", { class: "row" },
+      h("label", { text: t("Open on hover") }),
+      toggle(settings.openOnHover, (v) => { settings.openOnHover = v; void save(); }),
+    ),
+    h("div", { class: "hint", text: t("Hovering the island opens it; it folds again shortly after the pointer leaves. Click inside to keep it open.") }),
     h("div", { class: "row" },
       h("label", { text: t("Auto-close") }),
       autoClose,

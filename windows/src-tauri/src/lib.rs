@@ -9,6 +9,7 @@ mod claude;
 mod codex_plan;
 mod config_file;
 mod context;
+mod custom_sounds;
 mod cursor;
 mod cursorlink;
 mod desktop;
@@ -975,6 +976,10 @@ pub fn run() {
             desktop::desktop_aria_fly_out,
             desktop::desktop_aria_fly_home,
             desktop::desktop_aria_set_asleep,
+            custom_sounds::custom_sounds,
+            custom_sounds::custom_sound,
+            custom_sounds::reveal_sounds_folder,
+            custom_sounds::reload_sounds,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

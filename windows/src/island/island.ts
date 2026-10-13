@@ -459,6 +459,7 @@ export class Island {
 
   private wireFsm() {
     this.fsm.homeToPetitDelay = State.settings.autoCloseInterval;
+    this.fsm.openOnHover = State.settings.openOnHover;
     this.fsm.onTransition = (from, to) => {
       // The greeting is over, however it ended: back to her desktop spot.
       if (from === "aria" && to !== "aria") this.desktop.launch();
@@ -1199,6 +1200,8 @@ export class Island {
     this.islandEl.addEventListener("mousedown", (e) => {
       Sound.resume();
       State.lastActivity = performance.now();
+      // A click makes a hover-opened island an ordinary open one.
+      this.fsm.userInteracted();
       // A press on ARIA may become a drag out to the desktop.
       if (e.button === 0 && this.isBotHit(e.clientX, e.clientY)) {
         this.botPress = { x: e.clientX, y: e.clientY };
@@ -1324,14 +1327,18 @@ export class Island {
       x >= rect.x - HIT_MARGIN && x <= rect.x + rect.w + HIT_MARGIN &&
       y >= rect.y - HIT_MARGIN && y <= rect.y + rect.h + HIT_MARGIN;
 
-    if (inIsland && !this.wasInIsland) {
+    // Recorded before the state machine hears of it: a transition it makes
+    // right away (open on hover) reads where the pointer is, and must not see
+    // the pointer as still outside.
+    const wasIn = this.wasInIsland;
+    this.wasInIsland = inIsland;
+    if (inIsland && !wasIn) {
       if (this.fsm.state === "aria") this.greeting.hover();
       this.fsm.mouseEntered();
     }
-    if (!inIsland && this.wasInIsland) {
+    if (!inIsland && wasIn) {
       this.fsm.mouseLeft();
     }
-    this.wasInIsland = inIsland;
 
     // Resting on the folded notch opens it (≈250 ms), as a click would.
     const canHoverOpen = inIsland && this.fsm.state === "petit" && !this.dragMode && !State.fileDragOver;
@@ -1683,6 +1690,7 @@ export class Island {
     Sound.setEnabled(State.settings.soundEnabled);
     Sound.setVolume(State.settings.soundVolume);
     this.fsm.homeToPetitDelay = State.settings.autoCloseInterval;
+    this.fsm.openOnHover = State.settings.openOnHover;
     State.notify();
   }
 

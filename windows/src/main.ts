@@ -122,6 +122,11 @@ async function main() {
     }
   });
 
+  // Settings → Reload sounds: read the sounds folder again, and let them hear it.
+  await onEvent<null>("sounds-changed", () => {
+    void Sound.reload().then(() => Sound.play("pop"));
+  });
+
   // The settings window writes preferences; apply them here without a restart.
   await onEvent<Settings>("settings-changed", (s) => {
     const previousMain = State.mainPillId;

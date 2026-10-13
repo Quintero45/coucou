@@ -5342,6 +5342,72 @@
    "pt-BR": "Reproduzir",
    "ru": "Воспроизвести",
    "id": "Putar"
+  },
+  "Open on hover": {
+   "zh-Hans": "悬停时打开",
+   "hi": "होवर पर खोलें",
+   "es": "Abrir al pasar el cursor",
+   "ar": "الفتح عند التمرير",
+   "fr": "Ouvrir au survol",
+   "bn": "হোভারে খুলুন",
+   "pt-BR": "Abrir ao passar o cursor",
+   "ru": "Открывать при наведении",
+   "id": "Buka saat kursor di atasnya"
+  },
+  "Hovering the island opens it; it folds again shortly after the pointer leaves. Click inside to keep it open.": {
+   "zh-Hans": "将指针悬停在岛上即可打开；指针离开后不久会再次收起。在其中点按可保持打开。",
+   "hi": "आइलैंड पर पॉइंटर ले जाने से वह खुलता है; पॉइंटर हटने के कुछ देर बाद फिर सिमट जाता है। खुला रखने के लिए अंदर क्लिक करें।",
+   "es": "Pasar el cursor por la isla la abre; se pliega poco después de que el cursor salga. Haz clic dentro para dejarla abierta.",
+   "ar": "يفتح التمرير فوق الجزيرة ويُطوى بعد مغادرة المؤشر بقليل. انقر داخلها لإبقائها مفتوحة.",
+   "fr": "Survoler l'île l'ouvre ; elle se replie peu après que le pointeur la quitte. Cliquez dedans pour la garder ouverte.",
+   "bn": "আইল্যান্ডের উপর পয়েন্টার রাখলে খোলে; পয়েন্টার সরালে একটু পরে আবার গুটিয়ে যায়। খোলা রাখতে ভিতরে ক্লিক করুন।",
+   "pt-BR": "Passar o cursor pela ilha a abre; ela se fecha logo depois que o cursor sai. Clique dentro para mantê-la aberta.",
+   "ru": "Наведение открывает остров; он сворачивается вскоре после того, как указатель уходит. Щёлкните внутри, чтобы он остался открытым.",
+   "id": "Mengarahkan kursor ke pulau akan membukanya; pulau menutup lagi sesaat setelah kursor pergi. Klik di dalamnya agar tetap terbuka."
+  },
+  "Open sounds folder": {
+   "zh-Hans": "打开声音文件夹",
+   "hi": "साउंड फ़ोल्डर खोलें",
+   "es": "Abrir la carpeta de sonidos",
+   "ar": "فتح مجلد الأصوات",
+   "fr": "Ouvrir le dossier des sons",
+   "bn": "সাউন্ড ফোল্ডার খুলুন",
+   "pt-BR": "Abrir a pasta de sons",
+   "ru": "Открыть папку звуков",
+   "id": "Buka folder suara"
+  },
+  "Reload sounds": {
+   "zh-Hans": "重新载入声音",
+   "hi": "साउंड फिर से लोड करें",
+   "es": "Recargar sonidos",
+   "ar": "إعادة تحميل الأصوات",
+   "fr": "Recharger les sons",
+   "bn": "সাউন্ড আবার লোড করুন",
+   "pt-BR": "Recarregar sons",
+   "ru": "Перезагрузить звуки",
+   "id": "Muat ulang suara"
+  },
+  "{0} custom": {
+   "zh-Hans": "{0} 个自定义",
+   "hi": "{0} कस्टम",
+   "es": "{0} personalizados",
+   "ar": "{0} مخصّص",
+   "fr": "{0} personnalisés",
+   "bn": "{0} কাস্টম",
+   "pt-BR": "{0} personalizados",
+   "ru": "своих: {0}",
+   "id": "{0} kustom"
+  },
+  "Drop a file named like one of ARIA's sounds (finish.wav, approval.mp3, greet.m4a…) in the sounds folder to replace it, then Reload.": {
+   "zh-Hans": "在声音文件夹中放入与 ARIA 某个声音同名的文件（finish.wav、approval.mp3、greet.m4a…）即可替换它，然后重新载入。",
+   "hi": "ARIA की किसी साउंड के नाम वाली फ़ाइल (finish.wav, approval.mp3, greet.m4a…) साउंड फ़ोल्डर में रखें, वह उसकी जगह ले लेगी; फिर Reload करें।",
+   "es": "Deja en la carpeta de sonidos un archivo con el nombre de uno de los sonidos de ARIA (finish.wav, approval.mp3, greet.m4a…) para reemplazarlo y luego recarga.",
+   "ar": "ضع في مجلد الأصوات ملفًا يحمل اسم أحد أصوات ARIA (finish.wav وapproval.mp3 وgreet.m4a…) ليحل محله، ثم أعد التحميل.",
+   "fr": "Déposez dans le dossier des sons un fichier nommé comme l'un des sons d'ARIA (finish.wav, approval.mp3, greet.m4a…) pour le remplacer, puis rechargez.",
+   "bn": "ARIA-র কোনো সাউন্ডের নামে একটি ফাইল (finish.wav, approval.mp3, greet.m4a…) সাউন্ড ফোল্ডারে রাখুন, সেটি বদলে যাবে; তারপর Reload করুন।",
+   "pt-BR": "Coloque na pasta de sons um arquivo com o nome de um dos sons da ARIA (finish.wav, approval.mp3, greet.m4a…) para substituí-lo e depois recarregue.",
+   "ru": "Положите в папку звуков файл с именем одного из звуков ARIA (finish.wav, approval.mp3, greet.m4a…), чтобы заменить его, затем перезагрузите.",
+   "id": "Taruh file bernama seperti salah satu suara ARIA (finish.wav, approval.mp3, greet.m4a…) di folder suara untuk menggantinya, lalu muat ulang."
   }
  }
 }
