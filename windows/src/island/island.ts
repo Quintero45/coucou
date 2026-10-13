@@ -19,6 +19,7 @@ import { BotLive } from "../core/botlive";
 import { registerBotEvents } from "./botevents";
 import { APPROVAL_ANSWER, CURSOR_WRITE, callCmd } from "../core/botcmds";
 import { ARIA_TASK, ASSISTANT_ID, BOT_PREFIX, State } from "../core/state";
+import { islandDances } from "../core/dance";
 import { BotEngine, hexToRGB } from "../aria/engine";
 import { Greeting } from "../aria/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../aria/minibots";
@@ -169,6 +170,9 @@ export class Island {
 
   /** Where a press on ARIA started: moving past DRAG_THRESHOLD drags her out. */
   private botPress: { x: number; y: number } | null = null;
+
+  /** The next reveal from hidden makes no peek (music starting, as on macOS). */
+  private silentReveal = false;
 
   /** Drop sequence bookkeeping: last tick played, and whether the ✓ has fired. */
   private uploadTens = 0;
@@ -470,7 +474,7 @@ export class Island {
           break;
         case "petit":
           if (from === "aria") this.greeting.interrupt();
-          else if (from === "hidden") Sound.play("peek");
+          else if (from === "hidden" && !this.silentReveal) Sound.play("peek");
           this.setMode("compact");
           if (from === "aria") State.view = State.defaultView();
           if (!this.wasInIsland) this.fsm.mouseLeft();
@@ -621,6 +625,13 @@ export class Island {
 
   reveal() {
     this.fsm.reveal();
+  }
+
+  /** Music started playing: the compact island, without the peek sound (musicReveal). */
+  revealSilently() {
+    this.silentReveal = true;
+    this.fsm.reveal();
+    this.silentReveal = false;
   }
 
   /** Right-click on ARIA: wardrobe open ↔ back to the usual view. */
@@ -1601,11 +1612,23 @@ export class Island {
     const showOutfit = mainFocused || State.mode !== "expanded" || inWardrobe;
     const outfit = State.wardrobePreview ?? this.seasons.get(parseOutfit(State.settings.ariaOutfit));
     this.engine.setOutfit(showOutfit ? outfit : "none", !inWardrobe);
+    // Dances while music plays: always in the compact island, expanded only on
+    // the music pill's card (BotCanvasView, macOS). Asked every frame.
+    this.engine.setDancing(islandDances({
+      music: State.media?.playing ?? false,
+      state: State.effectiveState,
+      mode: State.mode,
+      view: State.view,
+      focusId: State.focusTask?.id,
+    }));
 
     this.engine.update(dt);
     ctx.setTransform(dpr, 0, 0, dpr, BOT_SIDE * dpr, 0);
     ctx.clearRect(-BOT_SIDE, 0, wCss, hCss);
+    ctx.save();
+    this.engine.applyDance(ctx, w, hCss);
     this.engine.draw(ctx, w, hCss);
+    ctx.restore();
   }
 
   /** BotCanvasView.lookX / lookY — tanh of the distance to the bot. */

@@ -40,7 +40,12 @@ async function main() {
   State.loadIntegrationTasks();
   State.ensureAriaPill();
   // The music pill: what plays now, then every change media.rs reports.
-  await onEvent<MediaInfo>("media", (m) => State.setMedia(m));
+  await onEvent<MediaInfo>("media", (m) => {
+    const wasPlaying = !!State.media?.playing;
+    State.setMedia(m);
+    // Only on not playing → playing (SpotifyController.setPlaying): she shows up to dance.
+    if (!wasPlaying && m.playing && !State.paused && State.mode === "hidden") island.revealSilently();
+  });
   void Bridge.mediaState().then((m) => m && State.setMedia(m));
   if (boot && !boot.cursorPoll) island.followPageCursor();
   await island.desktop.init();

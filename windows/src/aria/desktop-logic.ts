@@ -19,6 +19,8 @@ export interface DesktopSnapshot {
   soundVolume: number;
   /** Tray → Pause: she dozes off and stays asleep. */
   paused: boolean;
+  /** Music plays: she dances (the compact island's rules, core/dance.ts). */
+  dancing: boolean;
 }
 
 /** Events between the two windows. Rust adds `desktop-aria-dropped`. */

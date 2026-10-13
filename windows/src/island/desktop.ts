@@ -7,6 +7,7 @@ import { Bridge, emitToWindow, onEvent, type DesktopMode } from "../core/bridge"
 import type { BotEmoteName } from "../core/layout";
 import { Sound } from "../core/sound";
 import { State } from "../core/state";
+import { desktopDances } from "../core/dance";
 import {
   DESKTOP_EVENTS, DesktopAriaController, alertActive, type DesktopSnapshot,
 } from "../aria/desktop-logic";
@@ -170,6 +171,7 @@ export class DesktopLink {
       soundEnabled: State.settings.soundEnabled,
       soundVolume: State.settings.soundVolume,
       paused: State.paused,
+      dancing: desktopDances(State.media?.playing ?? false, State.effectiveState),
     };
     const key = JSON.stringify(snapshot);
     if (key === this.pushed) return;

@@ -6,7 +6,7 @@ import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
 import { Ticker } from "./ticker";
 import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, ARIA_TASK, MEDIA_ID, State, aiProvider, botPhase, type AgentTask } from "../core/state";
-import { musicCardKey, musicPillButtons } from "./media";
+import { musicCardKey, musicPillButtons, musicPillColors } from "./media";
 import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
 import { createMiniBot, pruneMiniBots } from "../aria/minibots";
 import { buildPrompt } from "./chat";
@@ -598,7 +598,9 @@ function botLabel(task: AgentTask): string {
 
 function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   const label = task.id === "integration_claude" ? "VS Code" : task.name;
-  const canvas = createMiniBot(task, 24);
+  const canvas = task.id === MEDIA_ID
+    ? createMiniBot(task, 24, () => State.media?.playing ?? false)
+    : createMiniBot(task, 24);
   const isBotPill = task.id.startsWith(BOT_PREFIX);
   // Grok Bots say what they are doing under their name: working, asking,
   // done, error. Nothing when idle.
@@ -627,8 +629,9 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     lbl,
   );
   if (task.id === MEDIA_ID) {
-    pill.classList.add("pill-music");
+    pill.classList.add("np-pill");
     pill.append(musicPillButtons(State.media));
+    musicPillColors(pill, task.color);
   }
   // The avatar's mood (style.css animates the mini-bot's frame, not its canvas).
   pill.dataset.botState = mood;

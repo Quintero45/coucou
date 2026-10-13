@@ -4636,242 +4636,318 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* ── Music pill (views/media.ts) ──────────────────────────────────────────────
-   Whatever Windows lists as playing. The card keeps the integration card's
-   left gap for ARIA; the pill gets play/pause and next on its right. */
+   Whatever Windows lists as playing, in the look of Coucou's Spotify pill and
+   card (SpotifyViews.swift, NowPlayingViews.swift): sizes and colours are the
+   Mac's. The card keeps the integration card's left gap for ARIA. */
 
-.music-card {
-  gap: 6px;
-  padding-top: 12px;
+.np-pill {
+  border-color: var(--np-soft);
 }
 
-.music-head {
+.np-pill:hover {
+  background: var(--np-wash);
+  border-color: var(--np-edge);
+  box-shadow: 0 2px 10px var(--np-glow);
+}
+
+.np-pill .lbl {
+  transition: padding 0.2s cubic-bezier(0.3, 1.2, 0.4, 1), color 0.18s;
+}
+
+.np-pill:hover .lbl {
+  padding: 0 52px 0 34px;
+  color: var(--np-light);
+}
+
+.np-pill-controls {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.85);
+  transform-origin: right center;
+  transition: opacity 0.18s, transform 0.2s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+
+.np-pill:hover .np-pill-controls {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+
+.np-pill-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--np-soft);
+  background: var(--card-flat);
+  color: var(--dim-3);
+  display: grid;
+  place-items: center;
+  cursor: default;
+  transition: transform 0.2s cubic-bezier(0.3, 1.2, 0.4, 1), background 0.18s, border-color 0.18s,
+    box-shadow 0.18s, color 0.18s;
+}
+
+.np-pill-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+  background: var(--np-wash);
+  border-color: var(--np-edge);
+  color: var(--np-light);
+  box-shadow: 0 0 6px var(--np-glow);
+}
+
+.np-pill-btn:disabled {
+  opacity: 0.35;
+}
+
+.np-card {
+  padding-top: 10px;
+}
+
+.np-head {
   display: flex;
   align-items: center;
   gap: 9px;
+  padding-right: 24px;
   min-width: 0;
-  padding-right: 22px;
 }
 
-.music-cover {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 auto;
-  border-radius: 8px;
-  object-fit: cover;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-
-.music-cover.empty {
+.np-art {
+  position: relative;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
 }
 
-.music-meta {
+.np-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.np-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: np-art-in 0.25s ease-in-out;
+}
+
+@keyframes np-art-in {
+  from { opacity: 0; }
+}
+
+.np-art.has-art svg {
+  opacity: 0;
+}
+
+.np-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
-.music-title {
+.np-title-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
-.music-title b {
-  font: 600 12.5px var(--font);
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.music-dot {
+.np-dot {
   width: 6px;
   height: 6px;
   flex: 0 0 auto;
   border-radius: 50%;
 }
 
-.music-sub {
-  font: 400 11px var(--font);
-  color: var(--dim-2);
+.np-title,
+.np-sub {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.music-progress {
+.np-title {
+  font: 600 12px var(--font);
+  color: var(--ink);
+}
+
+.np-sub {
+  font: 400 11px var(--font);
+  color: var(--dim-2);
+}
+
+.np-progress {
   display: flex;
   align-items: center;
-  gap: 7px;
-}
-
-.music-time {
-  min-width: 26px;
-  font: 500 9.5px var(--font);
+  gap: 6px;
+  padding-top: 7px;
+  font: 400 9.5px var(--font);
   font-variant-numeric: tabular-nums;
   color: var(--dim-3);
 }
 
-.music-time:last-child {
+.np-time.elapsed {
+  min-width: 26px;
   text-align: right;
 }
 
-.music-bar {
+.np-time.remaining {
+  min-width: 28px;
+  text-align: left;
+}
+
+.np-bar {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
+  height: 10px;
+  touch-action: none;
+  cursor: default;
+}
+
+.np-track,
+.np-fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
   height: 3px;
-  border-radius: 3px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+}
+
+.np-track {
+  width: 100%;
   background: rgba(255, 255, 255, 0.12);
 }
 
-.music-bar.seek {
-  cursor: pointer;
+.np-bar.active .np-track,
+.np-bar.active .np-fill {
+  height: 4px;
 }
 
-.music-bar.seek::before {
-  /* A taller hit area than the 3 px line. */
-  content: "";
-  position: absolute;
-  inset: -6px 0;
-}
-
-.music-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: inherit;
-}
-
-.music-knob {
+.np-knob {
   position: absolute;
   top: 50%;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--ink);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.12s ease-out;
 }
 
-.music-bar.seek:hover .music-knob {
+.np-bar.active .np-knob {
   opacity: 1;
 }
 
-.music-controls {
+.np-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  padding-top: 4px;
 }
 
-.music-btn {
+.np-controls .grow {
+  flex: 1;
+  min-width: 8px;
+}
+
+.np-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.np-icon,
+.np-play {
   position: relative;
-  width: 24px;
-  height: 24px;
+  padding: 0;
+  border: 0;
   display: grid;
   place-items: center;
-  border: 0;
-  border-radius: 50%;
+  cursor: default;
+  transition: transform 0.2s cubic-bezier(0.3, 1.2, 0.4, 1), filter 0.12s ease-out;
+}
+
+.np-icon {
+  width: 16px;
+  height: 18px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.78);
-  transition: background 0.15s, color 0.15s, transform 0.15s;
 }
 
-.music-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
-  color: #fff;
+.np-icon:hover:not(:disabled) {
+  filter: brightness(1.3);
 }
 
-.music-btn:active:not(:disabled) {
-  transform: scale(0.92);
-}
-
-.music-btn:disabled {
+.np-icon:disabled {
   opacity: 0.3;
 }
 
-.music-btn.on {
-  color: var(--on);
-}
-
-.music-btn.play {
-  width: 28px;
-  height: 28px;
-  background: #fff;
-  color: #000;
-}
-
-.music-btn.play:hover {
-  background: #fff;
-  color: #000;
-  transform: scale(1.06);
-}
-
-.music-one {
+.np-one {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
+  right: -2px;
+  bottom: 0;
   font: 700 7px var(--font);
 }
 
-.music-vol {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  color: var(--dim-2);
-}
-
-.music-volume {
-  width: 62px;
-  height: 3px;
-  margin: 0;
-}
-
-.pill-music .lbl {
-  padding-left: 22px;
-  padding-right: 46px;
-}
-
-.pill-music-btns {
-  position: absolute;
-  right: 3px;
-  top: 50%;
-  display: flex;
-  gap: 2px;
-  transform: translateY(-50%);
-}
-
-.pill-music-btn {
+.np-play {
   width: 20px;
   height: 20px;
-  display: grid;
-  place-items: center;
-  border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  transition: background 0.15s, transform 0.15s;
+  background: var(--ink);
+  color: var(--card-flat);
 }
 
-.pill-music-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.pill-music-btn:active:not(:disabled) {
+.np-icon:active:not(:disabled),
+.np-play:active {
   transform: scale(0.9);
 }
 
-.pill-music-btn:disabled {
-  opacity: 0.35;
+.np-volume {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-html[data-dir="rtl"] #views .music-card :is(.music-progress, .music-controls) {
+.np-vol-icon {
+  width: 13px;
+  display: flex;
+  justify-content: flex-end;
+  color: var(--dim-3);
+}
+
+.np-volume .np-bar {
+  flex: 0 0 44px;
+  width: 44px;
+}
+
+html[data-dir="rtl"] #views .np-card :is(.np-progress, .np-controls) {
   direction: ltr;
+}
+
+html[data-dir="rtl"] #views :is(.np-title, .np-sub) {
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 
 /* ── Arabic: right to left ─────────────────────────────────────────────────────
