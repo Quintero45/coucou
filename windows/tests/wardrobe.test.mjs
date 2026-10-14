@@ -4,8 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  OUTFIT_SELECTIONS, OUTFIT_LABELS, SeasonCache, easterDate, parseOutfit, resolveOutfit,
-  seasonalOutfit, wardrobeHeader,
+  OUTFIT_SELECTIONS, OUTFIT_LABELS, SeasonCache, chosenOutfit, easterDate, outfitPill, ownOutfit,
+  parseOutfit, resolveOutfit, seasonalOutfit, wardrobeHeader,
 } from "../src/aria/wardrobe.ts";
 import { DEFAULT_SETTINGS } from "../src/core/state.ts";
 
@@ -120,6 +120,21 @@ test("the wardrobe header names the hovered outfit, else the current choice", ()
   assert.equal(wardrobeHeader("auto", "crown", d), "Auto · follows the seasons (now: Witch hat)");
   assert.equal(wardrobeHeader("scarf", "auto", d), "Scarf");
   assert.equal(wardrobeHeader(null, "auto", day(2026, 5, 1)), "Auto · None");
+});
+
+test("each pill keeps its own outfit; the main ARIA keeps ariaOutfit", () => {
+  assert.deepEqual(DEFAULT_SETTINGS.pillOutfits, {});
+  assert.equal(outfitPill(null, "agent_claude"), null);
+  assert.equal(outfitPill("agent_claude", "agent_claude"), null);
+  assert.equal(outfitPill("agent_cursor", "agent_claude"), "agent_cursor");
+
+  const prefs = { ariaOutfit: "crown", pillOutfits: { agent_cursor: "beanie", "agent_bot-trello": "nonsense" } };
+  assert.equal(ownOutfit(prefs, null), "crown");
+  assert.equal(ownOutfit(prefs, "agent_cursor"), "beanie");
+  assert.equal(ownOutfit(prefs, "agent_bot-trello"), "auto");
+  assert.equal(ownOutfit(prefs, "agent_codex"), null);
+  assert.equal(chosenOutfit(prefs, "agent_codex"), "crown");
+  assert.equal(chosenOutfit({ ariaOutfit: "bow" }, "agent_cursor"), "bow");
 });
 
 test("the per-frame season lookup follows the calendar day", () => {

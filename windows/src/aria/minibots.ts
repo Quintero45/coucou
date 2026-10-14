@@ -3,7 +3,17 @@
 
 import { BotEngine, hexToRGB } from "./engine";
 import { gestureFor, isBotTask, tickBotFx, type BotGestureFx } from "./botfx";
-import type { AgentTask } from "../core/state";
+import { SeasonCache, ownOutfit } from "./wardrobe";
+import { State, type AgentTask } from "../core/state";
+
+const seasons = new SeasonCache();
+
+/** Dresses a mini in its pill's own outfit, if it has one. */
+function dress(engine: BotEngine, taskId: string, animated: boolean) {
+  const own = ownOutfit(State.settings, taskId);
+  engine.miniDressed = own !== null;
+  engine.setOutfit(own === null ? "none" : seasons.get(own), animated);
+}
 
 interface MiniBot {
   canvas: HTMLCanvasElement;
@@ -54,6 +64,7 @@ export function createMiniBot(task: AgentTask, bodySize: number, dancing?: () =>
     engine.gesture = fx;
   }
   engine.setState(task.state, true);
+  dress(engine, task.id, false);
   if (task.emote) engine.setPermanentEmote(task.emote);
   if (task.miniEye) {
     engine.permanentEye = task.miniEye;
@@ -84,6 +95,7 @@ export function syncMiniBotStates(tasks: AgentTask[]) {
     mb.fx?.setState(task.state);
     mb.engine.setState(task.state);
     mb.engine.bodyColor = hexToRGB(task.color);
+    dress(mb.engine, task.id, true);
   }
 }
 

@@ -61,6 +61,28 @@ export function parseOutfit(raw: unknown): OutfitSelection {
   return typeof raw === "string" && SELECTION_SET.has(raw) ? (raw as OutfitSelection) : DEFAULT_OUTFIT;
 }
 
+interface OutfitPrefs {
+  ariaOutfit: string;
+  pillOutfits?: Record<string, string>;
+}
+
+/** The pill the wardrobe dresses on its own: null for the main ARIA, whose choice is `ariaOutfit`. */
+export function outfitPill(focusId: string | null | undefined, mainPillId: string | null | undefined): string | null {
+  return focusId && focusId !== mainPillId ? focusId : null;
+}
+
+/** A pill's own outfit, or null when it has none (the main ARIA's then applies where she is shown). */
+export function ownOutfit(prefs: OutfitPrefs, pillId: string | null): OutfitSelection | null {
+  if (pillId === null) return parseOutfit(prefs.ariaOutfit);
+  const raw = prefs.pillOutfits?.[pillId];
+  return raw === undefined ? null : parseOutfit(raw);
+}
+
+/** What the wardrobe shows as chosen for `pillId`. */
+export function chosenOutfit(prefs: OutfitPrefs, pillId: string | null): OutfitSelection {
+  return ownOutfit(prefs, pillId) ?? parseOutfit(prefs.ariaOutfit);
+}
+
 /** Easter Sunday of `year` (Meeus/Jones/Butcher), as [month 1–12, day]. */
 export function easterDate(year: number): [number, number] {
   const a = year % 19;

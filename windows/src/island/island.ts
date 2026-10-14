@@ -23,7 +23,7 @@ import { islandDances } from "../core/dance";
 import { BotEngine, hexToRGB } from "../aria/engine";
 import { Greeting } from "../aria/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../aria/minibots";
-import { SeasonCache, parseOutfit } from "../aria/wardrobe";
+import { SeasonCache, outfitPill, ownOutfit, parseOutfit } from "../aria/wardrobe";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { closePlanCard, openPlanColor, planCardOpen } from "../views/usage";
@@ -387,8 +387,10 @@ export class Island {
       openSettingsWindow: () => void Bridge.openSettingsWindow(),
       blip: () => Sound.play("blip"),
       chooseOutfit: (selection) => {
-        if (parseOutfit(State.settings.ariaOutfit) === selection) return;
-        State.settings.ariaOutfit = selection;
+        const pill = outfitPill(State.focusId, State.mainPillId);
+        if (ownOutfit(State.settings, pill) === selection) return;
+        if (pill === null) State.settings.ariaOutfit = selection;
+        else State.settings.pillOutfits = { ...State.settings.pillOutfits, [pill]: selection };
         void Bridge.saveSettings(State.settings);
         Sound.play("pop");
         this.engine.triggerEmote("proud");
@@ -1625,14 +1627,14 @@ export class Island {
         this.engine.slotHVel = 0;
       }
     }
-    // Only the main ARIA is dressed — the one of the main tool's pill (Settings →
-    // Active pills): a focused integration pill shows its own colours, unless
-    // the wardrobe is open (BotCanvasView.showOutfit, macOS).
+    // The main ARIA wears `ariaOutfit`. Another focused pill wears its own outfit
+    // when it has one, else shows its own colours unless the wardrobe is open
+    // (BotCanvasView.showOutfit, macOS).
     // In the wardrobe the hovered outfit swaps in at once, without the drop-in.
     const inWardrobe = State.mode === "expanded" && State.view === "wardrobe";
-    const mainFocused = State.focusId == null || State.focusId === State.mainPillId;
-    const showOutfit = mainFocused || State.mode !== "expanded" || inWardrobe;
-    const outfit = State.wardrobePreview ?? this.seasons.get(parseOutfit(State.settings.ariaOutfit));
+    const own = ownOutfit(State.settings, outfitPill(State.focusId, State.mainPillId));
+    const showOutfit = own !== null || State.mode !== "expanded" || inWardrobe;
+    const outfit = State.wardrobePreview ?? this.seasons.get(own ?? parseOutfit(State.settings.ariaOutfit));
     this.engine.setOutfit(showOutfit ? outfit : "none", !inWardrobe);
     // Dances while music plays: always in the compact island, expanded only on
     // the music pill's card (BotCanvasView, macOS). Asked every frame.

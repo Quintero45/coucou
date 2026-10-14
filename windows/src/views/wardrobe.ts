@@ -6,13 +6,16 @@ import { h } from "./dom";
 import { State } from "../core/state";
 import { drawWardrobeIcon } from "../aria/outfits";
 import {
-  OUTFIT_KEYS, OUTFIT_SELECTIONS, WARDROBE_STRINGS, parseOutfit, resolveOutfit, seasonalOutfit,
+  OUTFIT_KEYS, OUTFIT_SELECTIONS, WARDROBE_STRINGS, chosenOutfit, outfitPill, resolveOutfit, seasonalOutfit,
   wardrobeHeader, type Outfit, type OutfitSelection,
 } from "../aria/wardrobe";
 import type { ViewActions, ViewHost } from "./views";
 import { language, tl } from "../i18n/i18n";
 
 const ICON = 28;
+
+/** The focused pill's choice: the wardrobe dresses that pill. */
+const chosen = () => chosenOutfit(State.settings, outfitPill(State.focusId, State.mainPillId));
 
 export function buildWardrobe(actions: ViewActions): ViewHost {
   const note = h("span", { class: "wardrobe-note" });
@@ -38,7 +41,7 @@ export function buildWardrobe(actions: ViewActions): ViewHost {
   const items = new Map<OutfitSelection, { button: HTMLButtonElement; canvas: HTMLCanvasElement }>();
 
   const updateNote = () => {
-    note.textContent = wardrobeHeader(hovered, parseOutfit(State.settings.ariaOutfit), new Date());
+    note.textContent = wardrobeHeader(hovered, chosen(), new Date());
   };
 
   for (const sel of OUTFIT_SELECTIONS) {
@@ -89,7 +92,7 @@ export function buildWardrobe(actions: ViewActions): ViewHost {
       drawIcons();
       // The island drops the preview when the view closes: so does the hover.
       if (State.wardrobePreview == null) hovered = null;
-      const current = parseOutfit(State.settings.ariaOutfit);
+      const current = chosen();
       for (const [sel, { button }] of items) button.classList.toggle("on", sel === current);
       updateNote();
     },

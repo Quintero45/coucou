@@ -69,6 +69,9 @@ pub struct Settings {
     /// comes, like `aria_outfit`: src/core/pill-colors.ts reads whatever is not
     /// a colour as "no choice".
     pub pill_colors: BTreeMap<String, String>,
+    /// An outfit of its own for a pill other than the main one, by pill ID, picked
+    /// in the wardrobe with that pill focused. Same raw values as `aria_outfit`.
+    pub pill_outfits: BTreeMap<String, String>,
     /// Interface language: "" follows the system, else one of i18n::LANGUAGES
     /// ("fr", "pt-BR", "zh-Hans"…). Kept as it comes, like `aria_outfit`: a
     /// code this build doesn't know reads as "".
@@ -193,6 +196,7 @@ impl Default for Settings {
             shortcuts: Default::default(),
             aria_outfit: "auto".into(),
             pill_colors: BTreeMap::new(),
+            pill_outfits: BTreeMap::new(),
             language: String::new(),
             mail_from: String::new(),
             voice_wake: false,
@@ -499,6 +503,7 @@ mod tests {
   "shortcuts": { "openChat": { "keys": "Ctrl+Shift+K", "enabled": false } },
   "ariaOutfit": "witchHat",
   "pillColors": { "integration_claude": "#2DD4BF" },
+  "pillOutfits": { "agent_cursor": "beanie" },
   "language": "pt-BR",
   "mailFrom": "aria@ejemplo.mx",
   "voiceWake": true,
@@ -938,6 +943,7 @@ mod tests {
                 "shortcuts",
                 "ariaOutfit",
                 "pillColors",
+                "pillOutfits",
                 "language",
                 "mailFrom",
                 "voiceWake",

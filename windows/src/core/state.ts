@@ -338,6 +338,8 @@ export interface Settings {
    * Same key and values as the Mac's "pillColors".
    */
   pillColors: Record<string, string>;
+  /** An outfit of its own for a pill other than the main one, by pill ID; read it through aria/wardrobe.ts. */
+  pillOutfits: Record<string, string>;
   /**
    * Interface language: "" follows the system (when ARIA has its language,
    * else English), or one of src/i18n's ten codes ("fr", "pt-BR", "zh-Hans"…).
@@ -389,6 +391,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shortcuts: {},
   ariaOutfit: DEFAULT_OUTFIT,
   pillColors: {},
+  pillOutfits: {},
   language: "",
   mailFrom: "",
   voiceWake: false,
