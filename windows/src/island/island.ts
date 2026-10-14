@@ -18,7 +18,7 @@ import { saveSettingsMerged } from "../core/savesettings";
 import { BotLive } from "../core/botlive";
 import { registerBotEvents } from "./botevents";
 import { APPROVAL_ANSWER, CURSOR_WRITE, callCmd } from "../core/botcmds";
-import { ARIA_TASK, ASSISTANT_ID, BOT_PREFIX, State, type DroppedWindow } from "../core/state";
+import { ARIA_TASK, ASSISTANT_ID, BOT_PREFIX, State, type ChatMessage, type DroppedWindow } from "../core/state";
 import { islandDances } from "../core/dance";
 import { BotEngine, hexToRGB } from "../aria/engine";
 import { Greeting } from "../aria/greeting";
@@ -176,6 +176,8 @@ export class Island {
 
   /** Drop sequence bookkeeping: last tick played, and whether the ✓ has fired. */
   private uploadTens = 0;
+  /** The conversation before she was dropped on a window; it comes back when she does. */
+  private chatBeforeWindow: ChatMessage[] | null = null;
   private uploadDone = false;
 
   constructor(root: HTMLElement) {
@@ -185,6 +187,7 @@ export class Island {
       wardrobeFromDesktop: () => this.wardrobeFromDesktop(),
       dizzyFromDesktop: () => this.handleDizzy(),
       attachWindow: (w) => this.attachWindow(w),
+      cameHome: () => this.windowDone(),
     });
     this.build();
     this.wireFsm();
@@ -1095,12 +1098,28 @@ export class Island {
    */
   private attachWindow(w: DroppedWindow) {
     if (State.paused || State.stateOverride === "thinking") return;
+    if (!State.droppedWindow) this.chatBeforeWindow = State.chatHistory.slice();
     State.droppedFile = null;
     State.droppedWindow = w;
     State.promptContext = { kind: "window", appName: w.appName, title: w.title, screenshot: w.screenshot };
     State.chatHistory = [];
     void Bridge.chatReset();
     Sound.play("approve");
+    this.alert("prompt");
+  }
+
+  /**
+   * She was brought back to the island from the window she was on: that task is over, and the
+   * conversation from before it comes back.
+   */
+  private windowDone() {
+    if (!State.droppedWindow || State.stateOverride === "thinking") return;
+    State.droppedWindow = null;
+    State.promptContext = null;
+    State.chatHistory = this.chatBeforeWindow ?? [];
+    this.chatBeforeWindow = null;
+    void Bridge.chatReset();
+    Sound.play("finish");
     this.alert("prompt");
   }
 

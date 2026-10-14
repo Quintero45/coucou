@@ -67,6 +67,9 @@ data class PlanUsage(
 /** Both plans; null for one the computer does not know. */
 data class UsageSnapshot(val claude: PlanUsage?, val codex: PlanUsage?)
 
+/** One message of ARIA's conversation on the computer; [role] is "user" or "assistant". */
+data class ChatLine(val role: String, val text: String)
+
 /** One line of a service card. */
 data class ServiceLine(val label: String, val detail: String)
 
@@ -144,6 +147,8 @@ sealed interface ServerMsg {
     data class ChatDone(val id: String, val text: String?) : ServerMsg
     /** [reason] is a fixed code (off, busy, rate, auth...); [message] a fixed sentence written by the computer. */
     data class ChatError(val id: String, val reason: String, val message: String) : ServerMsg
+    /** ARIA's conversation as the computer's island shows it, oldest first. */
+    data class ChatHistory(val messages: List<ChatLine>) : ServerMsg
     data class Error(val code: String, val message: String) : ServerMsg
 }
 
@@ -219,6 +224,13 @@ object Wire {
                 "chatDelta" -> ServerMsg.ChatDelta(chatId(o), o.getString("text"))
                 "chatDone" -> ServerMsg.ChatDone(chatId(o), if (o.has("text")) o.getString("text") else null)
                 "chatError" -> ServerMsg.ChatError(chatId(o), o.optString("reason", "internal"), o.optString("message", ""))
+                "chatHistory" -> ServerMsg.ChatHistory(
+                    o.getJSONArray("messages").objects().mapNotNull { m ->
+                        val role = m.optString("role")
+                        val text = m.optString("text")
+                        if ((role == "user" || role == "assistant") && text.isNotBlank()) ChatLine(role, text) else null
+                    },
+                )
                 "error" -> ServerMsg.Error(o.optString("code", ""), o.optString("message", ""))
                 else -> null
             }

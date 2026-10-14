@@ -1019,6 +1019,7 @@ pub fn run() {
             phone_link::phone_link_publish,
             phone_link::phone_link_publish_question,
             phone_link::phone_link_publish_prefs,
+            phone_link::phone_link_publish_chat,
             phone_link::phone_answers_status,
             phone_link::phone_answers_set_enabled,
             phone_link::phone_diffs_status,

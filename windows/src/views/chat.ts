@@ -336,7 +336,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
         if (wantChip) chipRow.append(contextChip(wantChip));
       }
 
-      const key = `${State.chatHistory.length}:${sending}`;
+      const key = `${State.chatHistory.length}:${State.chatHistory[0]?.id ?? ""}:${sending}`;
       if (key !== renderedKey) {
         renderedKey = key;
         // A new chat (shortcut, a dropped file) empties what comes back after a restart too.

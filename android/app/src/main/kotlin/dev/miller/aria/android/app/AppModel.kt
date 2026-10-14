@@ -217,10 +217,15 @@ class AppModel(private val context: Context) : LinkListener {
         if (save) chatHistory.save(chatSession.messages)
     }
 
+    /** The last conversation the computer sent for ARIA. */
+    private var computerChat: List<dev.miller.aria.android.link.ChatLine>? = null
+
     fun chatSelect(id: String) {
         if (chatModels.any { it.id == id }) {
             chatModel = id
             prefs.edit().putString("chat_model", id).apply()
+            val shared = computerChat
+            if (id == ARIA_CHAT_MODEL && shared != null && chatSession.replaceWith(shared)) chatChanged(save = true)
         }
     }
 
@@ -684,6 +689,8 @@ class AppModel(private val context: Context) : LinkListener {
         main.post {
             chatModels = models
             chatModel = ChatModels.pick(models, chatModel)
+            val shared = computerChat
+            if (chatModel == ARIA_CHAT_MODEL && shared != null && chatSession.replaceWith(shared)) chatChanged(save = true)
         }
     }
 
@@ -697,6 +704,14 @@ class AppModel(private val context: Context) : LinkListener {
 
     override fun onChatError(id: String, reason: String, message: String) {
         main.post { chatSession.onError(id, reason); chatChanged(save = true) }
+    }
+
+    /** ARIA's conversation on the computer: shown here while talking to ARIA, not to another model. */
+    override fun onChatHistory(messages: List<dev.miller.aria.android.link.ChatLine>) {
+        main.post {
+            computerChat = messages
+            if (chatModel == ARIA_CHAT_MODEL && chatSession.replaceWith(messages)) chatChanged(save = true)
+        }
     }
 
     override fun onSessions(sessions: List<SessionInfo>) {
@@ -841,6 +856,8 @@ class AppModel(private val context: Context) : LinkListener {
     }
 
     private companion object {
+        /** The computer's id for ARIA herself in the chat's model list (chat_backend.rs ARIA_MODEL). */
+        const val ARIA_CHAT_MODEL = "aria/aria"
         /** How long the sheet waits for the lines of a file before saying it could not load them. */
         const val DIFF_WAIT_MS = 10_000L
         val NEWSWORTHY = setOf(BotState.QUESTION, BotState.ERROR, BotState.FINISHED, BotState.RATELIMIT)

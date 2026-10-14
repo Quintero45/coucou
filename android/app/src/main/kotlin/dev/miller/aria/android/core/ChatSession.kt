@@ -1,5 +1,6 @@
 package dev.miller.aria.android.core
 
+import dev.miller.aria.android.link.ChatLine
 import dev.miller.aria.android.link.ChatModel
 import dev.miller.aria.android.link.ClientMsg
 import dev.miller.aria.android.link.Protocol
@@ -94,6 +95,20 @@ class ChatSession(
     /** The link dropped: an answer on its way will not arrive. */
     fun onDisconnected() {
         running?.let { fail(it, "connection") }
+    }
+
+    /**
+     * ARIA's conversation as the computer shows it replaces this one, so both read the same.
+     * Not while an answer is on its way here: the next one brings it. Returns whether it changed.
+     */
+    fun replaceWith(lines: List<ChatLine>): Boolean {
+        if (running != null) return false
+        val next = lines.takeLast(MAX_MESSAGES).mapIndexed { i, l ->
+            ChatMessage("h-$i", if (l.role == "user") ChatRole.USER else ChatRole.ASSISTANT, l.text.take(MAX_TEXT))
+        }
+        if (next.map { it.role to it.text } == messages.map { it.role to it.text }) return false
+        messages = next
+        return true
     }
 
     /** New chat / Clear. */

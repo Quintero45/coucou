@@ -264,6 +264,36 @@ fn usage_line(u: &UsageIn) -> Option<Arc<str>> {
     Some(v.to_string().into())
 }
 
+/// One message of ARIA's conversation, from the island.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ChatLineIn {
+    pub role: String,
+    pub text: String,
+}
+
+/// Messages in the `chatHistory` line, at most.
+const CHAT_HISTORY_MAX: usize = 60;
+/// Characters of one message in that line, at most.
+const CHAT_TEXT_MAX: usize = 4000;
+
+/// `{"type":"chatHistory","messages":[{"role","text"}]}`: the newest messages that fit one line.
+/// None when there is nothing usable to say (an unknown role is dropped, an empty text too).
+fn chat_history_line(messages: &[ChatLineIn]) -> Option<Arc<str>> {
+    let clean: Vec<serde_json::Value> = messages
+        .iter()
+        .filter(|m| (m.role == "user" || m.role == "assistant") && !m.text.trim().is_empty())
+        .map(|m| json!({ "role": m.role, "text": clip(&m.text, CHAT_TEXT_MAX) }))
+        .collect();
+    let mut start = clean.len().saturating_sub(CHAT_HISTORY_MAX);
+    loop {
+        let line = json!({ "type": "chatHistory", "messages": &clean[start..] }).to_string();
+        if line.len() < super::server::MAX_LINE - 1024 || start >= clean.len() {
+            return Some(line.into());
+        }
+        start += 1;
+    }
+}
+
 fn prefs_line(outfit: &str) -> String {
     json!({ "type": "prefs", "outfit": outfit }).to_string()
 }
@@ -417,6 +447,8 @@ struct Sub {
     diffs: bool,
     /// The phone asked for `usage` and the user's switch was on when it connected.
     usage: bool,
+    /// The phone was offered `chat`: it is sent ARIA's conversation as the island shows it.
+    chat: bool,
     /// The phone asked for `relay` and the relay switch was on when it connected: it is sent the new access key
     /// when the user rotates it (docs/RELAY_LINK.md section 6).
     relay: bool,
@@ -434,6 +466,7 @@ pub struct Caps {
     pub prefs: bool,
     pub diffs: bool,
     pub usage: bool,
+    pub chat: bool,
     pub relay: bool,
     /// The services the user allowed for the phone (empty: the capability is not offered).
     pub services: Vec<String>,
@@ -448,6 +481,8 @@ struct Inner {
     outfit: Option<&'static str>,
     /// The last `usage` line (None: the island has nothing to say).
     usage: Option<Arc<str>>,
+    /// The last `chatHistory` line: ARIA's conversation as the island shows it.
+    chat: Option<Arc<str>>,
     /// The service cards the island has, cleaned (all of them: each phone gets only the ones its user allowed).
     services: Vec<ServiceIn>,
     subs: Vec<Sub>,
@@ -557,7 +592,7 @@ impl Hub {
 
     /// Like [`subscribe`], for a phone that may also have been offered `answers` and `prefs`.
     pub fn subscribe_with(&self, tx: mpsc::Sender<Out>, now: u64, caps: Caps) -> (u64, Arc<AtomicBool>) {
-        let Caps { details, answers, prefs, diffs, usage, relay, services } = caps;
+        let Caps { details, answers, prefs, diffs, usage, chat, relay, services } = caps;
         let mut inner = self.inner.lock().unwrap();
         expire(&mut inner, now);
         let id = inner.next_sub;
@@ -587,8 +622,13 @@ impl Hub {
                 let _ = tx.try_send(Out::Line(line.clone()));
             }
         }
+        if chat {
+            if let Some(line) = &inner.chat {
+                let _ = tx.try_send(Out::Line(line.clone()));
+            }
+        }
         let evicted = Arc::new(AtomicBool::new(false));
-        inner.subs.push(Sub { id, tx, evicted: evicted.clone(), details, answers, prefs, diffs, usage, relay, services, diff_asks: Vec::new() });
+        inner.subs.push(Sub { id, tx, evicted: evicted.clone(), details, answers, prefs, diffs, usage, chat, relay, services, diff_asks: Vec::new() });
         (id, evicted)
     }
 
@@ -764,6 +804,27 @@ impl Hub {
             sub.evicted.store(true, Ordering::SeqCst);
             inner.subs.retain(|s| s.id != sub_id);
         }
+    }
+
+    /// ARIA's conversation as the island shows it, oldest first. Only phones offered `chat` hear of it,
+    /// and a new one at once. The newest messages are kept, as many as fit one line.
+    pub fn publish_chat(&self, messages: &[ChatLineIn]) {
+        let Some(line) = chat_history_line(messages) else { return };
+        let mut inner = self.inner.lock().unwrap();
+        if inner.chat.as_deref() == Some(&*line) {
+            return;
+        }
+        inner.chat = Some(line.clone());
+        inner.subs.retain(|s| {
+            if !s.chat {
+                return true;
+            }
+            let kept = s.tx.try_send(Out::Line(line.clone())).is_ok();
+            if !kept {
+                s.evicted.store(true, Ordering::SeqCst);
+            }
+            kept
+        });
     }
 
     /// What ARIA wears on the computer ("auto" or an outfit, see [`OUTFIT_CHOICES`]); anything else is ignored.
@@ -1652,6 +1713,38 @@ mod tests {
         assert_eq!(next[0], serde_json::json!({ "type": "prefs", "outfit": "crown" }));
         hub.publish_outfit("crown"); // the same again: nothing new
         assert!(drain(&mut rx).is_empty());
+    }
+
+    #[test]
+    fn only_a_chat_phone_hears_arias_conversation_when_it_connects_and_when_it_changes() {
+        let line = |role: &str, text: &str| ChatLineIn { role: role.into(), text: text.into() };
+        let (hub, _) = hub();
+        hub.publish_chat(&[line("user", "hola"), line("assistant", "¿qué tal?"), line("tool", "x"), line("user", " ")]);
+        let (tx, mut rx) = mpsc::channel(16);
+        hub.subscribe_with(tx, 1_000, Caps { chat: true, ..Caps::default() });
+        let (other_tx, mut other) = mpsc::channel(16);
+        hub.subscribe_with(other_tx, 1_000, Caps { prefs: true, ..Caps::default() });
+        let first = drain(&mut rx);
+        let chat = first.iter().find(|l| l["type"] == "chatHistory").expect("history on connect");
+        assert_eq!(chat["messages"], serde_json::json!([{ "role": "user", "text": "hola" }, { "role": "assistant", "text": "¿qué tal?" }]));
+        drain(&mut other);
+        hub.publish_chat(&[line("user", "hola")]);
+        assert_eq!(drain(&mut rx).len(), 1);
+        hub.publish_chat(&[line("user", "hola")]);
+        assert!(drain(&mut rx).is_empty(), "the same again: nothing new");
+        assert!(drain(&mut other).iter().all(|l| l["type"] != "chatHistory"));
+    }
+
+    #[test]
+    fn a_long_conversation_keeps_its_newest_messages_within_one_line() {
+        let big = "é".repeat(4_000);
+        let messages: Vec<ChatLineIn> = (0..100).map(|i| ChatLineIn { role: "user".into(), text: format!("{i} {big}") }).collect();
+        let line = chat_history_line(&messages).unwrap();
+        assert!(line.len() < super::super::server::MAX_LINE);
+        let v: serde_json::Value = serde_json::from_str(&line).unwrap();
+        let kept = v["messages"].as_array().unwrap();
+        assert!(!kept.is_empty() && kept.len() < 100);
+        assert!(kept.last().unwrap()["text"].as_str().unwrap().starts_with("99 "));
     }
 
     #[test]

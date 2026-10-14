@@ -53,6 +53,7 @@ interface LinkListener {
     fun onChatDelta(id: String, text: String) {}
     fun onChatDone(id: String, text: String?) {}
     fun onChatError(id: String, reason: String, message: String) {}
+    fun onChatHistory(messages: List<ChatLine>) {}
 }
 
 /** What the UI talks to: the real [LinkClient] or the offline [DemoLink]. */
@@ -361,6 +362,7 @@ class LinkClient(
                 is ServerMsg.ChatDelta -> listener.onChatDelta(msg.id, msg.text)
                 is ServerMsg.ChatDone -> listener.onChatDone(msg.id, msg.text)
                 is ServerMsg.ChatError -> listener.onChatError(msg.id, msg.reason, msg.message)
+                is ServerMsg.ChatHistory -> listener.onChatHistory(msg.messages)
                 is ServerMsg.Error -> { listener.onError(msg.code, msg.message); if (msg.code == "auth") { fatal = true; return } }
             }
         }

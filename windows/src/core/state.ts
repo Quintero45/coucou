@@ -318,6 +318,8 @@ export interface Settings {
   assistantTools: boolean;
   /** ARIA acts without waiting for a click; the island says what she did (policy.rs). */
   assistantAutonomous: boolean;
+  /** Each action done without asking shows as a line on the island; off, only her card and aria.log keep them. */
+  announceAutonomous: boolean;
   /** ARIA answers her team's permission requests: ordinary work at once, risky work on a card (arbiter.rs). */
   ariaDecides: boolean;
   /** Claude Code (VS Code), Codex, Gemini CLI and the other agents: pills and settings. */
@@ -400,6 +402,7 @@ export const DEFAULT_SETTINGS: Settings = {
   providerUrls: {},
   assistantTools: true,
   assistantAutonomous: false,
+  announceAutonomous: true,
   ariaDecides: false,
   showAgents: false,
   showCursorAgent: true,

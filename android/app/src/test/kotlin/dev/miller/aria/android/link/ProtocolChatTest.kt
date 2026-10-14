@@ -32,6 +32,23 @@ class ProtocolChatTest {
         assertEquals(emptySet<String>(), odd.caps)
     }
 
+    @Test fun ariasConversationFromTheComputer_keepsOnlyUsableMessages() {
+        val h = Wire.decodeServer(
+            """{"type":"chatHistory","messages":[{"role":"user","text":"hola"},{"role":"assistant","text":"¿Qué tal?"},{"role":"system","text":"x"},{"role":"user","text":"  "}]}""",
+        ) as ServerMsg.ChatHistory
+        assertEquals(listOf(ChatLine("user", "hola"), ChatLine("assistant", "¿Qué tal?")), h.messages)
+    }
+
+    @Test fun ariasConversationReplacesThePhonesUnlessAnAnswerIsComing() {
+        val s = dev.miller.aria.android.core.ChatSession(newId = { "c1" })
+        assertTrue(s.replaceWith(listOf(ChatLine("user", "hola"), ChatLine("assistant", "hey"))))
+        assertEquals(listOf("hola", "hey"), s.messages.map { it.text })
+        assertFalse(s.replaceWith(listOf(ChatLine("user", "hola"), ChatLine("assistant", "hey"))))
+        s.send("otra", "aria/aria", connected = true)
+        assertFalse(s.replaceWith(emptyList()))
+        assertEquals(4, s.messages.size)
+    }
+
     @Test fun chatMessagesToTheComputer() {
         assertEquals("""{"type":"chatModels"}""", Wire.encode(ClientMsg.ChatModels))
         assertEquals("""{"type":"chatReset"}""", Wire.encode(ClientMsg.ChatReset))

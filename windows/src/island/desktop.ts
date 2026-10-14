@@ -26,6 +26,8 @@ export interface DesktopHost {
   dizzyFromDesktop(): void;
   /** She was dropped on another app's window: a chat about it. */
   attachWindow(w: DroppedWindow): void;
+  /** She came back to the island from the desktop: whatever window she was on is done. */
+  cameHome(): void;
 }
 
 export class DesktopLink {
@@ -78,7 +80,10 @@ export class DesktopLink {
     await onEvent<DroppedWindow>(DESKTOP_EVENTS.window, (w) => {
       if (w?.title) this.host.attachWindow(w);
     });
-    await onEvent<null>(DESKTOP_EVENTS.home, () => void this.controller.flyHome());
+    await onEvent<null>(DESKTOP_EVENTS.home, () => {
+      this.host.cameHome();
+      void this.controller.flyHome();
+    });
     await onEvent<null>(DESKTOP_EVENTS.wardrobe, () => this.host.wardrobeFromDesktop());
     await onEvent<null>(DESKTOP_EVENTS.dizzy, () => this.host.dizzyFromDesktop());
     // The window's page (re)loaded: it knows nothing yet.
@@ -157,6 +162,7 @@ export class DesktopLink {
         this.controller.installed();
       }
     } else if (home) {
+      this.host.cameHome();
       void this.controller.flyHome();
     }
   }

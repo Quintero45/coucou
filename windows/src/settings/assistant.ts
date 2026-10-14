@@ -245,6 +245,21 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
       ),
     );
 
+    const announce = h("button", { class: s.announceAutonomous ? "switch on" : "switch" });
+    announce.addEventListener("click", () => {
+      const next = !announce.classList.contains("on");
+      announce.classList.toggle("on", next);
+      ctx.get().announceAutonomous = next;
+      void ctx.save();
+    });
+    body.append(
+      h("div", { class: "row" },
+        h("label", { text: t("Announce on the island") }),
+        announce,
+        h("span", { class: "hint", text: t("A line on the island for each thing ARIA does without asking. Off, her card still lists them under Without asking and aria.log keeps them all.") }),
+      ),
+    );
+
     const decides = h("button", { class: s.ariaDecides ? "switch on" : "switch" });
     decides.addEventListener("click", () => {
       const next = !decides.classList.contains("on");

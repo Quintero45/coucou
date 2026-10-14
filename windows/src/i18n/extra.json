@@ -6497,6 +6497,28 @@
    "pt-BR": "Últimas tarefas",
    "ru": "Последние поручения",
    "id": "Tugas terakhir"
+  },
+  "Announce on the island": {
+   "zh-Hans": "在灵动岛上提示",
+   "hi": "आइलैंड पर बताएँ",
+   "es": "Avisar en la isla",
+   "ar": "الإعلان في الجزيرة",
+   "fr": "Annoncer sur l'île",
+   "bn": "আইল্যান্ডে জানান",
+   "pt-BR": "Avisar na ilha",
+   "ru": "Сообщать на острове",
+   "id": "Umumkan di pulau"
+  },
+  "A line on the island for each thing ARIA does without asking. Off, her card still lists them under Without asking and aria.log keeps them all.": {
+   "zh-Hans": "ARIA 每次未经询问完成一件事,灵动岛上都会显示一行。关闭后,她的卡片仍会在“无需询问”下列出,aria.log 也会全部记录。",
+   "hi": "ARIA बिना पूछे जो भी करती है, उसकी एक पंक्ति आइलैंड पर दिखती है। बंद होने पर भी उसका कार्ड उन्हें 'बिना पूछे' में दिखाता है और aria.log सब रखता है।",
+   "es": "Una línea en la isla por cada cosa que ARIA hace sin preguntar. Apagado, su tarjeta las sigue mostrando en Sin preguntar y aria.log las guarda todas.",
+   "ar": "سطر في الجزيرة لكل ما تفعله ARIA دون سؤال. عند الإيقاف تبقى بطاقتها تعرضها تحت «دون سؤال» ويحتفظ aria.log بها كلها.",
+   "fr": "Une ligne sur l'île pour chaque chose qu'ARIA fait sans demander. Désactivé, sa carte les liste toujours sous Sans demander et aria.log les garde toutes.",
+   "bn": "ARIA জিজ্ঞেস না করে যা করে, তার প্রতিটির জন্য আইল্যান্ডে একটি লাইন। বন্ধ থাকলেও তার কার্ডে 'জিজ্ঞেস না করে'-তে সেগুলো থাকে এবং aria.log সব রাখে।",
+   "pt-BR": "Uma linha na ilha para cada coisa que a ARIA faz sem perguntar. Desligado, o cartão dela continua listando em Sem perguntar e o aria.log guarda tudo.",
+   "ru": "Строка на острове для каждого действия, которое ARIA делает без вопросов. Если выключено, её карточка всё равно показывает их в разделе «Без вопросов», а aria.log хранит всё.",
+   "id": "Satu baris di pulau untuk setiap hal yang ARIA lakukan tanpa bertanya. Jika mati, kartunya tetap menampilkannya di Tanpa bertanya dan aria.log menyimpan semuanya."
   }
  }
 }

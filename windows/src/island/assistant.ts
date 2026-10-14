@@ -32,7 +32,9 @@ export function registerAssistantHandlers(island: Island) {
     const target = skill ?? (act.target.split("\n").find((l) => l.trim()) ?? "").trim();
     const tool = skill ? "skill" : act.tool.replace(/_/g, " ");
     State.noteAutonomousAct(`${tool} · ${target}`.slice(0, 160));
-    island.announce(t("Done without asking: {tool} · {target}", { tool, target }));
+    if (State.settings.announceAutonomous) {
+      island.announce(t("Done without asking: {tool} · {target}", { tool, target }));
+    }
   });
 
   // ARIA's errands (delegation.rs): the list for her card, and each report goes to her chat.

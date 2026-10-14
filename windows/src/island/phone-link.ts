@@ -145,6 +145,7 @@ export function registerPhoneLink(island: Island): () => void {
   let lastUsage = "";
   /** The service cards last sent, as JSON; "" before anything was. */
   let lastServices = "";
+  let lastChat = "";
   let timer: number | null = null;
 
   const publish = () => {
@@ -153,6 +154,7 @@ export function registerPhoneLink(island: Island): () => void {
     publishOutfit();
     publishUsage();
     publishServices();
+    publishChat();
     const snapshot = linkSnapshot();
     const key = JSON.stringify(snapshot);
     if (key === last) return;
@@ -182,6 +184,18 @@ export function registerPhoneLink(island: Island): () => void {
     void Bridge.phoneLinkPublishUsage(usage);
   };
 
+  // ARIA's conversation, once she has finished answering: the phone shows the same one.
+  const publishChat = () => {
+    if (State.stateOverride === "thinking") return;
+    const messages = State.chatHistory
+      .map((m) => ({ role: m.role, text: m.report ?? m.content }))
+      .filter((m) => m.text.trim() !== "");
+    const key = JSON.stringify(messages);
+    if (key === lastChat) return;
+    lastChat = key;
+    void Bridge.phoneLinkPublishChat(messages);
+  };
+
   const publishServices = () => {
     const cards = serviceCards();
     const key = JSON.stringify(cards);
@@ -205,6 +219,7 @@ export function registerPhoneLink(island: Island): () => void {
     lastOutfit = "";
     lastUsage = "";
     lastServices = "";
+    lastChat = "";
     if (running) schedule();
     else if (timer != null) {
       window.clearTimeout(timer);

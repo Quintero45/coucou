@@ -42,6 +42,8 @@ pub struct Settings {
     /// The assistant acts without waiting for a click and the island says what
     /// she did; anything naming the protected core still asks (policy.rs).
     pub assistant_autonomous: bool,
+    /// Each action done without asking shows as a line on the island; off, they stay on her card and in aria.log.
+    pub announce_autonomous: bool,
     /// ARIA answers the permissions her team asks for (Cursor, Claude, Codex,
     /// the Grok Bots): ordinary work at once, risky work on a card, the
     /// protected core refused (arbiter.rs).
@@ -191,6 +193,7 @@ impl Default for Settings {
             provider_urls: BTreeMap::new(),
             assistant_tools: true,
             assistant_autonomous: false,
+            announce_autonomous: true,
             aria_decides: false,
             show_agents: false,
             show_cursor_agent: true,
@@ -499,6 +502,7 @@ mod tests {
   "providerUrls": { "ollama": "http://127.0.0.1:11434" },
   "assistantTools": false,
   "assistantAutonomous": true,
+  "announceAutonomous": false,
   "ariaDecides": true,
   "showAgents": true,
   "showCursorAgent": false,
@@ -940,6 +944,7 @@ mod tests {
                 "providerUrls",
                 "assistantTools",
                 "assistantAutonomous",
+                "announceAutonomous",
                 "ariaDecides",
                 "showAgents",
                 "showCursorAgent",

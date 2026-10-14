@@ -812,6 +812,17 @@ pub fn phone_link_publish_question(window: WebviewWindow, link: State<PhoneLink>
     Ok(())
 }
 
+/// ARIA's conversation as the island shows it, for phones offered `chat`.
+#[tauri::command]
+pub fn phone_link_publish_chat(window: WebviewWindow, link: State<PhoneLink>, messages: Vec<hub::ChatLineIn>) -> Result<(), String> {
+    only_island(&window)?;
+    if link.running.lock().unwrap().is_none() {
+        return Ok(());
+    }
+    link.hub.publish_chat(&messages);
+    Ok(())
+}
+
 /// What ARIA wears on the computer, for phones that asked for `prefs`.
 #[tauri::command]
 pub fn phone_link_publish_prefs(window: WebviewWindow, link: State<PhoneLink>, outfit: String) -> Result<(), String> {

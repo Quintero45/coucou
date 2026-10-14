@@ -210,6 +210,7 @@ export const Bridge = {
   phoneLinkPublishQuestion: (question: PhoneLinkQuestion | null) => call<void>("phone_link_publish_question", { question }),
   /** What ARIA wears ("auto" or an outfit), for phones that asked for it. */
   phoneLinkPublishPrefs: (outfit: string) => call<void>("phone_link_publish_prefs", { outfit }),
+  phoneLinkPublishChat: (messages: { role: string; text: string }[]) => call<void>("phone_link_publish_chat", { messages }),
 
   // ── "Hey ARIA" (voice/listen.rs) ──────────────────────────────────────────
   voiceStatus: () => call<VoiceStatus>("voice_status"),
