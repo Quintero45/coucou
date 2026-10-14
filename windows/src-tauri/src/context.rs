@@ -84,6 +84,20 @@ pub fn window_at(x: i32, y: i32) -> Option<DroppedWindow> {
     Some(w)
 }
 
+/// What ARIA saw when she went to look at the owner's window.
+pub struct Look {
+    pub app_name: String,
+    pub title: String,
+    pub png: Vec<u8>,
+    /// left, top, right, bottom on screen (physical pixels).
+    pub frame: (i32, i32, i32, i32),
+}
+
+/// The window the owner is working in, captured. Call it off the main thread.
+pub fn look() -> Option<Look> {
+    imp::look()
+}
+
 /// "chrome.exe" → "chrome".
 fn app_name(process: &str) -> String {
     let p = process.trim();
@@ -981,7 +995,8 @@ mod imp {
         }
     }
 
-    fn screenshot(hwnd: Hwnd) -> Option<IngestedFile> {
+    /// A PNG of `hwnd` and its visible frame on screen (physical pixels).
+    fn shot_png(hwnd: Hwnd) -> Option<(Vec<u8>, Rect)> {
         if unsafe { IsIconic(hwnd) } != 0 || unsafe { IsWindowVisible(hwnd) } == 0 {
             return None;
         }
@@ -1003,7 +1018,23 @@ mod imp {
         }
         let (bgra, w, h) = grab(hwnd, win, crop)?;
         let (rgb, tw, th) = bgra_to_rgb_fit(&bgra, w, h, SHOT_MAX_W, SHOT_MAX_H);
-        let png = encode_png(&rgb, tw, th);
+        Some((encode_png(&rgb, tw, th), crop))
+    }
+
+    /// The window the owner is working in (not ARIA's): what she sees when she looks.
+    pub fn look() -> Option<Look> {
+        let hwnd = target()?;
+        let (png, frame) = shot_png(hwnd)?;
+        Some(Look {
+            app_name: app_name(&process_name(hwnd)),
+            title: title(hwnd),
+            png,
+            frame: (frame.left, frame.top, frame.right, frame.bottom),
+        })
+    }
+
+    fn screenshot(hwnd: Hwnd) -> Option<IngestedFile> {
+        let (png, _) = shot_png(hwnd)?;
         match register_png(&png) {
             Ok(f) => Some(f),
             Err(e) => {
@@ -1107,6 +1138,10 @@ mod imp {
     pub fn remember_foreground() {}
 
     pub fn window_at(_x: i32, _y: i32) -> Option<DroppedWindow> {
+        None
+    }
+
+    pub fn look() -> Option<Look> {
         None
     }
 

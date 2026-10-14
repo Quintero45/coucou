@@ -84,6 +84,12 @@ export class DesktopLink {
       this.host.cameHome();
       void this.controller.flyHome();
     });
+    // She flew out on her own to look at a window (desktop.rs visit) and came back.
+    await onEvent<boolean>("aria-visit", (out) => {
+      if (this.controller.phase !== "home") return;
+      State.ariaOnDesktop = out;
+      State.notify();
+    });
     await onEvent<null>(DESKTOP_EVENTS.wardrobe, () => this.host.wardrobeFromDesktop());
     await onEvent<null>(DESKTOP_EVENTS.dizzy, () => this.host.dizzyFromDesktop());
     // The window's page (re)loaded: it knows nothing yet.

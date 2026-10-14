@@ -4,6 +4,7 @@
 // self-evolution tools plug in here too, under their own name prefixes.
 
 pub mod files;
+mod look;
 mod services;
 pub mod system;
 mod web;
@@ -102,6 +103,7 @@ pub fn specs(app: &AppHandle) -> Vec<ToolSpec> {
     out.extend(crate::delegation::specs());
     out.extend(selfmod::specs());
     out.push(crate::mail::compose_spec());
+    out.push(look::spec());
     out
 }
 
@@ -170,6 +172,9 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Outcome {
     }
     if call.name == "compose_email" {
         return crate::mail::compose(app, &call.input);
+    }
+    if call.name == look::NAME {
+        return look::run(app).await;
     }
     let Some(tool) = builtins().into_iter().find(|t| t.name == call.name && available(t.name)) else {
         return Outcome::err(format!("Unknown tool {}", call.name));

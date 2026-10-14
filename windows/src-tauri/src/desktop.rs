@@ -883,6 +883,56 @@ pub async fn desktop_aria_fly_home(app: AppHandle, forget: bool) -> bool {
     done
 }
 
+/// How long she stays on the window she went to look at.
+const LOOK_MS: u64 = 1400;
+
+/// ARIA goes to look at a window by herself (`frame`: left, top, right, bottom,
+/// physical pixels): out of the island or from her spot to its top corner, a
+/// moment there, then back where she was. Nothing happens where she can't fly.
+pub async fn visit(app: &AppHandle, frame: (i32, i32, i32, i32)) {
+    let d = app.state::<Arc<Desktop>>().inner().clone();
+    if d.mode != DesktopMode::Poll || window(app).is_none() {
+        return;
+    }
+    let (busy, was_out, back_to) = {
+        let i = d.inner.lock().unwrap();
+        (i.carry.is_some() || (i.shown && !i.landed), i.shown, i.pos)
+    };
+    if busy {
+        return;
+    }
+    let s = side(app, &d);
+    let corner = (frame.2 as f64 - s * 1.6, frame.1 as f64 + s * 0.2);
+    let target = logic::settle(corner, &displays(app, &d), SIZE, MARGIN);
+    let home = island_anchor(app, &d).map(|(cx, top, scale)| logic::island_spot(cx, top, SIZE, scale));
+    if !was_out {
+        let Some(start) = home else { return };
+        let _ = app.emit_to(island::WINDOW_LABEL, "aria-visit", true);
+        show(app, &d, start);
+    }
+    d.inner.lock().unwrap().landed = false;
+    refresh(app, &d);
+    let _ = app.emit_to(LABEL, "desktop-flight", "out");
+    if fly(app, &d, target, FLIGHT_MS, logic::ease_in_out).await {
+        let _ = app.emit_to(LABEL, "desktop-aria-emote", serde_json::json!({ "emote": "surprised", "duration": 1.4 }));
+        tokio::time::sleep(Duration::from_millis(LOOK_MS)).await;
+    }
+    if was_out {
+        let _ = app.emit_to(LABEL, "desktop-flight", "out");
+        if fly(app, &d, back_to, FLIGHT_MS, logic::ease_in_out).await {
+            d.inner.lock().unwrap().landed = true;
+            refresh(app, &d);
+        }
+    } else {
+        let _ = app.emit_to(LABEL, "desktop-flight", "home");
+        if let Some(to) = home {
+            fly(app, &d, to, FLIGHT_MS, logic::ease_in_out).await;
+        }
+        hide(app, &d);
+        let _ = app.emit_to(island::WINDOW_LABEL, "aria-visit", false);
+    }
+}
+
 /// The page dozed off (or woke up). Asleep, nothing polls.
 #[tauri::command]
 pub fn desktop_aria_set_asleep(app: AppHandle, desktop: State<Arc<Desktop>>, asleep: bool) {
