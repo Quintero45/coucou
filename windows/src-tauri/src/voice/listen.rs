@@ -20,6 +20,10 @@ const FOLLOW_UP: Duration = Duration::from_secs(8);
 /// A question nobody answered frees the microphone after this long.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(90);
 const HISTORY: usize = 30;
+/// Speech up to this long (16 kHz samples) that the spotter missed goes to Whisper for the wake phrase.
+const WHISPER_WAKE_MAX: usize = 4 * 16_000;
+/// A missed phrase is logged at most this often.
+const MISS_LOG_EVERY: Duration = Duration::from_secs(30);
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -213,6 +217,7 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
         set_state(app, if lock().paused { "paused" } else { "idle" }, None);
         log::line("voice: listening for the wake phrase");
         let mut current: Option<Turn> = None;
+        let mut last_miss = Instant::now().checked_sub(MISS_LOG_EVERY).unwrap_or_else(Instant::now);
 
         while !stop.load(Ordering::SeqCst) {
             std::thread::sleep(Duration::from_millis(60));
@@ -258,21 +263,45 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
                         current = Some(Turn { text, started: Instant::now(), last: Instant::now() });
                     }
                 } else if segment.len() >= 6_400 {
-                    let Some(keyword) = spotter.find(&segment) else { continue };
-                    let blocked = {
+                    let blocked = || {
                         let l = lock();
                         wake::wake_blocked(&l.view, &l.mode, l.pending_approval)
                     };
-                    if let Some(why) = blocked {
-                        log::line(format!("voice: wake ignored ({why})"));
+                    let text = if let Some(keyword) = spotter.find(&segment) {
+                        if let Some(why) = blocked() {
+                            log::line(format!("voice: wake ignored ({why})"));
+                            continue;
+                        }
+                        log::line(format!("voice: wake phrase heard ({keyword})"));
+                        set_state(app, "listening", None);
+                        let _ = crate::sounds::play_sound(app.state::<Shared>(), "recibido".into(), None);
+                        let heard = transcribe(segment);
+                        let split = wake::split(&heard);
+                        if split.matched { split.command } else { after_name(&heard) }
+                    } else if segment.len() <= WHISPER_WAKE_MAX {
+                        // The spotter is an English model: a Spanish "Hey ARIA" often slips past it.
+                        let secs = segment.len() as f32 / 16_000.0;
+                        let heard = transcribe(segment);
+                        let split = wake::split(&heard);
+                        if !split.matched {
+                            // Only the length: what was said near the microphone is never written down.
+                            if last_miss.elapsed() >= MISS_LOG_EVERY {
+                                last_miss = Instant::now();
+                                log::line(format!("voice: speech ({secs:.1} s) without the wake phrase"));
+                            }
+                            continue;
+                        }
+                        if let Some(why) = blocked() {
+                            log::line(format!("voice: wake ignored ({why})"));
+                            continue;
+                        }
+                        log::line("voice: wake phrase heard (whisper)");
+                        set_state(app, "listening", None);
+                        let _ = crate::sounds::play_sound(app.state::<Shared>(), "recibido".into(), None);
+                        split.command
+                    } else {
                         continue;
-                    }
-                    log::line(format!("voice: wake phrase heard ({keyword})"));
-                    set_state(app, "listening", None);
-                    let _ = crate::sounds::play_sound(app.state::<Shared>(), "recibido".into(), None);
-                    let heard = transcribe(segment);
-                    let split = wake::split(&heard);
-                    let text = if split.matched { split.command } else { after_name(&heard) };
+                    };
                     current = Some(Turn { text, started: Instant::now(), last: Instant::now() });
                 }
             }
