@@ -315,6 +315,16 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     e.stopPropagation(); // Escape closes the island, not the chat
   });
 
+  // sync() only runs while the chat is the island's view; the phone's messages are answered
+  // whatever the island shows, shut included, so they are taken here.
+  State.subscribe(() => {
+    if (State.phoneAsk === null || sending) return;
+    const { id, text } = State.phoneAsk;
+    State.phoneAsk = null;
+    input.value = text;
+    queueMicrotask(() => void submit((reply) => void Bridge.phoneChatReply(id, reply)));
+  });
+
   return {
     el,
     sync() {
@@ -350,11 +360,6 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
         input.value = State.voiceAsk;
         State.voiceAsk = null;
         queueMicrotask(() => void submit((text) => void Bridge.voiceReply(text)));
-      } else if (State.phoneAsk !== null && !sending) {
-        const { id, text } = State.phoneAsk;
-        input.value = text;
-        State.phoneAsk = null;
-        queueMicrotask(() => void submit((reply) => void Bridge.phoneChatReply(id, reply)));
       } else if (State.quickAsk !== null && !sending) {
         input.value = State.quickAsk;
         State.quickAsk = null;

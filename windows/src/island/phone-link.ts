@@ -225,13 +225,13 @@ export function registerPhoneLink(island: Island): () => void {
     void Bridge.phoneLinkSendDiff(ask.conn, linkDiff(String(ask.pillId), Number(ask.fileId)));
   });
   // A message for ARIA from the phone's chat: sent as if typed, same tools and approval cards.
+  // The island is not opened for it: the chat answers it while shut (views/chat.ts).
   void onEvent<{ id: number; text: string }>("phone-ask", ({ id, text }) => {
     if (State.paused) {
       void Bridge.phoneChatReply(id, "");
       return;
     }
     State.phoneAsk = { id, text };
-    island.alert("prompt");
     State.notify();
   });
   void refresh();
