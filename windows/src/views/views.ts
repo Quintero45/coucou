@@ -530,12 +530,15 @@ function buildOverview(actions: ViewActions): ViewHost {
         const key = [
           language(), task.id, task.color, detailOpen, task.state, task.steps.join("|"),
           isBot ? task.lastMessage ?? "" : "",
-          task.id === ASSISTANT_ID ? `${task.finalLine ?? ""}:${State.autonomousActs.join("|")}:${State.settings.assistantAutonomous}` : "",
+          task.id === ASSISTANT_ID ? `${task.finalLine ?? ""}:${State.autonomousActs.join("|")}:${State.settings.assistantAutonomous}:${JSON.stringify(State.errands)}` : "",
           task.id === MEDIA_ID ? musicCardKey() : "",
           info?.loaded, info?.error, info?.configured,
           JSON.stringify(info?.data ?? {}),
         ].join("~");
-        if (key !== cardKey) {
+        // Her box keeps what is being typed: the card waits until it is sent or left.
+        const typing = leftBody.querySelector<HTMLTextAreaElement>(".aria-ask");
+        const busyBox = mode === "card" && task.id === ASSISTANT_ID && !!typing && (typing.value !== "" || document.activeElement === typing);
+        if (key !== cardKey && !busyBox) {
           cardKey = key;
           mode = "card";
           clear(leftBody);
@@ -557,7 +560,7 @@ function buildOverview(actions: ViewActions): ViewHost {
       // A Bot pill also redraws when its state word changes.
       const pillKey = others
         .map((t) => `${t.id}:${t.color}:${t.pillBadge ?? ""}:${BotLive.avatarState(t)}:${t.id.startsWith(BOT_PREFIX) ? `${t.state}:${t.color}:${t.name}:${BotLive.step(t.id)?.text ?? ""}` : ""}${t.id === MEDIA_ID ? `:${t.name}:${State.media?.playing}:${State.media?.canNext}` : ""}`)
-        .join("|") + (noBots ? "|+bot" : "") + `|${language()}`;
+        .join("|") + (noBots ? "|+bot" : "") + `|${language()}|${openErrands()}`;
       if (pillKey !== pillIds) {
         pillIds = pillKey;
         clear(pills);
@@ -668,6 +671,10 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     (pill.querySelector(".lbl") as HTMLElement).style.color = isBotPill && !phase ? task.color : "";
   });
 
+  const errands = task.id === ASSISTANT_ID ? openErrands() : 0;
+  if (errands > 0) {
+    pill.append(h("span", { class: "pill-count", title: t("Her errands"), text: String(errands), style: `background:${task.color}` }));
+  }
   if (task.pillBadge) {
     const colors = { approval: "#F5A524", finished: "#22C55E", error: "#F4505E" } as const;
     const icons = { approval: ICONS.bang, finished: ICONS.check, error: ICONS.xmark } as const;
@@ -677,6 +684,11 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     pill.append(badge);
   }
   return pill;
+}
+
+/** Errands ARIA handed out that have not come back yet. */
+function openErrands(): number {
+  return State.errands.filter((e) => e.status === "working" || e.status === "needs").length;
 }
 
 /** Stands in for the Grok Bots until the owner connects one. */

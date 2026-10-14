@@ -10,7 +10,7 @@ const seasons = new SeasonCache();
 
 /** Dresses a mini in its pill's own outfit, if it has one. */
 function dress(engine: BotEngine, taskId: string, animated: boolean) {
-  const own = ownOutfit(State.settings, taskId);
+  const own = ownOutfit(State.settings, taskId === "assistant" ? null : taskId);
   engine.miniDressed = own !== null;
   engine.setOutfit(own === null ? "none" : seasons.get(own), animated);
 }

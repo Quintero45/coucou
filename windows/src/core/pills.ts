@@ -235,14 +235,15 @@ export function chooseMainPill(d: Declared, id: string, os: HostOs = HOST_OS): D
 }
 
 /**
- * Pill order: the main pill first, then pills from outside the catalog (any
+ * Pill order: ARIA's own pill, the main pill, then pills from outside the catalog (any
  * other tagged agent), then the catalog's pills in catalog order. Pills of equal
  * rank keep their order. Mirrors sortTasksByCatalog on macOS, with the main
  * pill (not always VS Code here) leading.
  */
 export function orderPills<T extends { id: string }>(tasks: T[], mainPill: string): T[] {
   const index = new Map(PILL_CATALOG.map((p, i) => [p.id, i]));
-  const rank = (t: T) => (t.id === mainPill ? -2 : index.has(t.id) ? index.get(t.id)! : -1);
+  const rank = (t: T) =>
+    t.id === "assistant" ? -3 : t.id === mainPill ? -2 : index.has(t.id) ? index.get(t.id)! : -1;
   return tasks
     .map((t, i) => ({ t, i }))
     .sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i)

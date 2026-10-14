@@ -6,7 +6,7 @@
 
 import { h, svg, clear, dot } from "./dom";
 import { ICONS } from "./icons";
-import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, MEDIA_ID, State, botPhase, type AgentTask } from "../core/state";
+import { ASSISTANT_ID, BOT_PREFIX, CURSOR_AGENT_ID, MEDIA_ID, State, botPhase, type AgentTask, type Errand } from "../core/state";
 import { musicCard } from "./media";
 import { DECISION_LABELS, type BotApproval } from "../core/botlog";
 import {
@@ -78,7 +78,51 @@ function arr(id: string, key: string): Record<string, unknown>[] {
 
 // ── ARIA ──────────────────────────────────────────────────────────────────────
 
-/** Her pill at rest: her last answer, what she did without asking, and her chat. */
+const ERRAND_COLORS = { working: "#3B82F6", needs: "#F5A524", done: "#22C55E", error: "#F4505E" } as const;
+
+/** The pill colour of whoever runs an errand: Cursor or one of the Grok Bots. */
+function workerColor(worker: string): string {
+  const id = worker === "cursor" ? CURSOR_AGENT_ID : `${BOT_PREFIX}${worker.slice(4)}`;
+  return State.tasks.find((x) => x.id === id)?.color ?? "#8e939c";
+}
+
+/** One errand: who runs it, what, and where it is at. */
+function errandRow(e: Errand, first: boolean): HTMLElement {
+  const open = e.status === "working" || e.status === "needs";
+  const what = open && e.last ? e.last : e.title;
+  return listRow(ERRAND_COLORS[e.status], first,
+    h("span", { class: "int-name", style: `color:${workerColor(e.worker)}`, text: e.workerName }),
+    h("span", { class: "int-sub", text: what }),
+    h("span", { class: "int-ago", text: timeAgo(e.endedMs ?? e.startedMs) }));
+}
+
+/** The box on her card: what is typed goes straight to her chat. */
+function quickAsk(color: string, openChat: () => void): HTMLElement {
+  const input = h("textarea", {
+    class: "bot-reply-input aria-ask",
+    rows: "1",
+    placeholder: t("Write to ARIA…"),
+    spellcheck: "true",
+  }) as HTMLTextAreaElement;
+  const send = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    State.quickAsk = text;
+    openChat();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      send();
+    }
+  });
+  const box = h("div", { class: "bot-reply-box" }, input,
+    h("button", { class: "bot-reply-send", title: t("Send (Enter)"), onclick: send }, svg(ICONS.arrowUp, 10)));
+  return h("div", { class: "bot-reply", style: `--bot:${color}` }, box);
+}
+
+/** Her card: her last answer, the errands she handed out, what she did without asking, and a box to write to her. */
 function ariaCard(task: AgentTask, openChat: () => void): HTMLElement {
   const autonomous = State.settings.assistantAutonomous;
   const card = h(
@@ -89,12 +133,19 @@ function ariaCard(task: AgentTask, openChat: () => void): HTMLElement {
       dot(autonomous ? "#22C55E" : "#8e939c", 5),
       h("span", { text: task.finalLine || t("Ask me anything…") })),
   );
+  const open = State.errands.filter((e) => e.status === "working" || e.status === "needs");
+  const recent = State.errands.filter((e) => e.endedMs != null).slice(-Math.max(0, 3 - open.length)).reverse();
+  if (open.length + recent.length > 0) {
+    card.append(h("div", { class: "int-sub", text: open.length > 0 ? t("Her errands") : t("Last errands") }));
+    [...open.slice(0, 3), ...recent].forEach((e, i) => card.append(errandRow(e, i === 0)));
+  }
   const acts = State.autonomousActs.slice(-3).reverse();
-  if (autonomous && acts.length > 0) {
+  if (autonomous && acts.length > 0 && open.length === 0) {
     card.append(h("div", { class: "int-sub", text: t("Without asking") }));
     acts.forEach((text, i) => card.append(listRow(task.color, i === 0, h("span", { text }))));
   }
   card.append(
+    quickAsk(task.color, openChat),
     h("div", { class: "int-actions" },
       h("button", { class: "link-btn", style: `color:${task.color}d9`, text: t("Open the conversation"), onclick: openChat })),
   );

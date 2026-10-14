@@ -6420,6 +6420,83 @@
    "hi": "अनुमति दें और मना करें तुरंत जवाब देते हैं, फ़िंगरप्रिंट के बिना।",
    "ar": "السماح والرفض يُرسلان فورًا، دون البصمة.",
    "bn": "অনুমতি দিন ও প্রত্যাখ্যান সঙ্গে সঙ্গে উত্তর দেয়, আঙুলের ছাপ ছাড়াই।"
+  },
+  "ARIA allowed {who}: {what}": {
+   "zh-Hans": "ARIA 已允许 {who}:{what}",
+   "hi": "ARIA ने {who} को अनुमति दी: {what}",
+   "es": "ARIA permitió a {who}: {what}",
+   "ar": "سمحت ARIA لـ {who}: {what}",
+   "fr": "ARIA a autorisé {who} : {what}",
+   "bn": "ARIA {who}-কে অনুমতি দিল: {what}",
+   "pt-BR": "ARIA permitiu {who}: {what}",
+   "ru": "ARIA разрешила {who}: {what}",
+   "id": "ARIA mengizinkan {who}: {what}"
+  },
+  "ARIA refused {who}: {what} ({reason})": {
+   "zh-Hans": "ARIA 已拒绝 {who}:{what}({reason})",
+   "hi": "ARIA ने {who} को मना किया: {what} ({reason})",
+   "es": "ARIA rechazó a {who}: {what} ({reason})",
+   "ar": "رفضت ARIA طلب {who}: {what} ({reason})",
+   "fr": "ARIA a refusé {who} : {what} ({reason})",
+   "bn": "ARIA {who}-কে না বলল: {what} ({reason})",
+   "pt-BR": "ARIA recusou {who}: {what} ({reason})",
+   "ru": "ARIA отказала {who}: {what} ({reason})",
+   "id": "ARIA menolak {who}: {what} ({reason})"
+  },
+  "ARIA decides her team's permissions": {
+   "zh-Hans": "ARIA 决定她团队的权限",
+   "hi": "ARIA अपनी टीम की अनुमतियाँ तय करती है",
+   "es": "ARIA decide los permisos de su equipo",
+   "ar": "ARIA تقرر أذونات فريقها",
+   "fr": "ARIA décide des autorisations de son équipe",
+   "bn": "ARIA তার দলের অনুমতি ঠিক করে",
+   "pt-BR": "ARIA decide as permissões da equipe dela",
+   "ru": "ARIA решает за свою команду",
+   "id": "ARIA memutuskan izin timnya"
+  },
+  "When Cursor, Claude, Codex or a Grok Bot asks for permission, ARIA answers: reading, editing inside the project, building and testing go ahead at once; deleting, pushing, installing, sending and anything outside the project still show you the card; anything that names her protected core is refused. The island tells you each answer.": {
+   "zh-Hans": "当 Cursor、Claude、Codex 或 Grok Bot 请求权限时,由 ARIA 回答:读取、在项目内编辑、构建和测试会立即放行;删除、推送、安装、发送以及项目之外的任何操作仍会向你显示卡片;任何涉及她受保护核心的请求都会被拒绝。灵动岛会告诉你每一个回答。",
+   "hi": "जब Cursor, Claude, Codex या कोई Grok Bot अनुमति माँगता है, तो ARIA जवाब देती है: पढ़ना, प्रोजेक्ट के अंदर बदलाव, बिल्ड और टेस्ट तुरंत चलते हैं; हटाना, पुश करना, इंस्टॉल करना, भेजना और प्रोजेक्ट के बाहर कुछ भी आपको कार्ड दिखाता है; उसके सुरक्षित कोर का नाम लेने वाली हर चीज़ मना होती है। आइलैंड आपको हर जवाब बताता है।",
+   "es": "Cuando Cursor, Claude, Codex o un Bot de Grok piden permiso, responde ARIA: leer, editar dentro del proyecto, compilar y probar siguen al instante; borrar, hacer push, instalar, enviar y todo lo que esté fuera del proyecto te sigue mostrando la tarjeta; lo que nombre su núcleo protegido se rechaza. La isla te avisa de cada respuesta.",
+   "ar": "عندما يطلب Cursor أو Claude أو Codex أو أحد بوتات Grok إذنًا، تجيب ARIA: القراءة والتعديل داخل المشروع والبناء والاختبار تمضي فورًا؛ والحذف والدفع والتثبيت والإرسال وأي شيء خارج المشروع يعرض لك البطاقة؛ وكل ما يذكر نواتها المحمية يُرفض. تخبرك الجزيرة بكل إجابة.",
+   "fr": "Quand Cursor, Claude, Codex ou un Bot Grok demande une autorisation, c'est ARIA qui répond : lire, modifier dans le projet, compiler et tester passent tout de suite ; supprimer, pousser, installer, envoyer et tout ce qui sort du projet vous montrent toujours la carte ; tout ce qui nomme son cœur protégé est refusé. L'île vous annonce chaque réponse.",
+   "bn": "Cursor, Claude, Codex বা কোনো Grok Bot অনুমতি চাইলে ARIA উত্তর দেয়: পড়া, প্রজেক্টের ভেতরে সম্পাদনা, বিল্ড ও টেস্ট সঙ্গে সঙ্গে চলে; মুছে ফেলা, পুশ, ইনস্টল, পাঠানো আর প্রজেক্টের বাইরের সবকিছু আপনাকে কার্ড দেখায়; তার সুরক্ষিত কোরের নাম নেওয়া যেকোনো কিছু প্রত্যাখ্যাত হয়। আইল্যান্ড প্রতিটি উত্তর জানায়।",
+   "pt-BR": "Quando Cursor, Claude, Codex ou um Bot do Grok pedem permissão, quem responde é a ARIA: ler, editar dentro do projeto, compilar e testar seguem na hora; apagar, fazer push, instalar, enviar e tudo fora do projeto ainda mostram o cartão; o que citar o núcleo protegido dela é recusado. A ilha avisa cada resposta.",
+   "ru": "Когда Cursor, Claude, Codex или бот Grok просят разрешения, отвечает ARIA: чтение, правки внутри проекта, сборка и тесты проходят сразу; удаление, push, установка, отправка и всё вне проекта по-прежнему показывают вам карточку; всё, что касается её защищённого ядра, отклоняется. Остров сообщает о каждом ответе.",
+   "id": "Saat Cursor, Claude, Codex, atau Bot Grok meminta izin, ARIA yang menjawab: membaca, mengedit di dalam proyek, build, dan tes langsung jalan; menghapus, push, memasang, mengirim, dan apa pun di luar proyek tetap menampilkan kartu; apa pun yang menyebut inti terlindunginya ditolak. Pulau memberi tahu setiap jawaban."
+  },
+  "Write to ARIA…": {
+   "zh-Hans": "给 ARIA 写点什么…",
+   "hi": "ARIA को लिखें…",
+   "es": "Escríbele a ARIA…",
+   "ar": "اكتب إلى ARIA…",
+   "fr": "Écrire à ARIA…",
+   "bn": "ARIA-কে লিখুন…",
+   "pt-BR": "Escreva para a ARIA…",
+   "ru": "Написать ARIA…",
+   "id": "Tulis ke ARIA…"
+  },
+  "Her errands": {
+   "zh-Hans": "她的委托",
+   "hi": "उसके काम",
+   "es": "Sus encargos",
+   "ar": "مهامها",
+   "fr": "Ses missions",
+   "bn": "তার কাজগুলো",
+   "pt-BR": "Tarefas dela",
+   "ru": "Её поручения",
+   "id": "Tugasnya"
+  },
+  "Last errands": {
+   "zh-Hans": "最近的委托",
+   "hi": "पिछले काम",
+   "es": "Últimos encargos",
+   "ar": "آخر المهام",
+   "fr": "Dernières missions",
+   "bn": "শেষ কাজগুলো",
+   "pt-BR": "Últimas tarefas",
+   "ru": "Последние поручения",
+   "id": "Tugas terakhir"
   }
  }
 }

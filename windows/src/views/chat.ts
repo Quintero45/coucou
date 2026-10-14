@@ -355,6 +355,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
         input.value = text;
         State.phoneAsk = null;
         queueMicrotask(() => void submit((reply) => void Bridge.phoneChatReply(id, reply)));
+      } else if (State.quickAsk !== null && !sending) {
+        input.value = State.quickAsk;
+        State.quickAsk = null;
+        queueMicrotask(() => void submit());
       } else if (State.reports.length > 0 && !sending) {
         const next = State.reports.shift()!;
         input.value = next.text;

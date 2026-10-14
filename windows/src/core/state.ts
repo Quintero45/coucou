@@ -469,6 +469,8 @@ class AppState {
   voiceAsk: string | null = null;
   /** A message from the phone for ARIA: the chat sends it and the answer goes back to the phone. */
   phoneAsk: { id: number; text: string } | null = null;
+  /** Typed in the box on ARIA's card: the chat sends it as soon as it shows. */
+  quickAsk: string | null = null;
   /** ARIA's errands, newest last. */
   errands: Errand[] = [];
   /** Errand reports waiting for the chat to send them to ARIA. */
@@ -649,7 +651,7 @@ class AppState {
     if (this.tasks.some((t) => t.id === ASSISTANT_ID)) return;
     this.tasks.push({ ...ARIA_TASK, state: "idle", steps: [] });
     this.tasks = orderPills(this.tasks, this.mainPillId);
-    if (!this.focusId) this.focusId = this.tasks[0]?.id ?? null;
+    if (!this.focusId || this.focusTask?.state === "idle") this.focusId = ASSISTANT_ID;
     this.notify();
   }
 
@@ -663,7 +665,7 @@ class AppState {
     if (!m.active) {
       if (idx >= 0) {
         this.tasks.splice(idx, 1);
-        if (this.focusId === MEDIA_ID) this.focusId = this.mainPillId;
+        if (this.focusId === MEDIA_ID) this.focusId = this.restFocus;
       }
       this.notify();
       return;
@@ -681,6 +683,11 @@ class AppState {
     this.tasks[idx].name = name;
     this.tasks[idx].color = color;
     this.notify();
+  }
+
+  /** Where the focus goes back to when nothing else holds it: ARIA, then the main pill. */
+  get restFocus(): string {
+    return this.tasks.some((t) => t.id === ASSISTANT_ID) ? ASSISTANT_ID : this.mainPillId;
   }
 
   /** The always-on workspace pill, once the setting has been checked. */
@@ -741,7 +748,7 @@ class AppState {
     }
     this.tasks = orderPills(this.tasks, d.mainPill);
     if (!this.focusId || !this.tasks.some((t) => t.id === this.focusId)) {
-      this.focusId = this.tasks.some((t) => t.id === d.mainPill) ? d.mainPill : this.tasks[0]?.id ?? null;
+      this.focusId = this.tasks.some((t) => t.id === ASSISTANT_ID || t.id === d.mainPill) ? this.restFocus : this.tasks[0]?.id ?? null;
     }
     this.notify();
   }
@@ -769,7 +776,7 @@ class AppState {
     }
     this.tasks.splice(idx, 1);
     this.clearSessionDiffs(id);
-    if (this.focusId === id) this.focusId = this.tasks[0]?.id ?? this.mainPillId;
+    if (this.focusId === id) this.focusId = this.restFocus;
     this.notify();
   }
 
@@ -818,7 +825,7 @@ class AppState {
     const next = toggleDeclared(sanitizeDeclared(this.settings, this.os), id, this.os);
     if (!next) return;
     this.settings.activeIntegrations = next;
-    if (!next.includes(id) && this.focusId === id) this.focusId = this.mainPillId;
+    if (!next.includes(id) && this.focusId === id) this.focusId = this.restFocus;
     this.loadIntegrationTasks();
   }
 

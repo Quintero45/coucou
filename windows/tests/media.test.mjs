@@ -2,7 +2,7 @@
 
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, MEDIA_ID, State, mediaColor, mediaPosition } from "../src/core/state.ts";
+import { ASSISTANT_ID, DEFAULT_SETTINGS, MEDIA_ID, State, mediaColor, mediaPosition } from "../src/core/state.ts";
 
 const playing = (over = {}) => ({
   active: true, app: "Spotify", title: "Late Night Commit", artist: "Mochi FM", album: "Tiny Island",
@@ -23,11 +23,12 @@ beforeEach(() => {
 
 const ids = () => State.tasks.map((t) => t.id);
 
-test("a player with a song brings the pill, right after the main one", () => {
+test("a player with a song brings the pill, right after ARIA and the main one", () => {
   State.setMedia(playing());
-  assert.equal(ids()[0], State.mainPillId);
-  assert.equal(ids()[1], MEDIA_ID);
-  const pill = State.tasks[1];
+  assert.equal(ids()[0], ASSISTANT_ID);
+  assert.equal(ids()[1], State.mainPillId);
+  assert.equal(ids()[2], MEDIA_ID);
+  const pill = State.tasks[2];
   assert.equal(pill.name, "Spotify");
   assert.equal(pill.color, "#1ED760");
 });
@@ -40,7 +41,7 @@ test("the pill follows the player and goes away with it", () => {
   State.focusId = MEDIA_ID;
   State.setMedia(playing({ active: false, title: "" }));
   assert.ok(!ids().includes(MEDIA_ID));
-  assert.equal(State.focusId, State.mainPillId);
+  assert.equal(State.focusId, ASSISTANT_ID);
 });
 
 test("a player without a name is just Music", () => {

@@ -66,9 +66,9 @@ interface OutfitPrefs {
   pillOutfits?: Record<string, string>;
 }
 
-/** The pill the wardrobe dresses on its own: null for the main ARIA, whose choice is `ariaOutfit`. */
+/** The pill the wardrobe dresses on its own: null for ARIA herself and the main pill, whose choice is `ariaOutfit`. */
 export function outfitPill(focusId: string | null | undefined, mainPillId: string | null | undefined): string | null {
-  return focusId && focusId !== mainPillId ? focusId : null;
+  return focusId && focusId !== mainPillId && focusId !== "assistant" ? focusId : null;
 }
 
 /** A pill's own outfit, or null when it has none (the main ARIA's then applies where she is shown). */
