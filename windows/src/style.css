@@ -1327,6 +1327,18 @@ input[type="range"]::-webkit-slider-thumb {
   padding-left: 32px;
 }
 
+.chat-row.report {
+  justify-content: center;
+}
+
+.report-note {
+  font: 500 11px var(--font);
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.12);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
 .bubble {
   background: rgba(255, 255, 255, 0.13);
   border-radius: 12px;

@@ -553,7 +553,7 @@ pub fn instructions(app: &AppHandle, id: &str) -> Result<String, String> {
 de tu rutina «Tareas de ARIA», en el campo \"message\" del cuerpo JSON.\n\n\
 Para avisarme, ejecuta estos comandos en MI computadora local (no en tu computadora en la nube):\n\n\
   {cmd} --bot \"{n}\" --status working \"qué estás haciendo\"\n\
-  {cmd} --bot \"{n}\" --status done \"resumen del resultado en 1 a 3 frases\"\n\
+  {cmd} --bot \"{n}\" --status done \"el resultado completo: lo que encontraste o hiciste\"\n\
   {cmd} --bot \"{n}\" --status needs \"qué necesitas de mí\"\n\
   {cmd} --bot \"{n}\" --status error \"qué falló\"\n\n\
 Antes de cualquier acción importante (enviar, publicar, comprar, borrar), pídeme permiso así:\n\n\
@@ -581,8 +581,9 @@ pub fn specs(app: &AppHandle) -> Vec<ToolSpec> {
             name: "send_to_grok_bot".into(),
             description: format!(
                 "Hand a task to one of the owner's Grok Bots ({}). Use it for long or multi-step work in the cloud: research, \
-browsing, documents, plugins (Gmail, Slack, Notion…). The Bot works asynchronously and reports in the island when done; \
-you will not get its answer back here. Write a complete, self-contained instruction with a clear finish line. \
+browsing, documents, plugins (Gmail, Slack, Notion, Trello…). The Bot works asynchronously; when it reports done, \
+its result comes back to this chat as «[Informe del encargo #N]» — do not wait for it. Write a complete, \
+self-contained instruction with a clear finish line, and ask it to report the full result when done. \
 Spends the owner's Grok Bot usage, so the owner approves each send.",
                 names.join(", ")
             ),
@@ -616,7 +617,11 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Option<Outcome> {
                 return Some(Outcome::err("The owner declined sending this task."));
             }
             Some(match send(app, &bot, &message, Vec::new()).await {
-                Ok(text) => Outcome::ok(text),
+                Ok(text) => {
+                    let (id, name) = find(app, &bot).map(|b| (b.id, b.name)).unwrap_or((slug(&bot), bot.clone()));
+                    let errand = crate::delegation::start(app, &format!("bot:{id}"), &name, &message, None);
+                    Outcome::ok(format!("{text} Encargo #{errand}: su informe llegará a este chat cuando avise que terminó."))
+                }
                 Err(e) => Outcome::err(describe_error(&bot, &e)),
             })
         }

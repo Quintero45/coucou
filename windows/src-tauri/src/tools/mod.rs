@@ -99,6 +99,7 @@ pub fn specs(app: &AppHandle) -> Vec<ToolSpec> {
         .collect();
     out.extend(mcp::specs(app));
     out.extend(crate::grokbot::specs(app));
+    out.extend(crate::delegation::specs());
     out.extend(selfmod::specs());
     out.push(crate::mail::compose_spec());
     out
@@ -159,6 +160,9 @@ pub async fn run(app: &AppHandle, call: &ToolCall) -> Outcome {
         return mcp::call(app, call).await;
     }
     if let Some(outcome) = crate::grokbot::run(app, call).await {
+        return outcome;
+    }
+    if let Some(outcome) = crate::delegation::run(app, call).await {
         return outcome;
     }
     if let Some(outcome) = selfmod::run(app, call).await {

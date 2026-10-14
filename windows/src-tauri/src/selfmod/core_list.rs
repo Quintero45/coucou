@@ -8,6 +8,7 @@ pub const PROTECTED: &[&str] = &[
     "windows/src-tauri/tauri.conf.json",
     "windows/src-tauri/capabilities",
     "windows/src-tauri/src/policy.rs",
+    "windows/src-tauri/src/arbiter.rs",
     "windows/src-tauri/src/secrets.rs",
     "windows/src-tauri/src/pipe.rs",
     "windows/src-tauri/src/migrate.rs",

@@ -83,6 +83,22 @@ export interface ChatMessage {
   content: string;
   /** Tools the assistant ran while writing this reply. */
   steps?: string[];
+  /** An errand's report sent to ARIA: the chat shows this short line instead of the content. */
+  report?: string;
+}
+
+/** Work ARIA handed to Cursor or a Grok Bot (src-tauri/src/delegation.rs). */
+export interface Errand {
+  id: number;
+  worker: string;
+  workerName: string;
+  title: string;
+  project: string | null;
+  status: "working" | "needs" | "done" | "error";
+  startedMs: number;
+  endedMs: number | null;
+  last: string;
+  result: string;
 }
 
 /** Owner of the approval cards raised by ARIA's own tools (agent.rs). */
@@ -302,6 +318,8 @@ export interface Settings {
   assistantTools: boolean;
   /** ARIA acts without waiting for a click; the island says what she did (policy.rs). */
   assistantAutonomous: boolean;
+  /** ARIA answers her team's permission requests: ordinary work at once, risky work on a card (arbiter.rs). */
+  ariaDecides: boolean;
   /** Claude Code (VS Code), Codex, Gemini CLI and the other agents: pills and settings. */
   showAgents: boolean;
   /** The Cursor IDE agent: pill, questions and hooks. */
@@ -382,6 +400,7 @@ export const DEFAULT_SETTINGS: Settings = {
   providerUrls: {},
   assistantTools: true,
   assistantAutonomous: false,
+  ariaDecides: false,
   showAgents: false,
   showCursorAgent: true,
   grokBots: [],
@@ -450,6 +469,10 @@ class AppState {
   voiceAsk: string | null = null;
   /** A message from the phone for ARIA: the chat sends it and the answer goes back to the phone. */
   phoneAsk: { id: number; text: string } | null = null;
+  /** ARIA's errands, newest last. */
+  errands: Errand[] = [];
+  /** Errand reports waiting for the chat to send them to ARIA. */
+  reports: { text: string; display: string }[] = [];
   searchResult: SearchResult | null = null;
   chatHistory: ChatMessage[] = [];
   pendingApproval: ApprovalInfo | null = null;

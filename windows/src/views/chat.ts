@@ -79,6 +79,9 @@ function steps(message: ChatMessage): HTMLElement | null {
 }
 
 function bubble(message: ChatMessage): HTMLElement {
+  if (message.report) {
+    return h("div", { class: "chat-row report" }, h("div", { class: "report-note", text: message.report }));
+  }
   if (message.role === "user") {
     return h(
       "div",
@@ -220,8 +223,11 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     saveChat();
   }
 
-  /** `answer` gets the reply ("" when it failed) for a request heard by voice or sent from the phone. */
-  async function submit(answer?: (text: string) => void) {
+  /**
+   * `answer` gets the reply ("" when it failed) for a request heard by voice or sent from the phone.
+   * `report` is the short line shown for an errand's report, whose full text goes to ARIA.
+   */
+  async function submit(answer?: (text: string) => void, report?: string) {
     const query = input.value.trim();
     if (!query || sending) {
       answer?.("");
@@ -232,7 +238,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     setSendMode(true);
     Sound.play("send");
 
-    const target = botTarget(query);
+    const target = report ? null : botTarget(query);
     if (target) {
       await sendToBot(target, query);
       answer?.("");
@@ -248,7 +254,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     const context = State.chatHistory.length === 0 ? firstContext() : null;
     let spoken = "";
 
-    State.chatHistory.push({ id: nextId++, role: "user", content: query });
+    State.chatHistory.push({ id: nextId++, role: "user", content: query, ...(report ? { report } : {}) });
     // In the history from the start, so the island grows to fit it as it streams.
     const message: ChatMessage = { id: nextId++, role: "assistant", content: "", steps: [] };
     live = message;
@@ -349,6 +355,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
         input.value = text;
         State.phoneAsk = null;
         queueMicrotask(() => void submit((reply) => void Bridge.phoneChatReply(id, reply)));
+      } else if (State.reports.length > 0 && !sending) {
+        const next = State.reports.shift()!;
+        input.value = next.text;
+        queueMicrotask(() => void submit(undefined, next.display));
       }
       if (State.chatDraft !== null && !sending) {
         input.value = State.chatDraft;

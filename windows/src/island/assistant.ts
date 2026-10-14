@@ -5,7 +5,7 @@
 import { Bridge, onEvent } from "../core/bridge";
 import { setApprovalDetail } from "../core/layout";
 import { Sound } from "../core/sound";
-import { ASSISTANT_ID, State } from "../core/state";
+import { ASSISTANT_ID, State, type Errand } from "../core/state";
 import { t } from "../i18n/i18n";
 import type { Island } from "./island";
 
@@ -33,6 +33,22 @@ export function registerAssistantHandlers(island: Island) {
     const tool = skill ? "skill" : act.tool.replace(/_/g, " ");
     State.noteAutonomousAct(`${tool} · ${target}`.slice(0, 160));
     island.announce(t("Done without asking: {tool} · {target}", { tool, target }));
+  });
+
+  // ARIA's errands (delegation.rs): the list for her card, and each report goes to her chat.
+  void Bridge.errandsList().then((list) => {
+    State.errands = list ?? [];
+    State.notify();
+  });
+  void onEvent<Errand[]>("errands", (list) => {
+    State.errands = list;
+    State.notify();
+  });
+  void onEvent<{ id: number; text: string; display: string }>("errand-report", (r) => {
+    State.reports.push({ text: r.text, display: r.display });
+    Sound.play("finish");
+    if (!State.pendingApproval) island.alert("prompt");
+    State.notify();
   });
 
   // compose_email (mail.rs): the card opens filled in; sending stays a click.

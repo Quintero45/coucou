@@ -415,7 +415,9 @@ pub fn redact(text: &str) -> String {
 // Only the protected core stays behind a click. The guard already refuses
 // ARIA's own writes and evolutions there, but a shell or an MCP server never
 // goes through it: so any call whose target names a core file asks, whatever
-// the switch says. Bots never get autonomy (they do not come through here).
+// the switch says. Bots and other agents never come through here: their
+// permissions are answered by the owner, or by ARIA under the owner's own
+// switch `ariaDecides` (arbiter.rs, which reuses names_core and never_autonomous).
 
 /// Names of the protected core as they would appear in a command or a path:
 /// the last component of each entry ("policy.rs", "selfmod", "hook"…).

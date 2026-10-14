@@ -4,6 +4,7 @@ mod agent;
 mod agent_hooks;
 mod agents;
 mod appwatch;
+mod arbiter;
 mod botcards;
 mod claude;
 mod codex_plan;
@@ -13,6 +14,7 @@ mod custom_sounds;
 mod mail;
 mod cursor;
 mod cursorlink;
+mod delegation;
 mod desktop;
 mod editctx;
 mod files;
@@ -1008,6 +1010,9 @@ pub fn run() {
             voice::listen::voice_clear_history,
             phone_link::phone_link_status,
             phone_link::chat_backend::phone_chat_reply,
+            delegation::errand_bot_update,
+            delegation::errands_list,
+            arbiter::arbiter_decide,
             phone_link::phone_link_set_enabled,
             phone_link::phone_link_pairing,
             phone_link::phone_link_new_pairing,

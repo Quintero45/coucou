@@ -42,6 +42,10 @@ pub struct Settings {
     /// The assistant acts without waiting for a click and the island says what
     /// she did; anything naming the protected core still asks (policy.rs).
     pub assistant_autonomous: bool,
+    /// ARIA answers the permissions her team asks for (Cursor, Claude, Codex,
+    /// the Grok Bots): ordinary work at once, risky work on a card, the
+    /// protected core refused (arbiter.rs).
+    pub aria_decides: bool,
     /// Claude Code (VS Code), Codex and Gemini CLI: pills, hooks and settings.
     pub show_agents: bool,
     /// The Cursor IDE agent: its pill, questions and hooks.
@@ -187,6 +191,7 @@ impl Default for Settings {
             provider_urls: BTreeMap::new(),
             assistant_tools: true,
             assistant_autonomous: false,
+            aria_decides: false,
             show_agents: false,
             show_cursor_agent: true,
             grok_bots: Vec::new(),
@@ -494,6 +499,7 @@ mod tests {
   "providerUrls": { "ollama": "http://127.0.0.1:11434" },
   "assistantTools": false,
   "assistantAutonomous": true,
+  "ariaDecides": true,
   "showAgents": true,
   "showCursorAgent": false,
   "grokBots": [{ "id": "ana", "name": "Ana", "color": "#38BDF8", "url": "https://api.x.ai/hook/1" }],
@@ -934,6 +940,7 @@ mod tests {
                 "providerUrls",
                 "assistantTools",
                 "assistantAutonomous",
+                "ariaDecides",
                 "showAgents",
                 "showCursorAgent",
                 "grokBots",

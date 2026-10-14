@@ -5,7 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { GrokBot, MediaInfo, Settings } from "./state";
+import type { Errand, GrokBot, MediaInfo, Settings } from "./state";
 
 export type { GrokBot };
 
@@ -218,6 +218,12 @@ export const Bridge = {
     call<void>("voice_island", { view, mode, pendingApproval }),
   /** The chat answered a request heard by voice ("" when it failed). */
   voiceReply: (text: string) => call<void>("voice_reply", { text }),
+  errandsList: () => call<Errand[]>("errands_list"),
+  /** ARIA's verdict on an agent's permission request (arbiter.rs); always "ask" while the switch is off. */
+  arbiterDecide: (agent: string, tool: string, input: Record<string, unknown>, cwd: string | null) =>
+    call<{ decision: "allow" | "ask" | "deny"; reason: string }>("arbiter_decide", { agent, tool, input, cwd }),
+  /** A Grok Bot reported: its open errand moves on (delegation.rs). */
+  errandBotUpdate: (bot: string, status: string, message: string) => call<void>("errand_bot_update", { bot, status, message }),
   /** The chat answered a message from the phone ("" when it failed). */
   phoneChatReply: (id: number, text: string) => call<void>("phone_chat_reply", { id, text }),
   voiceResume: () => call<void>("voice_resume"),

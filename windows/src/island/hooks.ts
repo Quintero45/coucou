@@ -329,6 +329,9 @@ export function registerHookHandlers(island: Island) {
   });
 }
 
+/** Requests ARIA already looked at (arbiter.rs): an "ask" comes back through handleHook once. */
+const arbitrated = new Set<string>();
+
 function handleHook(island: Island, payload: HookPayload) {
   // Account-wide numbers from the status line relay, not part of any session:
   // keep the latest, nothing else (no reveal, no sound), paused or not.
@@ -639,6 +642,7 @@ function handleHook(island: Island, payload: HookPayload) {
       if (!isBotPill) break;
       ensurePill();
       const message = (payload.message ?? "").trim();
+      void Bridge.errandBotUpdate(botSlug, payload.bot_status ?? "working", message);
       const t = task();
       // The conversation: what it says when it finishes, needs you or fails is
       // a message; "working" updates are steps.
@@ -719,6 +723,35 @@ function handleHook(island: Island, payload: HookPayload) {
         if (requestId) void Bridge.approvalDecline(requestId);
         logBotDecline(payload, "busy");
         break;
+      }
+      // ARIA decides first when the owner let her (arbiter.rs). Questions and
+      // "Escribir en Cursor" are the owner's; "ask" raises the card as usual.
+      {
+        const tool = payload.tool_name ?? "Tool";
+        const input = payload.tool_input ?? {};
+        const ownersCall = tool === BOT_QUESTION_TOOL || tool === CURSOR_WRITE.tool || askedQuestions(tool, input) !== null;
+        if (State.settings.ariaDecides && requestId && !ownersCall && !arbitrated.has(requestId)) {
+          arbitrated.add(requestId);
+          ensurePill();
+          void Bridge.arbiterDecide(agentId, tool, input, cwd || null)
+            .then((v) => {
+              if (!v || v.decision === "ask") {
+                handleHook(island, payload);
+                return;
+              }
+              void Bridge.approvalDecision(requestId, v.decision);
+              const who = isBotPill ? botName(agentId) : (State.tasks.find((t) => t.id === agentId)?.name ?? agentId);
+              const what = approvalTarget(tool, input);
+              island.announce(
+                v.decision === "allow"
+                  ? t("ARIA allowed {who}: {what}", { who, what })
+                  : t("ARIA refused {who}: {what} ({reason})", { who, what, reason: v.reason }),
+              );
+              State.notify();
+            })
+            .catch(() => handleHook(island, payload));
+          break;
+        }
       }
       ensurePill();
       supersedeStop();

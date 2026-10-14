@@ -19,9 +19,11 @@
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
-use std::path::PathBuf;
+use std::future::Future;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -207,7 +209,8 @@ struct Proc {
 static BRIDGE: LazyLock<tokio::sync::Mutex<Option<Proc>>> = LazyLock::new(|| tokio::sync::Mutex::new(None));
 static LAST_USE: Mutex<Option<Instant>> = Mutex::new(None);
 static GENERATION: AtomicU64 = AtomicU64::new(0);
-static BUSY: AtomicBool = AtomicBool::new(false);
+/// Runs going on (ARIA's chat and her errands): the bridge is not stopped while any is.
+static BUSY: AtomicUsize = AtomicUsize::new(0);
 
 fn touch() {
     *LAST_USE.lock().unwrap() = Some(Instant::now());
@@ -299,7 +302,7 @@ async fn bridge() -> Result<(String, String), String> {
                 return;
             }
             let idle = LAST_USE.lock().unwrap().is_none_or(|t| t.elapsed() > IDLE_STOP);
-            if idle && !BUSY.load(Ordering::Relaxed) {
+            if idle && BUSY.load(Ordering::Relaxed) == 0 {
                 stop().await;
                 log::line("cursor engine: stopped after being idle");
                 return;
@@ -446,7 +449,7 @@ struct BusyGuard;
 
 impl Drop for BusyGuard {
     fn drop(&mut self) {
-        BUSY.store(false, Ordering::Relaxed);
+        BUSY.fetch_sub(1, Ordering::Relaxed);
         touch();
     }
 }
@@ -582,12 +585,58 @@ pub async fn chat(
     let mut emit = |t: &str| {
         let _ = app.emit_to(WINDOW_LABEL, "chat-delta", t);
     };
-    converse(&SESSION, ep, system, specs, query, context, cancel, &mut emit).await
+    let home = platform::home_dir();
+    let setup = Setup { cwd: &home, name: "ARIA", cursor_tools: false };
+    converse(&SESSION, &setup, ep, system, specs, query, context, cancel, &mut emit).await
+}
+
+/// Where an agent works and with which tools.
+struct Setup<'a> {
+    cwd: &'a Path,
+    name: &'a str,
+    /// Cursor's own tools (read, edit, terminal), each one checked by Cursor's
+    /// automatic review. Off for ARIA herself: her tools go through policy.rs.
+    cursor_tools: bool,
+}
+
+const ERRAND_BRIEF: &str = "ARIA, the owner's assistant, hands you this task in the project folder you are in. \
+Do it completely, in this folder only. Do not push, publish, delete outside the task, or install anything \
+system-wide. When you finish, answer in Spanish with a short report: what you did, the files you changed, \
+how you checked it, and anything left for the owner.";
+
+/// An errand for Cursor: a fresh agent of its own in `project`, with Cursor's
+/// tools, run to the end. `progress` gets the latest line it wrote.
+/// Boxed with a named type: ARIA's tools (which start errands) run inside
+/// Cursor's tool callback, so an opaque future here would be its own cause.
+pub fn delegate<'a>(
+    ep: &'a Endpoint,
+    project: &'a Path,
+    task: &'a str,
+    cancel: &'a AtomicBool,
+    progress: &'a mut (dyn FnMut(&str) + Send),
+) -> Pin<Box<dyn Future<Output = Result<String, String>> + Send + 'a>> {
+    Box::pin(async move {
+        let slot = Mutex::new(None);
+        let setup = Setup { cwd: project, name: "ARIA errand", cursor_tools: true };
+        let mut line = String::new();
+        let mut emit = |t: &str| {
+            line.push_str(t);
+            let last = line.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or_default().trim().to_string();
+            if !last.is_empty() {
+                progress(&last);
+            }
+            if line.len() > 4000 {
+                line = last;
+            }
+        };
+        converse(&slot, &setup, ep, ERRAND_BRIEF, &[], task, None, cancel, &mut emit).await
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn converse(
     slot: &Mutex<Option<Session>>,
+    setup: &Setup<'_>,
     ep: &Endpoint,
     system: &str,
     specs: &[ToolSpec],
@@ -596,7 +645,7 @@ async fn converse(
     cancel: &AtomicBool,
     emit: &mut (dyn FnMut(&str) + Send),
 ) -> Result<String, String> {
-    BUSY.store(true, Ordering::Relaxed);
+    BUSY.fetch_add(1, Ordering::Relaxed);
     let _busy = BusyGuard;
     let key = ep.key().ok_or("Falta la clave de Cursor. Ponla en Ajustes → Asistente.")?.to_string();
     let (url, token) = bridge().await?;
@@ -611,10 +660,15 @@ async fn converse(
         let mut o = json!({
             "model": { "id": ep.model },
             "apiKey": key,
-            "name": "ARIA",
-            "local": { "cwd": [platform::home_dir().to_string_lossy()], "customTools": custom },
-            "tools": { "names": allowed },
+            "name": setup.name,
+            "local": { "cwd": [setup.cwd.to_string_lossy()], "customTools": custom },
         });
+        if setup.cursor_tools {
+            // No tool list: Cursor's default toolset.
+            o["local"]["autoReview"] = json!(true);
+        } else {
+            o["tools"] = json!({ "names": allowed });
+        }
         if let Some(id) = agent {
             o["agentId"] = json!(id);
         }

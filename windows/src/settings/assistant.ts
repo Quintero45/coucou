@@ -245,6 +245,21 @@ export async function assistantSection(ctx: SettingsCtx): Promise<HTMLElement> {
       ),
     );
 
+    const decides = h("button", { class: s.ariaDecides ? "switch on" : "switch" });
+    decides.addEventListener("click", () => {
+      const next = !decides.classList.contains("on");
+      decides.classList.toggle("on", next);
+      ctx.get().ariaDecides = next;
+      void ctx.save();
+    });
+    body.append(
+      h("div", { class: "row" },
+        h("label", { text: t("ARIA decides her team's permissions") }),
+        decides,
+        h("span", { class: "hint", text: t("When Cursor, Claude, Codex or a Grok Bot asks for permission, ARIA answers: reading, editing inside the project, building and testing go ahead at once; deleting, pushing, installing, sending and anything outside the project still show you the card; anything that names her protected core is refused. The island tells you each answer.") }),
+      ),
+    );
+
     const braveFeedback = h("div", {});
     body.append(
       keyRow("Brave Search", "brave-api-key", "BSA…", bravePresent, braveFeedback),
