@@ -6,6 +6,7 @@
 pub mod listen;
 mod models;
 mod speech;
+pub mod stt;
 mod turn;
 mod wake;
 

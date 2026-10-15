@@ -15,13 +15,24 @@ pub struct Split {
     pub command: String,
 }
 
-/// How Whisper may write the name.
+/// How Parakeet and Whisper may write the name (accents already folded):
+/// «Arya», «área», and a consonant glued from the call before it — «Okay,
+/// Garia», «Hola Raria», «Oye, Laria». Only counted right after a call word.
 fn is_name(w: &str) -> bool {
-    matches!(w, "aria" | "arya" | "ariah" | "ariia" | "aria's")
+    matches!(
+        w,
+        "aria" | "arya" | "ariah" | "ariia" | "arias" | "area" | "garia" | "raria" | "laria" | "yaria" | "daria" | "haria"
+            | "arria"
+    )
 }
 
 fn is_call(w: &str) -> bool {
     matches!(w, "hey" | "hei" | "ey" | "oye" | "oy" | "oiga" | "ok" | "okay" | "okey" | "hola" | "hi" | "hello")
+}
+
+/// An article heard between the call and the name: «Oye el área».
+fn is_filler(w: &str) -> bool {
+    matches!(w, "el" | "la")
 }
 
 /// Finds the last "<call> ARIA" in `raw` and returns what follows it.
@@ -31,7 +42,8 @@ pub fn split(raw: &str) -> Split {
     let norm: Vec<String> = words.iter().map(|w| normalise(w)).collect();
     let mut end = None;
     for i in 1..norm.len() {
-        if is_name(&norm[i]) && is_call(&norm[i - 1]) {
+        let called = is_call(&norm[i - 1]) || (i >= 2 && is_filler(&norm[i - 1]) && is_call(&norm[i - 2]));
+        if is_name(&norm[i]) && called {
             end = Some(i + 1);
         }
     }
@@ -264,6 +276,20 @@ mod tests {
         assert!(!split("ARIA abre Spotify").matched, "the name alone does not wake her");
         assert!(!split("oye María, ven").matched);
         assert!(!split("").matched);
+    }
+
+    #[test]
+    fn misheard_names_still_wake_her() {
+        // What Parakeet and Whisper wrote for a Spanish «Oye/Hey/OK/Hola ARIA».
+        assert_eq!(split("Oye el área.").command, "");
+        assert!(split("Oye el área.").matched);
+        assert!(split("Okay, Garia.").matched);
+        assert!(split("Hola Raria.").matched);
+        assert_eq!(split("Oye, Arya, ¿qué hora es?").command, "¿qué hora es?");
+        assert_eq!(split("Hey Aria, pon música.").command, "pon música.");
+        assert!(!split("Mañana voy al área de ventas.").matched, "área without a call");
+        assert!(!split("Oye MARIA. Ven acá.").matched);
+        assert!(!split("el área de ventas").matched);
     }
 
     #[test]

@@ -1,6 +1,7 @@
 // Dictation and meetings: the microphone (and, for meetings, what the PC is
 // playing, through WASAPI loopback) captured with cpal, downmixed and resampled
-// to 16 kHz mono, transcribed locally by whisper.cpp's prebuilt whisper-cli.exe.
+// to 16 kHz mono, transcribed locally by Parakeet (voice/stt.rs) when it is on
+// disk, otherwise by whisper.cpp's prebuilt whisper-cli.exe.
 //
 // whisper-cli and its model are downloaded at first use into
 // %LOCALAPPDATA%\ARIA\voice\whisper\ (progress on `voice-engine`). Meeting
@@ -70,6 +71,10 @@ pub(crate) async fn ensure_whisper(app: &AppHandle) -> Result<(PathBuf, PathBuf)
     if let (Some(exe), true) = (whisper_exe(), model_path().is_file()) {
         return Ok((exe, model_path()));
     }
+    if voice::stt::is_ready() {
+        // Parakeet does the work; Whisper is only fetched if it is ever needed.
+        return Ok((PathBuf::new(), PathBuf::new()));
+    }
     let _guard = install_lock().lock().await;
     if whisper_exe().is_none() {
         let url = whisper_release_url().await;
@@ -132,9 +137,38 @@ fn is_noise(line: &str) -> bool {
 
 /// Spanish text for 16 kHz mono samples ("" for silence).
 pub(crate) async fn transcribe(exe: PathBuf, model: PathBuf, samples: Vec<f32>) -> Result<String, String> {
+    transcribe_hinted(exe, model, samples, None).await
+}
+
+/// `prompt`: words Whisper should expect (Parakeet takes none).
+pub(crate) async fn transcribe_hinted(
+    exe: PathBuf,
+    model: PathBuf,
+    samples: Vec<f32>,
+    prompt: Option<&'static str>,
+) -> Result<String, String> {
     if samples.len() < RATE / 2 || rms(&samples) < SILENCE_RMS {
         return Ok(String::new());
     }
+    if voice::stt::is_ready() {
+        let samples = std::sync::Arc::new(samples);
+        let shared = samples.clone();
+        let heard = tauri::async_runtime::spawn_blocking(move || voice::stt::transcribe(&shared))
+            .await
+            .map_err(|e| e.to_string())?;
+        if let Some(text) = heard {
+            return Ok(text);
+        }
+        let Ok(samples) = std::sync::Arc::try_unwrap(samples) else { return Ok(String::new()) };
+        if exe.as_os_str().is_empty() {
+            return Err("Parakeet no pudo cargarse y Whisper no está instalado".into());
+        }
+        return whisper(exe, model, samples, prompt).await;
+    }
+    whisper(exe, model, samples, prompt).await
+}
+
+async fn whisper(exe: PathBuf, model: PathBuf, samples: Vec<f32>, prompt: Option<&'static str>) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         std::fs::create_dir_all(tmp_dir()).map_err(|e| e.to_string())?;
         let wav = tmp_file("chunk", "wav");
@@ -145,8 +179,11 @@ pub(crate) async fn transcribe(exe: PathBuf, model: PathBuf, samples: Vec<f32>) 
             .arg(&model)
             .arg("-f")
             .arg(&wav)
-            .args(["-l", "es", "-nt", "-np", "-t", &threads.to_string()])
-            .current_dir(exe.parent().unwrap_or(std::path::Path::new(".")))
+            .args(["-l", "es", "-nt", "-np", "-t", &threads.to_string()]);
+        if let Some(prompt) = prompt {
+            cmd.arg("--prompt").arg(prompt);
+        }
+        cmd.current_dir(exe.parent().unwrap_or(std::path::Path::new(".")))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -168,7 +205,7 @@ pub(crate) async fn transcribe(exe: PathBuf, model: PathBuf, samples: Vec<f32>) 
 
 /// Where to cut `buf` near `target` samples: the quietest 100 ms in the 3 s
 /// before it, so words are not split between chunks.
-fn split_point(buf: &[f32], target: usize) -> usize {
+pub(crate) fn split_point(buf: &[f32], target: usize) -> usize {
     let target = target.min(buf.len());
     let block = RATE / 10;
     let from = target.saturating_sub(RATE * 3);

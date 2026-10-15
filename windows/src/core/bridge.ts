@@ -214,6 +214,10 @@ export const Bridge = {
 
   // ── "Hey ARIA" (voice/listen.rs) ──────────────────────────────────────────
   voiceStatus: () => call<VoiceStatus>("voice_status"),
+  /** Parakeet, the speech recognizer (voice/stt.rs): on disk or not, and its download size. */
+  voiceParakeetStatus: () => call<{ ready: boolean; sizeMb: number }>("voice_parakeet_status"),
+  voiceParakeetDownload: () => callOrThrow<void>("voice_parakeet_download"),
+  voiceParakeetRemove: () => call<void>("voice_parakeet_remove"),
   /** What the island shows, so a wake waits while a card needs the owner. */
   voiceIsland: (view: string, mode: string, pendingApproval: boolean) =>
     call<void>("voice_island", { view, mode, pendingApproval }),

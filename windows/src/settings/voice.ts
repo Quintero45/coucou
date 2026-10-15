@@ -80,9 +80,41 @@ export function voiceSection(ctx: { get: () => Settings; save: () => Promise<voi
     }
   }
 
+  const sttStatus = h("span", { class: "hint" });
+  const sttProgress = h("div", { class: "hint" });
+  const sttButton = h("button", {}) as HTMLButtonElement;
+  let sttReady = false;
+  async function refreshStt() {
+    const s = await Bridge.voiceParakeetStatus();
+    if (!s) return;
+    sttReady = s.ready;
+    sttStatus.textContent = s.ready
+      ? t("Downloaded: dictation, meetings and “Hey ARIA” use it")
+      : t("Not downloaded: Whisper is used ({size} MB)", { size: s.sizeMb });
+    sttButton.textContent = s.ready ? t("Remove") : t("Download");
+    sttButton.disabled = false;
+  }
+  sttButton.addEventListener("click", () => {
+    sttButton.disabled = true;
+    if (sttReady) {
+      void Bridge.voiceParakeetRemove().then(refreshStt);
+      return;
+    }
+    Bridge.voiceParakeetDownload()
+      .catch((e) => { sttProgress.textContent = t("Download: {error}", { error: String(e) }); })
+      .finally(() => void refreshStt());
+  });
+  void refreshStt();
+
   shown = {
     refresh: () => void refresh(),
     engine: (e) => {
+      if (e.engine === "parakeet") {
+        if (e.error) sttProgress.textContent = t("Download: {error}", { error: e.error });
+        else if (e.downloading) sttProgress.textContent = t("Downloading {item}… {pct}%", { item: e.item ?? "", pct: e.pct ?? 0 });
+        else sttProgress.textContent = "";
+        return;
+      }
       if (e.error) progress.textContent = t("Download: {error}", { error: e.error });
       else if (e.downloading) progress.textContent = t("Downloading {item}… {pct}%", { item: e.item ?? "", pct: e.pct ?? 0 });
       else progress.textContent = "";
@@ -118,6 +150,13 @@ export function voiceSection(ctx: { get: () => Settings; save: () => Promise<voi
       h("label", { text: t("Subtitles") }),
       toggle(s0.voiceSubtitles, (v) => { ctx.get().voiceSubtitles = v; void ctx.save(); }),
     ),
+    h("div", { class: "subhead", text: t("Speech recognition") }),
+    h("div", { class: "row" }, h("label", { text: t("Parakeet") }), sttButton, sttStatus),
+    h("div", {
+      class: "hint",
+      text: t("NVIDIA's Parakeet understands the name ARIA and 25 languages, offline and much faster than Whisper on this PC."),
+    }),
+    sttProgress,
     h("div", { class: "subhead", text: t("Heard recently (kept in memory only)") }),
     history,
     h("div", { class: "row" },

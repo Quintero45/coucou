@@ -1,6 +1,6 @@
 // "Hey ARIA": one thread keeps the microphone open while the setting is on.
 // Silero VAD cuts speech out of it, the spotter looks for the wake phrase,
-// Whisper writes what follows, and the island sends it to the chat as if typed
+// Parakeet (or Whisper) writes what follows, and the island sends it to the chat as if typed
 // — same policy, same approval cards. No audio is ever kept: samples live in
 // memory for one turn; Whisper's temporary WAV is deleted as soon as it is read.
 
@@ -20,8 +20,9 @@ const FOLLOW_UP: Duration = Duration::from_secs(8);
 /// A question nobody answered frees the microphone after this long.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(90);
 const HISTORY: usize = 30;
-/// Speech up to this long (16 kHz samples) that the spotter missed goes to Whisper for the wake phrase.
+/// Speech up to this long (16 kHz samples) that the spotter missed is transcribed to look for the wake phrase.
 const WHISPER_WAKE_MAX: usize = 4 * 16_000;
+const WAKE_PROMPT: &str = "Oye ARIA. Hey ARIA. Hola ARIA.";
 /// A missed phrase is logged at most this often.
 const MISS_LOG_EVERY: Duration = Duration::from_secs(30);
 
@@ -188,8 +189,8 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
         30.0,
     )
     .map_err(|e| e.to_string())?;
-    let transcribe = |samples: Vec<f32>| -> String {
-        match tauri::async_runtime::block_on(crate::meeting::transcribe(exe.clone(), model.clone(), samples)) {
+    let heard = |samples: Vec<f32>, prompt: Option<&'static str>| -> String {
+        match tauri::async_runtime::block_on(crate::meeting::transcribe_hinted(exe.clone(), model.clone(), samples, prompt)) {
             Ok(t) => t.trim().to_string(),
             Err(e) => {
                 log::line(format!("voice: {e}"));
@@ -197,6 +198,18 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
             }
         }
     };
+    let transcribe = |samples: Vec<f32>| heard(samples, None);
+    // Without the hint Whisper writes the name as «área», «haría», «Daria»…
+    let transcribe_wake = |samples: Vec<f32>| heard(samples, Some(WAKE_PROMPT));
+    super::stt::keep_loaded(true);
+    super::stt::preload();
+    struct Release;
+    impl Drop for Release {
+        fn drop(&mut self) {
+            super::stt::keep_loaded(false);
+        }
+    }
+    let _release = Release;
 
     let mut backoff = wake::Backoff::default();
     while !stop.load(Ordering::SeqCst) {
@@ -275,13 +288,13 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
                         log::line(format!("voice: wake phrase heard ({keyword})"));
                         set_state(app, "listening", None);
                         let _ = crate::sounds::play_sound(app.state::<Shared>(), "recibido".into(), None);
-                        let heard = transcribe(segment);
+                        let heard = transcribe_wake(segment);
                         let split = wake::split(&heard);
                         if split.matched { split.command } else { after_name(&heard) }
                     } else if segment.len() <= WHISPER_WAKE_MAX {
                         // The spotter is an English model: a Spanish "Hey ARIA" often slips past it.
                         let secs = segment.len() as f32 / 16_000.0;
-                        let heard = transcribe(segment);
+                        let heard = transcribe_wake(segment);
                         let split = wake::split(&heard);
                         if !split.matched {
                             // Only the length: what was said near the microphone is never written down.
@@ -462,6 +475,29 @@ pub async fn voice_voices() -> Vec<String> {
 #[tauri::command]
 pub fn voice_clear_history() {
     lock().history.clear();
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParakeetStatus {
+    pub ready: bool,
+    pub size_mb: u64,
+}
+
+#[tauri::command]
+pub fn voice_parakeet_status() -> ParakeetStatus {
+    ParakeetStatus { ready: super::stt::is_ready(), size_mb: super::stt::total_mb() }
+}
+
+/// Settings → Voice → Download (progress on `voice-engine`, engine `parakeet`).
+#[tauri::command]
+pub async fn voice_parakeet_download(app: AppHandle) -> Result<(), String> {
+    super::stt::ensure(&app).await
+}
+
+#[tauri::command]
+pub fn voice_parakeet_remove(app: AppHandle) {
+    super::stt::remove(&app);
 }
 
 #[cfg(test)]

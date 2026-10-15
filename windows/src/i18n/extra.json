@@ -6519,6 +6519,72 @@
    "pt-BR": "Uma linha na ilha para cada coisa que a ARIA faz sem perguntar. Desligado, o cartão dela continua listando em Sem perguntar e o aria.log guarda tudo.",
    "ru": "Строка на острове для каждого действия, которое ARIA делает без вопросов. Если выключено, её карточка всё равно показывает их в разделе «Без вопросов», а aria.log хранит всё.",
    "id": "Satu baris di pulau untuk setiap hal yang ARIA lakukan tanpa bertanya. Jika mati, kartunya tetap menampilkannya di Tanpa bertanya dan aria.log menyimpan semuanya."
+  },
+  "Downloaded: dictation, meetings and “Hey ARIA” use it": {
+   "zh-Hans": "已下载：听写、会议和“Hey ARIA”都在使用",
+   "hi": "डाउनलोड हो गया: डिक्टेशन, मीटिंग और “Hey ARIA” इसका उपयोग करते हैं",
+   "es": "Descargado: el dictado, las reuniones y «Hey ARIA» lo usan",
+   "ar": "تم التنزيل: يستخدمه الإملاء والاجتماعات و“Hey ARIA”",
+   "fr": "Téléchargé : la dictée, les réunions et « Hey ARIA » l'utilisent",
+   "bn": "ডাউনলোড হয়েছে: ডিকটেশন, মিটিং এবং “Hey ARIA” এটি ব্যবহার করে",
+   "pt-BR": "Baixado: o ditado, as reuniões e o “Hey ARIA” o usam",
+   "ru": "Загружено: диктовка, встречи и «Hey ARIA» используют его",
+   "id": "Sudah diunduh: dikte, rapat, dan “Hey ARIA” memakainya"
+  },
+  "Not downloaded: Whisper is used ({size} MB)": {
+   "zh-Hans": "未下载：正在使用 Whisper（{size} MB）",
+   "hi": "डाउनलोड नहीं हुआ: Whisper का उपयोग हो रहा है ({size} MB)",
+   "es": "Sin descargar: se usa Whisper ({size} MB)",
+   "ar": "غير مُنزّل: يُستخدم Whisper ({size} ميغابايت)",
+   "fr": "Non téléchargé : Whisper est utilisé ({size} Mo)",
+   "bn": "ডাউনলোড হয়নি: Whisper ব্যবহার হচ্ছে ({size} MB)",
+   "pt-BR": "Não baixado: o Whisper é usado ({size} MB)",
+   "ru": "Не загружено: используется Whisper ({size} МБ)",
+   "id": "Belum diunduh: Whisper yang dipakai ({size} MB)"
+  },
+  "Speech recognition": {
+   "zh-Hans": "语音识别",
+   "hi": "वाक् पहचान",
+   "es": "Reconocimiento de voz",
+   "ar": "التعرّف على الكلام",
+   "fr": "Reconnaissance vocale",
+   "bn": "কণ্ঠ শনাক্তকরণ",
+   "pt-BR": "Reconhecimento de voz",
+   "ru": "Распознавание речи",
+   "id": "Pengenalan suara"
+  },
+  "Parakeet": {
+   "zh-Hans": "Parakeet",
+   "hi": "Parakeet",
+   "es": "Parakeet",
+   "ar": "Parakeet",
+   "fr": "Parakeet",
+   "bn": "Parakeet",
+   "pt-BR": "Parakeet",
+   "ru": "Parakeet",
+   "id": "Parakeet"
+  },
+  "NVIDIA's Parakeet understands the name ARIA and 25 languages, offline and much faster than Whisper on this PC.": {
+   "zh-Hans": "NVIDIA 的 Parakeet 能听懂 ARIA 这个名字和 25 种语言，离线运行，在这台电脑上比 Whisper 快得多。",
+   "hi": "NVIDIA का Parakeet नाम ARIA और 25 भाषाएँ समझता है, ऑफ़लाइन और इस PC पर Whisper से बहुत तेज़।",
+   "es": "Parakeet, de NVIDIA, entiende el nombre ARIA y 25 idiomas, sin internet y mucho más rápido que Whisper en este PC.",
+   "ar": "يفهم Parakeet من NVIDIA اسم ARIA و25 لغة، دون اتصال وأسرع بكثير من Whisper على هذا الحاسوب.",
+   "fr": "Parakeet, de NVIDIA, comprend le nom ARIA et 25 langues, hors ligne et bien plus vite que Whisper sur ce PC.",
+   "bn": "NVIDIA-র Parakeet ARIA নামটি এবং ২৫টি ভাষা বোঝে, অফলাইনে এবং এই PC-তে Whisper-এর চেয়ে অনেক দ্রুত।",
+   "pt-BR": "O Parakeet, da NVIDIA, entende o nome ARIA e 25 idiomas, offline e muito mais rápido que o Whisper neste PC.",
+   "ru": "Parakeet от NVIDIA понимает имя ARIA и 25 языков, без интернета и намного быстрее Whisper на этом ПК.",
+   "id": "Parakeet dari NVIDIA memahami nama ARIA dan 25 bahasa, offline dan jauh lebih cepat daripada Whisper di PC ini."
+  },
+  "Download": {
+   "zh-Hans": "下载",
+   "hi": "डाउनलोड करें",
+   "es": "Descargar",
+   "ar": "تنزيل",
+   "fr": "Télécharger",
+   "bn": "ডাউনলোড করুন",
+   "pt-BR": "Baixar",
+   "ru": "Загрузить",
+   "id": "Unduh"
   }
  }
 }
