@@ -18,6 +18,7 @@ mod delegation;
 mod desktop;
 mod editctx;
 mod files;
+mod flow;
 mod github;
 mod grokbot;
 mod hooks;
@@ -1032,6 +1033,24 @@ pub fn run() {
             voice::listen::voice_parakeet_status,
             voice::listen::voice_parakeet_download,
             voice::listen::voice_parakeet_remove,
+            flow::flow_status,
+            flow::flow_set_prefs,
+            flow::flow_history,
+            flow::flow_delete,
+            flow::flow_clear,
+            flow::flow_stats,
+            flow::flow_words,
+            flow::flow_set_words,
+            flow::flow_snippets,
+            flow::flow_set_snippets,
+            flow::flow_styles,
+            flow::flow_set_styles,
+            flow::flow_running_apps,
+            flow::flow_copy,
+            flow::pill_state,
+            flow::pill_hot,
+            flow::pill_hover,
+            flow::pill_action,
             phone_link::phone_link_status,
             phone_link::chat_backend::phone_chat_reply,
             delegation::errand_bot_update,
@@ -1072,6 +1091,8 @@ pub fn run() {
             create_settings_window(&handle);
             // Same rule for ARIA's desktop window.
             desktop::setup(&handle);
+            // And for the dictation pill's.
+            flow::setup(&handle);
 
             if let Some(win) = island::window(&handle) {
                 // Where Tauri takes the drop itself (Linux), its paths are the

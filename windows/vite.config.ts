@@ -64,6 +64,7 @@ export default defineConfig({
         island: resolve(__dirname, "index.html"),
         settings: resolve(__dirname, "settings.html"),
         aria: resolve(__dirname, "aria-desktop.html"),
+        pill: resolve(__dirname, "pill.html"),
       },
     },
   },

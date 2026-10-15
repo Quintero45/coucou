@@ -243,10 +243,13 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
                 if l.follow_until.is_some_and(|t| Instant::now() >= t) {
                     l.follow_until = None;
                 }
-                (l.paused || l.awaiting.is_some() || speech::speaking(), l.follow_until.is_some())
+                (
+                    l.paused || l.awaiting.is_some() || speech::speaking() || crate::flow::pill::dictating(app),
+                    l.follow_until.is_some(),
+                )
             };
             if busy {
-                // Her own voice, a pause or a pending answer: nothing is heard.
+                // Her own voice, a pause, a pending answer or a dictation: nothing is heard.
                 vad.clear();
                 current = None;
                 continue;
