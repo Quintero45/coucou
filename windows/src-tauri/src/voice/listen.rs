@@ -291,6 +291,7 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
                             continue;
                         }
                         log::line(format!("voice: wake phrase heard ({keyword})"));
+                        warm_voice(app);
                         set_state(app, "listening", None);
                         let _ = crate::sounds::play_sound(app.state::<Shared>(), "recibido".into(), None);
                         let heard = transcribe_wake(segment);
@@ -314,6 +315,7 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
                             continue;
                         }
                         log::line("voice: wake phrase heard (whisper)");
+                        warm_voice(app);
                         set_state(app, "listening", None);
                         let _ = crate::sounds::play_sound(app.state::<Shared>(), "recibido".into(), None);
                         split.command
@@ -341,6 +343,14 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
 #[cfg(not(windows))]
 fn run(_app: &AppHandle, _stop: &AtomicBool) -> Result<(), String> {
     Err("«Hey ARIA» solo está disponible en Windows por ahora.".into())
+}
+
+/// Kokoro loads while the owner speaks and the chat thinks, not after.
+fn warm_voice(app: &AppHandle) {
+    let s = settings(app);
+    if s.voice_speak && super::kokoro::speaker(&s.voice_name).is_some() {
+        std::thread::Builder::new().name("aria-kokoro-load".into()).spawn(super::kokoro::preload).ok();
+    }
 }
 
 /// A quiet microphone brought up to a level the spotter and Whisper expect.
@@ -440,10 +450,15 @@ pub fn voice_reply(app: AppHandle, text: String) {
         set_state(&app, "listening", None);
         return;
     }
-    let voice = s.voice_name.clone();
+    let (voice, pitch, subtitles) = (s.voice_name.clone(), s.voice_pitch as f32, s.voice_subtitles);
     std::thread::spawn(move || {
         set_state(&app, "speaking", None);
-        if let Err(e) = speech::say(&text, &voice) {
+        let caption = |sentence: &str| {
+            if subtitles {
+                let _ = app.emit("voice-caption", serde_json::json!({ "text": sentence }));
+            }
+        };
+        if let Err(e) = speech::say(&text, &voice, pitch, &caption) {
             log::line(format!("voice: could not speak: {e}"));
         }
         lock().follow_until = Some(Instant::now() + FOLLOW_UP);
@@ -464,12 +479,14 @@ pub fn voice_stop_speaking() {
     speech::stop();
 }
 
-/// Says a sample sentence with `voice` (Settings → Voice → Try).
+/// Says a sample sentence with `voice` at `pitch` (Settings → Voice → Try).
 #[tauri::command]
-pub async fn voice_try(voice: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || speech::say("Hola, soy ARIA. ¿En qué te ayudo?", &voice))
-        .await
-        .map_err(|e| e.to_string())?
+pub async fn voice_try(voice: String, pitch: f32) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        speech::say("Hola, soy ARIA. ¿En qué te ayudo hoy?", &voice, pitch, &|_| {})
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -484,14 +501,14 @@ pub fn voice_clear_history() {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ParakeetStatus {
+pub struct EngineStatus {
     pub ready: bool,
     pub size_mb: u64,
 }
 
 #[tauri::command]
-pub fn voice_parakeet_status() -> ParakeetStatus {
-    ParakeetStatus { ready: super::stt::is_ready(), size_mb: super::stt::total_mb() }
+pub fn voice_parakeet_status() -> EngineStatus {
+    EngineStatus { ready: super::stt::is_ready(), size_mb: super::stt::total_mb() }
 }
 
 /// Settings → Voice → Download (progress on `voice-engine`, engine `parakeet`).
@@ -503,6 +520,25 @@ pub async fn voice_parakeet_download(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn voice_parakeet_remove(app: AppHandle) {
     super::stt::remove(&app);
+}
+
+#[tauri::command]
+pub fn voice_kokoro_status() -> EngineStatus {
+    EngineStatus { ready: super::kokoro::is_ready(), size_mb: super::kokoro::total_mb() }
+}
+
+/// Settings → Voice → Download her voice (progress on `voice-engine`, engine `kokoro`).
+#[tauri::command]
+pub async fn voice_kokoro_download(app: AppHandle) -> Result<(), String> {
+    super::kokoro::ensure(&app).await
+}
+
+#[tauri::command]
+pub fn voice_kokoro_remove(app: AppHandle) {
+    speech::stop();
+    super::kokoro::remove();
+    super::emit_ready(&app, super::kokoro::ENGINE, false);
+    log::line("voice: Kokoro removed");
 }
 
 #[cfg(test)]

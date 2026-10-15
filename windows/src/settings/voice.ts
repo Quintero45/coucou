@@ -42,7 +42,12 @@ export function voiceSection(ctx: { get: () => Settings; save: () => Promise<voi
   resume.style.display = "none";
 
   const voice = h("select", {}) as HTMLSelectElement;
-  voice.append(h("option", { value: "piper", text: t("ARIA (Mexican Spanish, downloaded)") }));
+  voice.append(
+    h("option", { value: "kokoro:dora", text: t("ARIA, a woman (Kokoro)") }),
+    h("option", { value: "kokoro:alex", text: t("ARIA, a man (Kokoro)") }),
+    h("option", { value: "kokoro:santa", text: t("ARIA, a deeper man's voice (Kokoro)") }),
+    h("option", { value: "piper", text: t("ARIA (Mexican Spanish, downloaded)") }),
+  );
   void Bridge.voiceVoices().then((names) => {
     for (const name of names ?? []) voice.append(h("option", { value: name, text: name }));
     voice.value = ctx.get().voiceName;
@@ -52,8 +57,51 @@ export function voiceSection(ctx: { get: () => Settings; save: () => Promise<voi
   voice.addEventListener("change", () => {
     ctx.get().voiceName = voice.value;
     void ctx.save();
+    void refreshKokoro();
   });
-  const tryVoice = h("button", { text: t("Try"), onclick: () => void Bridge.voiceTry(voice.value) });
+
+  const pitchValue = h("span", { class: "hint" });
+  const pitch = h("input", { type: "range", min: "0.8", max: "1.25", step: "0.05", value: String(s0.voicePitch ?? 1) }) as HTMLInputElement;
+  const showPitch = () => {
+    const p = Number(pitch.value);
+    pitchValue.textContent = Math.abs(p - 1) < 0.01 ? t("Her own") : p < 1 ? t("Lower") : t("Higher");
+  };
+  showPitch();
+  pitch.addEventListener("input", showPitch);
+  pitch.addEventListener("change", () => {
+    ctx.get().voicePitch = Number(pitch.value);
+    void ctx.save();
+  });
+  const tryVoice = h("button", { text: t("Try"), onclick: () => void Bridge.voiceTry(voice.value, Number(pitch.value)) });
+
+  const kokoroStatus = h("span", { class: "hint" });
+  const kokoroProgress = h("div", { class: "hint" });
+  const kokoroButton = h("button", {}) as HTMLButtonElement;
+  let kokoroReady = false;
+  async function refreshKokoro() {
+    const s = await Bridge.voiceKokoroStatus();
+    if (!s) return;
+    kokoroReady = s.ready;
+    const picked = voice.value.startsWith("kokoro:");
+    kokoroStatus.textContent = s.ready
+      ? t("Downloaded")
+      : picked
+        ? t("Not downloaded ({size} MB): until then a Windows voice answers", { size: s.sizeMb })
+        : t("Not downloaded ({size} MB)", { size: s.sizeMb });
+    kokoroButton.textContent = s.ready ? t("Remove") : t("Download");
+    kokoroButton.disabled = false;
+  }
+  kokoroButton.addEventListener("click", () => {
+    kokoroButton.disabled = true;
+    if (kokoroReady) {
+      void Bridge.voiceKokoroRemove().then(refreshKokoro);
+      return;
+    }
+    Bridge.voiceKokoroDownload()
+      .catch((e) => { kokoroProgress.textContent = t("Download: {error}", { error: String(e) }); })
+      .finally(() => void refreshKokoro());
+  });
+  void refreshKokoro();
 
   function toggle(on: boolean, onChange: (v: boolean) => void): HTMLElement {
     const el = h("button", { class: on ? "switch on" : "switch", "aria-pressed": on });
@@ -109,6 +157,12 @@ export function voiceSection(ctx: { get: () => Settings; save: () => Promise<voi
   shown = {
     refresh: () => void refresh(),
     engine: (e) => {
+      if (e.engine === "kokoro") {
+        if (e.error) kokoroProgress.textContent = t("Download: {error}", { error: e.error });
+        else if (e.downloading) kokoroProgress.textContent = t("Downloading {item}… {pct}%", { item: e.item ?? "", pct: e.pct ?? 0 });
+        else kokoroProgress.textContent = "";
+        return;
+      }
       if (e.engine === "parakeet") {
         if (e.error) sttProgress.textContent = t("Download: {error}", { error: e.error });
         else if (e.downloading) sttProgress.textContent = t("Downloading {item}… {pct}%", { item: e.item ?? "", pct: e.pct ?? 0 });
@@ -146,10 +200,18 @@ export function voiceSection(ctx: { get: () => Settings; save: () => Promise<voi
       toggle(s0.voiceSpeak, (v) => { ctx.get().voiceSpeak = v; void ctx.save(); }),
     ),
     h("div", { class: "row" }, h("label", { text: t("Her voice") }), voice, tryVoice),
+    h("div", { class: "row" }, h("label", { text: t("Pitch") }), pitch, pitchValue),
+    h("div", { class: "row" }, h("label", { text: t("Kokoro") }), kokoroButton, kokoroStatus),
+    h("div", {
+      class: "hint",
+      text: t("Kokoro is a natural voice that runs on this PC, a woman's or a man's. The pitch moves Kokoro's and the Mexican voice; Windows voices keep theirs."),
+    }),
+    kokoroProgress,
     h("div", { class: "row" },
       h("label", { text: t("Subtitles") }),
       toggle(s0.voiceSubtitles, (v) => { ctx.get().voiceSubtitles = v; void ctx.save(); }),
     ),
+    h("div", { class: "hint", text: t("What you said, and what she says sentence by sentence, under the island.") }),
     h("div", { class: "subhead", text: t("Speech recognition") }),
     h("div", { class: "row" }, h("label", { text: t("Parakeet") }), sttButton, sttStatus),
     h("div", {

@@ -219,6 +219,10 @@ export const Bridge = {
   voiceParakeetStatus: () => call<{ ready: boolean; sizeMb: number }>("voice_parakeet_status"),
   voiceParakeetDownload: () => callOrThrow<void>("voice_parakeet_download"),
   voiceParakeetRemove: () => call<void>("voice_parakeet_remove"),
+  /** Kokoro, her own voice (voice/kokoro.rs): on disk or not, and its download size. */
+  voiceKokoroStatus: () => call<{ ready: boolean; sizeMb: number }>("voice_kokoro_status"),
+  voiceKokoroDownload: () => callOrThrow<void>("voice_kokoro_download"),
+  voiceKokoroRemove: () => call<void>("voice_kokoro_remove"),
   /** What the island shows, so a wake waits while a card needs the owner. */
   voiceIsland: (view: string, mode: string, pendingApproval: boolean) =>
     call<void>("voice_island", { view, mode, pendingApproval }),
@@ -234,7 +238,7 @@ export const Bridge = {
   phoneChatReply: (id: number, text: string) => call<void>("phone_chat_reply", { id, text }),
   voiceResume: () => call<void>("voice_resume"),
   voiceStopSpeaking: () => call<void>("voice_stop_speaking"),
-  voiceTry: (voice: string) => call<void>("voice_try", { voice }),
+  voiceTry: (voice: string, pitch: number) => call<void>("voice_try", { voice, pitch }),
   voiceVoices: () => call<string[]>("voice_voices"),
   voiceClearHistory: () => call<void>("voice_clear_history"),
 

@@ -41,6 +41,10 @@ export function registerVoiceHandlers(island: Island) {
     State.notify();
   });
 
+  void onEvent<{ text: string }>("voice-caption", ({ text }) => {
+    if (State.settings.voiceSubtitles && text) island.announce(text);
+  });
+
   let last = "";
   State.subscribe(() => {
     if (!State.settings.voiceWake) return;

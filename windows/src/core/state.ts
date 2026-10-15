@@ -371,9 +371,11 @@ export interface Settings {
   voiceWake: boolean;
   /** She answers out loud what was asked by voice. */
   voiceSpeak: boolean;
-  /** "piper" (her own es-MX voice) or a Windows voice's name. */
+  /** "kokoro:dora" / "kokoro:alex" / "kokoro:santa", "piper" (her es-MX voice) or a Windows voice's name. */
   voiceName: string;
-  /** What she heard shows as a line in the island. */
+  /** Her pitch, 0.8 to 1.25; 1 is the voice's own. */
+  voicePitch: number;
+  /** What she heard and what she says show as a line in the island. */
   voiceSubtitles: boolean;
   /** ARIA on the desktop. Rust owns it: whatever the page sends back is ignored. */
   desktopAria?: {
@@ -419,6 +421,7 @@ export const DEFAULT_SETTINGS: Settings = {
   voiceWake: false,
   voiceSpeak: true,
   voiceName: "piper",
+  voicePitch: 1,
   voiceSubtitles: true,
 };
 

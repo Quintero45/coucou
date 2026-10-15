@@ -1,9 +1,10 @@
-﻿// The local speech engine's plumbing, shared by dictation and meetings
+// The local speech engine's plumbing, shared by dictation and meetings
 // (meeting.rs, Whisper) and "Hey ARIA" (listen.rs): its folder
 // (%LOCALAPPDATA%\ARIA\voice\), resumable downloads with progress on the
 // `voice-engine` event, and unzipping.
 
 pub mod diarizer;
+pub mod kokoro;
 pub mod listen;
 mod models;
 mod speech;

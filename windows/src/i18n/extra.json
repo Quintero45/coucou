@@ -7454,6 +7454,149 @@
    "pt-BR": "Precisa de uma IA com chave (xAI, Anthropic, OpenAI ou Google), ou de um modelo escolhido para Ollama ou LM Studio, em Ajustes → Assistente. Sem ela, as palavras são coladas como foram ouvidas.",
    "ru": "Нужен ИИ с ключом (xAI, Anthropic, OpenAI или Google) или модель, выбранная для Ollama или LM Studio, в Настройки → Ассистент. Без этого слова вставляются как услышаны.",
    "id": "Memerlukan AI dengan kunci (xAI, Anthropic, OpenAI, atau Google), atau model yang dipilih untuk Ollama atau LM Studio, di Pengaturan → Asisten. Tanpanya kata-kata ditempel seperti yang terdengar."
+  },
+  "ARIA, a woman (Kokoro)": {
+   "zh-Hans": "ARIA，女声（Kokoro）",
+   "hi": "ARIA, महिला आवाज़ (Kokoro)",
+   "es": "ARIA, voz de mujer (Kokoro)",
+   "ar": "ARIA، صوت امرأة (Kokoro)",
+   "fr": "ARIA, voix de femme (Kokoro)",
+   "bn": "ARIA, নারী কণ্ঠ (Kokoro)",
+   "pt-BR": "ARIA, voz feminina (Kokoro)",
+   "ru": "ARIA, женский голос (Kokoro)",
+   "id": "ARIA, suara perempuan (Kokoro)"
+  },
+  "ARIA, a man (Kokoro)": {
+   "zh-Hans": "ARIA，男声（Kokoro）",
+   "hi": "ARIA, पुरुष आवाज़ (Kokoro)",
+   "es": "ARIA, voz de hombre (Kokoro)",
+   "ar": "ARIA، صوت رجل (Kokoro)",
+   "fr": "ARIA, voix d'homme (Kokoro)",
+   "bn": "ARIA, পুরুষ কণ্ঠ (Kokoro)",
+   "pt-BR": "ARIA, voz masculina (Kokoro)",
+   "ru": "ARIA, мужской голос (Kokoro)",
+   "id": "ARIA, suara laki-laki (Kokoro)"
+  },
+  "ARIA, a deeper man's voice (Kokoro)": {
+   "zh-Hans": "ARIA，低沉男声（Kokoro）",
+   "hi": "ARIA, गहरी पुरुष आवाज़ (Kokoro)",
+   "es": "ARIA, voz de hombre más grave (Kokoro)",
+   "ar": "ARIA، صوت رجل أعمق (Kokoro)",
+   "fr": "ARIA, voix d'homme plus grave (Kokoro)",
+   "bn": "ARIA, গভীর পুরুষ কণ্ঠ (Kokoro)",
+   "pt-BR": "ARIA, voz masculina mais grave (Kokoro)",
+   "ru": "ARIA, низкий мужской голос (Kokoro)",
+   "id": "ARIA, suara laki-laki lebih berat (Kokoro)"
+  },
+  "Her own": {
+   "zh-Hans": "原声",
+   "hi": "स्वाभाविक",
+   "es": "Natural",
+   "ar": "طبيعي",
+   "fr": "Naturelle",
+   "bn": "স্বাভাবিক",
+   "pt-BR": "Natural",
+   "ru": "Обычный",
+   "id": "Alami"
+  },
+  "Lower": {
+   "zh-Hans": "更低",
+   "hi": "नीची",
+   "es": "Más grave",
+   "ar": "أعمق",
+   "fr": "Plus grave",
+   "bn": "নিচু",
+   "pt-BR": "Mais grave",
+   "ru": "Ниже",
+   "id": "Lebih rendah"
+  },
+  "Higher": {
+   "zh-Hans": "更高",
+   "hi": "ऊँची",
+   "es": "Más aguda",
+   "ar": "أحدّ",
+   "fr": "Plus aiguë",
+   "bn": "উঁচু",
+   "pt-BR": "Mais aguda",
+   "ru": "Выше",
+   "id": "Lebih tinggi"
+  },
+  "Downloaded": {
+   "zh-Hans": "已下载",
+   "hi": "डाउनलोड हो गया",
+   "es": "Descargada",
+   "ar": "تم التنزيل",
+   "fr": "Téléchargée",
+   "bn": "ডাউনলোড হয়েছে",
+   "pt-BR": "Baixada",
+   "ru": "Загружено",
+   "id": "Sudah diunduh"
+  },
+  "Not downloaded ({size} MB): until then a Windows voice answers": {
+   "zh-Hans": "未下载（{size} MB）：在此之前由 Windows 语音回答",
+   "hi": "डाउनलोड नहीं ({size} MB): तब तक Windows की आवाज़ जवाब देगी",
+   "es": "Sin descargar ({size} MB): mientras tanto responde una voz de Windows",
+   "ar": "غير منزّل ({size} ميغابايت): حتى ذلك الحين يجيب صوت من Windows",
+   "fr": "Non téléchargée ({size} Mo) : en attendant, une voix Windows répond",
+   "bn": "ডাউনলোড হয়নি ({size} MB): ততক্ষণ Windows-এর কণ্ঠ উত্তর দেবে",
+   "pt-BR": "Não baixada ({size} MB): até lá, uma voz do Windows responde",
+   "ru": "Не загружено ({size} МБ): пока отвечает голос Windows",
+   "id": "Belum diunduh ({size} MB): sementara itu suara Windows yang menjawab"
+  },
+  "Not downloaded ({size} MB)": {
+   "zh-Hans": "未下载（{size} MB）",
+   "hi": "डाउनलोड नहीं ({size} MB)",
+   "es": "Sin descargar ({size} MB)",
+   "ar": "غير منزّل ({size} ميغابايت)",
+   "fr": "Non téléchargée ({size} Mo)",
+   "bn": "ডাউনলোড হয়নি ({size} MB)",
+   "pt-BR": "Não baixada ({size} MB)",
+   "ru": "Не загружено ({size} МБ)",
+   "id": "Belum diunduh ({size} MB)"
+  },
+  "Pitch": {
+   "zh-Hans": "音调",
+   "hi": "स्वर",
+   "es": "Tono",
+   "ar": "طبقة الصوت",
+   "fr": "Hauteur",
+   "bn": "স্বরের উচ্চতা",
+   "pt-BR": "Tom",
+   "ru": "Высота голоса",
+   "id": "Nada"
+  },
+  "Kokoro": {
+   "zh-Hans": "Kokoro",
+   "hi": "Kokoro",
+   "es": "Kokoro",
+   "ar": "Kokoro",
+   "fr": "Kokoro",
+   "bn": "Kokoro",
+   "pt-BR": "Kokoro",
+   "ru": "Kokoro",
+   "id": "Kokoro"
+  },
+  "Kokoro is a natural voice that runs on this PC, a woman's or a man's. The pitch moves Kokoro's and the Mexican voice; Windows voices keep theirs.": {
+   "zh-Hans": "Kokoro 是在这台电脑上运行的自然语音，有女声和男声。音调可调整 Kokoro 和墨西哥语音；Windows 语音保持原样。",
+   "hi": "Kokoro इसी PC पर चलने वाली स्वाभाविक आवाज़ है, महिला या पुरुष। स्वर Kokoro और मैक्सिकन आवाज़ को बदलता है; Windows की आवाज़ें वैसी ही रहती हैं।",
+   "es": "Kokoro es una voz natural que funciona en este PC, de mujer o de hombre. El tono cambia la voz de Kokoro y la mexicana; las voces de Windows conservan el suyo.",
+   "ar": "Kokoro صوت طبيعي يعمل على هذا الحاسوب، صوت امرأة أو رجل. طبقة الصوت تغيّر صوت Kokoro والصوت المكسيكي؛ وتبقى أصوات Windows كما هي.",
+   "fr": "Kokoro est une voix naturelle qui tourne sur ce PC, de femme ou d'homme. La hauteur change la voix de Kokoro et la voix mexicaine ; les voix Windows gardent la leur.",
+   "bn": "Kokoro এই পিসিতে চলা একটি স্বাভাবিক কণ্ঠ, নারী বা পুরুষ। স্বরের উচ্চতা Kokoro ও মেক্সিকান কণ্ঠ বদলায়; Windows-এর কণ্ঠ একই থাকে।",
+   "pt-BR": "Kokoro é uma voz natural que roda neste PC, feminina ou masculina. O tom muda a voz do Kokoro e a mexicana; as vozes do Windows mantêm o delas.",
+   "ru": "Kokoro — естественный голос, работающий на этом ПК, женский или мужской. Высота меняет голос Kokoro и мексиканский; голоса Windows остаются прежними.",
+   "id": "Kokoro adalah suara alami yang berjalan di PC ini, perempuan atau laki-laki. Nada mengubah suara Kokoro dan suara Meksiko; suara Windows tetap seperti aslinya."
+  },
+  "What you said, and what she says sentence by sentence, under the island.": {
+   "zh-Hans": "你说的话，以及她逐句说的话，显示在灵动岛下方。",
+   "hi": "आपने जो कहा, और वह जो वाक्य दर वाक्य कहती है, आइलैंड के नीचे।",
+   "es": "Lo que dijiste y lo que ella dice, frase a frase, bajo la isla.",
+   "ar": "ما قلته، وما تقوله جملةً بجملة، أسفل الجزيرة.",
+   "fr": "Ce que tu as dit, et ce qu'elle dit phrase par phrase, sous l'île.",
+   "bn": "আপনি যা বলেছেন, আর সে বাক্যে বাক্যে যা বলে, আইল্যান্ডের নিচে।",
+   "pt-BR": "O que você disse e o que ela diz, frase por frase, sob a ilha.",
+   "ru": "Что вы сказали и что она говорит, фраза за фразой, под островом.",
+   "id": "Apa yang kamu katakan, dan apa yang dia ucapkan kalimat demi kalimat, di bawah pulau."
   }
  }
 }

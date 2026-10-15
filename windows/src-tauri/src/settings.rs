@@ -90,8 +90,11 @@ pub struct Settings {
     pub voice_wake: bool,
     /// ARIA answers out loud what was asked by voice.
     pub voice_speak: bool,
-    /// Her voice: "piper" (es-MX, downloaded) or a Windows voice's name.
+    /// Her voice: "kokoro:dora" / "kokoro:alex" / "kokoro:santa" (Kokoro,
+    /// downloaded), "piper" (es-MX, downloaded) or a Windows voice's name.
     pub voice_name: String,
+    /// Her pitch, 0.8 (lower) to 1.25 (higher); 1.0 is the voice's own.
+    pub voice_pitch: f64,
     /// What she heard and says, as a line under the island.
     pub voice_subtitles: bool,
     /// The phone link (phone_link/) is on: a TLS server for the Android app on
@@ -210,6 +213,7 @@ impl Default for Settings {
             voice_wake: false,
             voice_speak: true,
             voice_name: "piper".into(),
+            voice_pitch: 1.0,
             voice_subtitles: true,
             phone_link: false,
             phone_chat: false,
@@ -519,6 +523,7 @@ mod tests {
   "voiceWake": true,
   "voiceSpeak": false,
   "voiceName": "Microsoft Sabina Desktop",
+  "voicePitch": 1.1,
   "voiceSubtitles": false,
   "phoneLink": true,
   "phoneChat": true,
@@ -961,6 +966,7 @@ mod tests {
                 "voiceWake",
                 "voiceSpeak",
                 "voiceName",
+                "voicePitch",
                 "voiceSubtitles",
                 "phoneLink",
                 "phoneChat",

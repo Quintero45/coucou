@@ -1,6 +1,7 @@
-// ARIA's voice: Piper (es-MX, downloaded with "Hey ARIA") when it is there,
-// else a Windows voice (Sabina) through System.Speech. Nothing is written to
-// disk: Piper's raw audio is played from memory.
+// ARIA's voice: Kokoro (a woman or a man, downloaded from Settings → Voice),
+// Piper (es-MX, downloaded with "Hey ARIA"), or a Windows voice (Sabina)
+// through System.Speech. Nothing is written to disk: the audio is played from
+// memory. The pitch moves Kokoro's and Piper's voice; Windows voices keep theirs.
 
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -72,31 +73,123 @@ pub fn stop() {
     }
 }
 
-/// Says `text` and returns when done (or stopped). Blocking: call it off the UI.
-pub fn say(text: &str, voice: &str) -> Result<(), String> {
+/// 1.0 is her natural pitch; outside this range the voice stops sounding human.
+pub fn clamp_pitch(pitch: f32) -> f32 {
+    if pitch.is_finite() {
+        pitch.clamp(0.8, 1.25)
+    } else {
+        1.0
+    }
+}
+
+/// Says `text` and returns when done (or stopped), calling `caption` with each
+/// sentence as it starts. Blocking: call it off the UI.
+pub fn say(text: &str, voice: &str, pitch: f32, caption: &dyn Fn(&str)) -> Result<(), String> {
     stop();
     let turn = TURN.load(Ordering::SeqCst);
     let text = speakable(text);
     if text.is_empty() {
         return Ok(());
     }
+    let pitch = clamp_pitch(pitch);
     SPEAKING.store(true, Ordering::SeqCst);
-    let result = match super::models::piper_exe().filter(|_| voice == "piper" && super::models::speaking_ready()) {
-        Some(exe) => piper(&exe, &text, turn).or_else(|e| {
-            log::line(format!("voice: Piper failed ({e}), using a Windows voice"));
-            sapi(&text, "", turn)
-        }),
-        None => sapi(&text, if voice == "piper" { "" } else { voice }, turn),
+    let windows = |e: String, engine: &str| {
+        log::line(format!("voice: {engine} failed ({e}), using a Windows voice"));
+        caption(&text);
+        sapi(&text, "", turn)
+    };
+    let result = if let Some(sid) = super::kokoro::speaker(voice).filter(|_| super::kokoro::is_ready()) {
+        kokoro(&text, sid, pitch, turn, caption).or_else(|e| windows(e, "Kokoro"))
+    } else if let Some(exe) = super::models::piper_exe().filter(|_| voice == "piper" && super::models::speaking_ready()) {
+        caption(&text);
+        piper(&exe, &text, pitch, turn).or_else(|e| windows(e, "Piper"))
+    } else {
+        caption(&text);
+        let name = if voice == "piper" || voice.starts_with("kokoro:") { "" } else { voice };
+        sapi(&text, name, turn)
     };
     SPEAKING.store(false, Ordering::SeqCst);
     result
 }
 
-fn piper(exe: &std::path::Path, text: &str, turn: u32) -> Result<(), String> {
+/// Sentence by sentence: the next one is made while this one plays. The pitch
+/// is played faster (or slower) and made slower (or faster) by as much, so
+/// only the pitch moves, not the pace.
+#[cfg(windows)]
+fn kokoro(text: &str, sid: i32, pitch: f32, turn: u32, caption: &dyn Fn(&str)) -> Result<(), String> {
+    use std::sync::mpsc;
+    let sentences = super::kokoro::sentences(text);
+    if sentences.is_empty() {
+        return Ok(());
+    }
+    let (tx, rx) = mpsc::channel::<Result<(Vec<f32>, u32), String>>();
+    let parts = sentences.clone();
+    std::thread::Builder::new()
+        .name("aria-kokoro".into())
+        .spawn(move || {
+            for s in parts {
+                if TURN.load(Ordering::SeqCst) != turn {
+                    return;
+                }
+                let made = super::kokoro::generate(&s, sid, 1.0 / pitch);
+                let failed = made.is_err();
+                if tx.send(made).is_err() || failed {
+                    return;
+                }
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    let (_stream, handle) = rodio::OutputStream::try_default().map_err(|e| e.to_string())?;
+    let sink = rodio::Sink::try_new(&handle).map_err(|e| e.to_string())?;
+    let mut appended = 0usize;
+    let mut shown: Option<usize> = None;
+    let mut made_all = false;
+    loop {
+        if TURN.load(Ordering::SeqCst) != turn {
+            sink.stop();
+            return Ok(());
+        }
+        match rx.try_recv() {
+            Ok(Ok((samples, rate))) => {
+                let rate = ((rate as f32) * pitch).round() as u32;
+                sink.append(rodio::buffer::SamplesBuffer::new(1, rate, samples));
+                appended += 1;
+            }
+            Ok(Err(e)) if appended == 0 => return Err(e),
+            Ok(Err(e)) => {
+                log::line(format!("voice: Kokoro stopped mid-answer: {e}"));
+                made_all = true;
+            }
+            Err(mpsc::TryRecvError::Disconnected) => made_all = true,
+            Err(mpsc::TryRecvError::Empty) => {}
+        }
+        if !sink.empty() {
+            let playing = appended - sink.len();
+            if shown != Some(playing) {
+                shown = Some(playing);
+                if let Some(s) = sentences.get(playing) {
+                    caption(s);
+                }
+            }
+        } else if made_all {
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(40));
+    }
+}
+
+#[cfg(not(windows))]
+fn kokoro(_text: &str, _sid: i32, _pitch: f32, _turn: u32, _caption: &dyn Fn(&str)) -> Result<(), String> {
+    Err("sin salida de audio fuera de Windows".into())
+}
+
+fn piper(exe: &std::path::Path, text: &str, pitch: f32, turn: u32) -> Result<(), String> {
     use std::io::{Read, Write};
     let mut cmd = Command::new(exe);
     cmd.arg("--model")
         .arg(super::models::piper_voice())
+        .arg("--length_scale")
+        .arg(format!("{pitch:.3}"))
         .arg("--output_raw")
         .current_dir(exe.parent().unwrap_or(std::path::Path::new(".")))
         .stdin(Stdio::piped())
@@ -122,7 +215,7 @@ fn piper(exe: &std::path::Path, text: &str, turn: u32) -> Result<(), String> {
         return Err("piper no produjo audio".into());
     }
     let samples: Vec<i16> = raw.chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]])).collect();
-    play(samples, 22_050, turn)
+    play(samples, (22_050.0 * pitch).round() as u32, turn)
 }
 
 #[cfg(windows)]
