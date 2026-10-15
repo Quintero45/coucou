@@ -89,6 +89,7 @@ export function registerAssistantHandlers(island: Island) {
         timeout = null;
         if (State.pendingApproval?.requestId !== req.requestId) return;
         State.pendingApproval = null;
+        State.onApprovalEnd?.();
         State.isPinned = false;
         island.dropPin();
         if (State.view === "approval") island.setView("prompt");

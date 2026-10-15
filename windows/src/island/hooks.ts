@@ -38,6 +38,61 @@ function approves(validAgent: string): boolean {
 /** Clears the approval card if no decision was made before the hook gave up. */
 let pendingTimeout: number | null = null;
 
+/**
+ * Requests that came while a card was up wait here, acknowledged, and come up
+ * one after the other (the Mac's ApprovalQueue). The relay waits 108 s from the
+ * ack, so a request whose time is nearly gone goes back to its terminal instead.
+ */
+interface QueuedRequest {
+  payload: HookPayload;
+  at: number;
+}
+const approvalQueue: QueuedRequest[] = [];
+const QUEUE_MAX = 5;
+const RELAY_WAIT_MS = 108_000;
+/** Below this much of the relay's wait left, a queued card is not worth showing. */
+const QUEUE_MIN_LEFT_MS = 12_000;
+/** The card being raised came from the queue: its timeout counts from its arrival. */
+let queuedDeadline: number | null = null;
+
+/** How many requests wait behind the card on screen. */
+export function queuedApprovals(): number {
+  return approvalQueue.length;
+}
+
+function drainApprovalQueue(island: Island): void {
+  while (approvalQueue.length > 0 && !State.pendingApproval) {
+    const next = approvalQueue.shift()!;
+    const id = next.payload.request_id ?? "";
+    const deadline = next.at + RELAY_WAIT_MS;
+    if (deadline - Date.now() < QUEUE_MIN_LEFT_MS) {
+      if (id) void Bridge.approvalDecline(id);
+      logBotDecline(next.payload, "busy");
+      continue;
+    }
+    queuedDeadline = deadline;
+    handleHook(island, next.payload);
+    queuedDeadline = null;
+  }
+  State.notify();
+}
+
+/** A session whose turn moved on no longer waits: its queued request is moot. */
+function dropQueuedFor(sessionId: string, agentId: string, keep?: string): void {
+  for (let i = approvalQueue.length - 1; i >= 0; i--) {
+    const q = approvalQueue[i].payload;
+    if ((q.session_id ?? "") === sessionId && routeOf(q) === agentId && q.request_id !== keep) {
+      approvalQueue.splice(i, 1);
+      if (q.request_id) void Bridge.approvalDecline(q.request_id);
+    }
+  }
+}
+
+function routeOf(p: HookPayload): string {
+  const valid = validateAgent(p.aria_agent);
+  return valid ? `agent_${valid}` : p.term_editor === "cursor" ? CURSOR_ID : CLAUDE_ID;
+}
+
 /** Takes the approval or question card down and gives the island back. */
 export function dropPendingCard(island: Island): void {
   if (!State.pendingApproval) return;
@@ -322,6 +377,8 @@ export function registerHookHandlers(island: Island) {
   // The last plan numbers seen survive a restart, as on the Mac.
   State.planUsage ??= restorePlanUsage(storedClaudePlanUsage());
   void onEvent<HookPayload>("hook", (payload) => handleHook(island, payload));
+  // After the code that took the card down has put the island back.
+  State.onApprovalEnd = () => queueMicrotask(() => drainApprovalQueue(island));
   // Cursor was opened (Rust's appwatch): it fires no hook of its own until the
   // first agent chat, so this stands in for its SessionStart.
   void onEvent<{ agent?: string }>("agent-app-opened", (p) => {
@@ -439,6 +496,9 @@ function handleHook(island: Island, payload: HookPayload) {
     pendingTimeout = null;
     if (pending.requestId) void Bridge.approvalDecline(pending.requestId);
     dropPendingCard(island);
+  }
+  if (name !== "PermissionRequest" && name !== "PreToolUse" && payload.session_id) {
+    dropQueuedFor(payload.session_id, agentId);
   }
 
   // Read after the card above is dropped: its pill may have handed the front
@@ -716,12 +776,21 @@ function handleHook(island: Island, payload: HookPayload) {
         if (requestId) void Bridge.approvalDecline(requestId);
         break;
       }
-      // One card, one request. A second one must never quietly replace the first
-      // — that would leave a human staring at request B while request A waits for
-      // a decision nobody can give. Hand it straight back to the terminal.
+      // One card, one request. A second one never replaces the first: it waits
+      // its turn, acknowledged, and comes up once the first has its answer. Past
+      // QUEUE_MAX it goes straight back to its terminal.
       if (State.pendingApproval && State.pendingApproval.requestId !== requestId) {
-        if (requestId) void Bridge.approvalDecline(requestId);
-        logBotDecline(payload, "busy");
+        if (approvalQueue.some((q) => q.payload.request_id === requestId)) break;
+        if (!requestId || approvalQueue.length >= QUEUE_MAX) {
+          if (requestId) void Bridge.approvalDecline(requestId);
+          logBotDecline(payload, "busy");
+          break;
+        }
+        approvalQueue.push({ payload, at: Date.now() });
+        void Bridge.approvalAck(requestId);
+        ensurePill();
+        State.updateTask(agentId, "approval");
+        State.notify();
         break;
       }
       // ARIA decides first when the owner let her (arbiter.rs). Questions and
@@ -812,6 +881,7 @@ function handleHook(island: Island, payload: HookPayload) {
       if (!inChat) island.alert(view);
       // ARIA answers within 108 s or not at all; after that the terminal has
       // taken over and the card would be lying.
+      const wait = queuedDeadline != null ? Math.max(5_000, queuedDeadline - Date.now() + 2_000) : 110_000;
       pendingTimeout = window.setTimeout(() => {
         pendingTimeout = null;
         const req = State.pendingApproval;
@@ -825,7 +895,7 @@ function handleHook(island: Island, payload: HookPayload) {
         dropPendingCard(island);
         // A Cursor order nobody approved never left: Cursor isn't working on it.
         if (req.tool === CURSOR_WRITE.tool) State.updateTask(agentId, "idle");
-      }, 110_000);
+      }, wait);
       break;
     }
 

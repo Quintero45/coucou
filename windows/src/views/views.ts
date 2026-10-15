@@ -601,7 +601,7 @@ function botLabel(task: AgentTask): string {
 }
 
 function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
-  const label = task.id === "integration_claude" ? "VS Code" : task.name;
+  const label = task.id === "integration_claude" ? pillDefinition(task.id)!.name : task.name;
   const canvas = task.id === MEDIA_ID
     ? createMiniBot(task, 24, () => State.media?.playing ?? false)
     : createMiniBot(task, 24);

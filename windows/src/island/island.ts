@@ -1201,7 +1201,8 @@ export class Island {
     this.greetingCanvas.style.left = `${(w - EXPANDED_W) / 2}px`;
     this.uploadCanvas.el.style.left = `${(w - EXPANDED_W) / 2}px`;
 
-    let rect = { x: (PANEL_W - w) / 2, y: 0, w, h: hh };
+    const viewportW = window.innerWidth > 0 ? window.innerWidth : PANEL_W;
+    let rect = { x: (viewportW - w) / 2, y: 0, w, h: hh };
     // The toast under the notch must take clicks too: widen the hit rect to it.
     if (this.toastShown) {
       const th = this.toastEl.offsetHeight || 52;
@@ -1213,7 +1214,7 @@ export class Island {
       this.toastEl.style.top = `${top}px`;
       this.toastEl.classList.toggle("inside", inside);
       const tw = inside ? TOAST_W_INSIDE : TOAST_W;
-      rect = { x: Math.min(rect.x, (PANEL_W - tw) / 2), y: 0, w: Math.max(rect.w, tw), h: Math.max(hh, top + th) };
+      rect = { x: Math.min(rect.x, (viewportW - tw) / 2), y: 0, w: Math.max(rect.w, tw), h: Math.max(hh, top + th) };
     }
     const p = this.pushedRect;
     if (Math.abs(p.x - rect.x) > 0.5 || Math.abs(p.w - rect.w) > 0.5 || Math.abs(p.h - rect.h) > 0.5) {
@@ -1226,7 +1227,8 @@ export class Island {
   private islandRect(): { x: number; y: number; w: number; h: number } {
     const w = this.width.value;
     const hh = this.height.value;
-    return { x: (PANEL_W - w) / 2, y: 0, w, h: hh };
+    const viewportW = window.innerWidth > 0 ? window.innerWidth : PANEL_W;
+    return { x: (viewportW - w) / 2, y: 0, w, h: hh };
   }
 
   // ── Window collapse (hidden → tiny wake strip, zero polling) ────────────────

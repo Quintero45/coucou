@@ -481,6 +481,8 @@ class AppState {
   searchResult: SearchResult | null = null;
   chatHistory: ChatMessage[] = [];
   pendingApproval: ApprovalInfo | null = null;
+  /** Set by hooks.ts: the next queued request comes up once a card has its answer. */
+  onApprovalEnd: (() => void) | null = null;
   /** The pill that was in front when the card came up; it comes back after. */
   focusBeforeApproval: string | null = null;
 
@@ -572,6 +574,7 @@ class AppState {
     const req = this.pendingApproval;
     if (!req) return;
     this.pendingApproval = null;
+    this.onApprovalEnd?.();
     this.isPinned = false;
     this.updateTask(req.pillId, "working");
     this.setPillBadge(req.pillId, null);
