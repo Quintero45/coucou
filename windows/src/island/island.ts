@@ -387,7 +387,7 @@ export class Island {
         void saveSettingsMerged(State.settings);
         State.notify();
       },
-      openSettingsWindow: () => void Bridge.openSettingsWindow(),
+      openSettingsWindow: (page?: string) => void Bridge.openSettingsWindow(page),
       blip: () => Sound.play("blip"),
       chooseOutfit: (selection) => {
         const pill = outfitPill(State.focusId, State.mainPillId);

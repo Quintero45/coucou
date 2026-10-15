@@ -255,7 +255,7 @@ fn begin(app: &AppHandle) -> Option<Listening> {
             "download",
             "#3B9EFF",
             t("To dictate, download Parakeet first: Settings → Voice → Speech recognition."),
-            Some((t("Open Settings"), "openSettings")),
+            Some((t("Open Settings"), "openVoice")),
             10,
         );
         return None;
@@ -646,8 +646,13 @@ pub fn pill_action(app: AppHandle, flow: State<Arc<Flow>>, action: String, id: O
             let current = pill::get(&app).and_then(|p| p.state().announcement).filter(|a| Some(a.id) == id);
             if let Some(a) = current {
                 pill::dismiss(&app, a.id);
-                if action == "announcement" && matches!(a.action_id.as_deref(), Some("openSettings" | "openNotes")) {
-                    crate::show_settings_window(&app);
+                if action == "announcement" {
+                    match a.action_id.as_deref() {
+                        Some("openNotes") => crate::show_settings_page(&app, "notes"),
+                        Some("openVoice") => crate::show_settings_page(&app, "voice"),
+                        Some("openSettings") => crate::show_settings_window(&app),
+                        _ => {}
+                    }
                 }
             }
         }

@@ -7,7 +7,8 @@ import { assistantSection, connectionsSection, coreSection, grokBotsSection, ski
 import { coucouSection } from "./coucou";
 import { soundsSection } from "./sounds";
 import { voiceSection } from "./voice";
-import { flowSection } from "./flow";
+import { flowSections } from "./flow";
+import { createHub, isPage, type Hub } from "./hub";
 import { notesSection } from "./notes";
 import { phoneSection } from "./phone";
 import { saveSettingsMerged } from "../core/savesettings";
@@ -933,20 +934,18 @@ function applyDirection() {
 let rendering: Promise<void> | null = null;
 let renderAgain = false;
 
-/** Redraws every section from fresh state, keeping the scroll position. */
+/** Redraws every section from fresh state; the page keeps its scroll position. */
 async function rerender() {
   if (rendering) {
     renderAgain = true;
     return;
   }
-  const scroll = document.scrollingElement?.scrollTop ?? 0;
   rendering = render();
   try {
     await rendering;
   } finally {
     rendering = null;
   }
-  if (document.scrollingElement) document.scrollingElement.scrollTop = scroll;
   if (renderAgain) {
     renderAgain = false;
     await rerender();
@@ -965,10 +964,15 @@ async function main() {
   applyDirection();
   onLanguageChange(() => {
     applyDirection();
+    // The sidebar is written in the old language: drawn again with the pages.
+    hub = null;
     void rerender();
   });
   await render();
 
+  void onEvent<string>("settings-page", (page) => {
+    if (isPage(page)) hub?.show(page);
+  });
   void onEvent<ShortcutsReport>("shortcuts-status", (fresh) => shortcutsListener?.report(fresh));
   void onEvent<Settings>("settings-changed", (s) => {
     settings = { ...settings, ...s };
@@ -1019,32 +1023,37 @@ async function render() {
 
   declaredViews.length = 0;
   shortcutsListener = null;
-  clear(root);
-  root.append(
-    h("h1", {}, h("span", { text: "ARIA" }), h("span", { class: "version", text: version })),
-    ...(coucou ? [coucou] : []),
-    assistant,
-    bots,
-    soundsSection(ctx),
-    voiceSection(ctx),
-    flowSection(),
-    notesSection(),
-    connections,
-    skills,
-    ...(settings.showAgents ? [claudeSection(status)] : []),
-    ...(agents && agents.length > 0 ? [agentsSection(agents)] : []),
-    ...(settings.showAgents ? [planSection(status)] : []),
-    activePillsSection(connected),
-    integrationsSection(present),
-    phoneSection(settings.phoneLink ?? false, toggle, settings),
-    generalSection(),
-    shortcutsSection(shortcutReport),
-    core,
-    h("div", {
-      class: "hint",
-      text: t("No telemetry. Network requests only go to the services you configure yourself."),
-    }),
-  );
+  const flow = flowSections();
+  const noTelemetry = h("div", {
+    class: "hint",
+    text: t("No telemetry. Network requests only go to the services you configure yourself."),
+  });
+  hub ??= createHub(root, version, settings.ariaOutfit ?? "auto");
+  hub.setPages({
+    dictation: [flow.dictation],
+    notes: [notesSection()],
+    insights: [flow.insights],
+    dictionary: [flow.dictionary],
+    snippets: [flow.snippets],
+    styles: [flow.styles],
+    assistant: [...(coucou ? [coucou] : []), assistant, bots, connections, skills, core, noTelemetry],
+    voice: [voiceSection(ctx)],
+    agents: [
+      ...(settings.showAgents ? [claudeSection(status)] : []),
+      ...(agents && agents.length > 0 ? [agentsSection(agents)] : []),
+      ...(settings.showAgents ? [planSection(status)] : []),
+      ...(!settings.showAgents && !(agents && agents.length > 0)
+        ? [h("section", {}, h("div", { class: "hint", text: t("Turn on “Cursor agent” or “Other agents” in General to follow Cursor, Claude Code, Codex and the others.") }))]
+        : []),
+    ],
+    pills: [activePillsSection(connected)],
+    integrations: [integrationsSection(present)],
+    phone: [phoneSection(settings.phoneLink ?? false, toggle, settings)],
+    general: [generalSection(), soundsSection(ctx)],
+    shortcuts: [shortcutsSection(shortcutReport)],
+  });
 }
+
+let hub: Hub | null = null;
 
 void main();

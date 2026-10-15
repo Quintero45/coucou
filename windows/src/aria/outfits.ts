@@ -1076,7 +1076,7 @@ export function drawOutfitFront(ctx: Ctx, outfit: Outfit, H: Head, st: OutfitSta
 const INK = "rgb(26,20,18)";
 
 /** A little ARIA wearing `outfit`, centred in a `size`×`size` icon. */
-function iconAria(ctx: Ctx, size: number, outfit: Outfit) {
+export function iconAria(ctx: Ctx, size: number, outfit: Outfit) {
   const R = 10;
   const H = makeHead(R);
   const cx = size / 2;

@@ -57,7 +57,7 @@ export interface ViewActions {
   toggleSound(): void;
   setVolume(v: number): void;
   setAutoClose(seconds: number): void;
-  openSettingsWindow(): void;
+  openSettingsWindow(page?: string): void;
   blip(): void;
   /** Wardrobe click: keeps the outfit ("auto" and "none" included). */
   chooseOutfit(selection: OutfitSelection): void;
@@ -695,7 +695,7 @@ function openErrands(): number {
 function addBotPill(actions: ViewActions): HTMLElement {
   return h(
     "div",
-    { class: "pill pill-add", title: tl("Settings → My Grok Bots"), onclick: () => actions.openSettingsWindow() },
+    { class: "pill pill-add", title: tl("Settings → My Grok Bots"), onclick: () => actions.openSettingsWindow("assistant") },
     h("span", { class: "pill-add-icon" }, svg(ICONS.plus, 12)),
     h("span", { class: "lbl", text: tl("Connect a Grok Bot") }),
   );

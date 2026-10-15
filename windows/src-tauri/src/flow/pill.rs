@@ -47,7 +47,7 @@ pub struct Announcement {
     pub text: String,
     /// The button's label, if there is one.
     pub action: Option<String>,
-    /// What the button does: "openSettings".
+    /// What the button does: "openSettings", "openVoice", "openNotes".
     pub action_id: Option<String>,
 }
 

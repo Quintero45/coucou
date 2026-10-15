@@ -835,8 +835,8 @@ fn create_settings_window(app: &AppHandle) {
     match WebviewWindowBuilder::new(app, "settings", url)
         .additional_browser_args(BROWSER_ARGS)
         .title(i18n::t("Settings — ARIA"))
-        .inner_size(560.0, 680.0)
-        .min_inner_size(460.0, 480.0)
+        .inner_size(940.0, 700.0)
+        .min_inner_size(720.0, 480.0)
         .resizable(true)
         .visible(false)
         .center()
@@ -866,9 +866,18 @@ pub fn show_settings_window(app: &AppHandle) {
     let _ = win.set_focus();
 }
 
+/// Shows Settings on one of its pages (settings/hub.ts: "notes", "voice"...).
+pub fn show_settings_page(app: &AppHandle, page: &str) {
+    show_settings_window(app);
+    let _ = app.emit_to("settings", "settings-page", page);
+}
+
 #[tauri::command]
-fn open_settings_window(app: AppHandle) {
-    show_settings_window(&app);
+fn open_settings_window(app: AppHandle, page: Option<String>) {
+    match page {
+        Some(page) => show_settings_page(&app, &page),
+        None => show_settings_window(&app),
+    }
 }
 
 pub fn run() {
