@@ -95,7 +95,7 @@ async function build(body: HTMLElement) {
       class: "hint",
       text: status.cleanupProvider
         ? t("Removes the “um”, the repeats and the corrections, and fixes punctuation. Only the text goes to {provider}, never the audio.", { provider: status.cleanupProvider })
-        : t("Needs an AI provider with a key (xAI, Anthropic, OpenAI or Google) in Settings → Assistant. Without one the words are pasted as heard."),
+        : t("Needs an AI with a key (xAI, Anthropic, OpenAI or Google), or a model chosen for Ollama or LM Studio, in Settings → Assistant. Without one the words are pasted as heard."),
     }),
     h("div", { class: "row" },
       h("label", { text: t("Style") }),

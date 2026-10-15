@@ -33,6 +33,8 @@ pub struct PillState {
     /// The dictation key, as the page writes it ("right_ctrl"…).
     pub key: String,
     pub announcement: Option<Announcement>,
+    /// ARIA is taking a call's notes since then (ms since 1970).
+    pub note_started_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -144,7 +146,7 @@ pub fn update(app: &AppHandle, change: impl FnOnce(&mut PillState)) {
         s.clone()
     };
     let _ = app.emit_to(LABEL, "pill-state", &state);
-    let visible = state.announcement.is_some() || state.phase != "idle";
+    let visible = state.announcement.is_some() || state.phase != "idle" || state.note_started_at.is_some();
     let was = pill.shown.swap(visible, Ordering::Relaxed);
     if visible && !was {
         place(app);

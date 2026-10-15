@@ -324,7 +324,13 @@ impl Capture {
         }
     }
 
-    fn stop(&mut self) {
+    /// Everything captured so far, the microphone and the PC's sound apart,
+    /// and clears the buffers.
+    pub(crate) fn take_split(&self) -> (Vec<f32>, Vec<f32>) {
+        (std::mem::take(&mut *self.mic.lock().unwrap()), std::mem::take(&mut *self.sys.lock().unwrap()))
+    }
+
+    pub(crate) fn stop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
         if let Some(t) = self.thread.take() {
             let _ = t.join();

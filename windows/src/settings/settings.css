@@ -396,6 +396,49 @@ select option {
   color: var(--amber);
 }
 
+/* Meeting notes */
+
+.note-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.note-card ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.note-text {
+  line-height: 1.45;
+}
+
+.note-todo {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.note-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.note-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
 /* Shortcuts section */
 
 .subhead {

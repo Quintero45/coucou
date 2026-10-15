@@ -244,7 +244,9 @@ fn run(app: &AppHandle, stop: &AtomicBool) -> Result<(), String> {
                     l.follow_until = None;
                 }
                 (
-                    l.paused || l.awaiting.is_some() || speech::speaking() || crate::flow::pill::dictating(app),
+                    l.paused || l.awaiting.is_some() || speech::speaking()
+                        || crate::flow::pill::dictating(app)
+                        || crate::notes::is_recording(app),
                     l.follow_until.is_some(),
                 )
             };

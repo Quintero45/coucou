@@ -8,6 +8,7 @@ import { coucouSection } from "./coucou";
 import { soundsSection } from "./sounds";
 import { voiceSection } from "./voice";
 import { flowSection } from "./flow";
+import { notesSection } from "./notes";
 import { phoneSection } from "./phone";
 import { saveSettingsMerged } from "../core/savesettings";
 import { Bridge, onEvent, type AgentHookStatus, type HookPreview, type HookStatus, type ShortcutsReport } from "../core/bridge";
@@ -1027,6 +1028,7 @@ async function render() {
     soundsSection(ctx),
     voiceSection(ctx),
     flowSection(),
+    notesSection(),
     connections,
     skills,
     ...(settings.showAgents ? [claudeSection(status)] : []),

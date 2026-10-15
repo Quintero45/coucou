@@ -145,6 +145,23 @@ body {
   white-space: nowrap;
 }
 
+/* A call's notes: a red dot, the clock, and stop. */
+.rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f4505e;
+  box-shadow: 0 0 6px rgba(244, 80, 94, 0.8);
+  flex: none;
+}
+
+.note-time {
+  font: 500 12px system-ui, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #e8e9ec;
+  min-width: 40px;
+}
+
 /* A message above the pill, with a button to act. */
 .bubble {
   flex: 0 0 auto;

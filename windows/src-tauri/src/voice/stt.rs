@@ -7,12 +7,13 @@
 // SHA-256) into %LOCALAPPDATA%\ARIA\voice\parakeet\. Ported from Coucou's
 // speech/mod.rs.
 
+use std::ffi::{CStr, CString};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use sherpa_rs::transducer::{TransducerConfig, TransducerRecognizer};
+use sherpa_rs::sherpa_rs_sys as sys;
 use tauri::AppHandle;
 
 use super::{download, emit_engine, emit_ready, install_lock, voice_dir, EngineEvent};
@@ -74,7 +75,7 @@ pub fn is_ready() -> bool {
     FILES.iter().all(|f| std::fs::metadata(dir().join(f.name)).map(|m| m.len() == f.size).unwrap_or(false))
 }
 
-fn sha256_file(path: &Path) -> std::io::Result<String> {
+pub(crate) fn sha256_file(path: &Path) -> std::io::Result<String> {
     let mut file = std::fs::File::open(path)?;
     let mut ctx = ring::digest::Context::new(&ring::digest::SHA256);
     let mut buf = vec![0u8; 1 << 20];
@@ -132,8 +133,130 @@ pub fn remove(app: &AppHandle) {
 
 // ── Recognition ───────────────────────────────────────────────────────────────
 
+/// Parakeet through sherpa-onnx's C API. sherpa-rs' own recognizer only gives
+/// the text; the Notetaker also needs when each word was said.
+struct Recognizer(*const sys::SherpaOnnxOfflineRecognizer);
+
+unsafe impl Send for Recognizer {}
+
+impl Drop for Recognizer {
+    fn drop(&mut self) {
+        unsafe { sys::SherpaOnnxDestroyOfflineRecognizer(self.0) }
+    }
+}
+
+/// A word and where it is in the audio, in seconds.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimedWord {
+    pub text: String,
+    pub start: f64,
+    pub end: f64,
+}
+
+/// What was said, and each word with its place in the audio.
+#[derive(Debug, Clone, Default)]
+pub struct Heard {
+    pub text: String,
+    pub words: Vec<TimedWord>,
+}
+
+impl Recognizer {
+    fn new() -> Result<Self, String> {
+        let c = |s: &str| CString::new(s).unwrap_or_default();
+        let (encoder, decoder, joiner, tokens) =
+            (c(&path("encoder.int8.onnx")), c(&path("decoder.int8.onnx")), c(&path("joiner.int8.onnx")), c(&path("tokens.txt")));
+        let (provider, model_type, method, empty) = (c("cpu"), c("nemo_transducer"), c("greedy_search"), c(""));
+        let rec = unsafe {
+            let mut config: sys::SherpaOnnxOfflineRecognizerConfig = std::mem::zeroed();
+            config.model_config.transducer.encoder = encoder.as_ptr();
+            config.model_config.transducer.decoder = decoder.as_ptr();
+            config.model_config.transducer.joiner = joiner.as_ptr();
+            config.model_config.tokens = tokens.as_ptr();
+            config.model_config.num_threads = threads();
+            config.model_config.provider = provider.as_ptr();
+            config.model_config.model_type = model_type.as_ptr();
+            config.model_config.modeling_unit = empty.as_ptr();
+            config.model_config.bpe_vocab = empty.as_ptr();
+            config.feat_config.sample_rate = RATE as i32;
+            config.feat_config.feature_dim = 80;
+            config.decoding_method = method.as_ptr();
+            config.hotwords_file = empty.as_ptr();
+            sys::SherpaOnnxCreateOfflineRecognizer(&config)
+        };
+        if rec.is_null() {
+            return Err("SherpaOnnxCreateOfflineRecognizer failed".into());
+        }
+        Ok(Recognizer(rec))
+    }
+
+    /// The text and Parakeet's tokens with their start times, for one chunk.
+    fn decode(&self, samples: &[f32]) -> (String, Vec<String>, Vec<f32>) {
+        unsafe {
+            let stream = sys::SherpaOnnxCreateOfflineStream(self.0);
+            sys::SherpaOnnxAcceptWaveformOffline(stream, RATE as i32, samples.as_ptr(), samples.len() as i32);
+            sys::SherpaOnnxDecodeOfflineStream(self.0, stream);
+            let result = sys::SherpaOnnxGetOfflineStreamResult(stream);
+            let mut out = (String::new(), Vec::new(), Vec::new());
+            if !result.is_null() {
+                let r = &*result;
+                let text = |p: *const std::os::raw::c_char| {
+                    if p.is_null() {
+                        String::new()
+                    } else {
+                        CStr::from_ptr(p).to_string_lossy().into_owned()
+                    }
+                };
+                out.0 = text(r.text);
+                let n = r.count.max(0) as usize;
+                if n > 0 && !r.tokens_arr.is_null() {
+                    out.1 = std::slice::from_raw_parts(r.tokens_arr, n).iter().map(|&p| text(p)).collect();
+                }
+                if n > 0 && !r.timestamps.is_null() {
+                    out.2 = std::slice::from_raw_parts(r.timestamps, n).to_vec();
+                }
+                sys::SherpaOnnxDestroyOfflineRecognizerResult(result);
+            }
+            sys::SherpaOnnxDestroyOfflineStream(stream);
+            out
+        }
+    }
+}
+
+/// Parakeet's tokens (" Ma", "ña", "na", " nos") → words with times. A token
+/// starting with a space starts a word; a word ends where the next token
+/// begins (or a moment after its last token, for the last word). From
+/// Coucou's speech/mod.rs.
+pub fn words_from_tokens(tokens: &[String], timestamps: &[f32], offset: f64, length: f64) -> Vec<TimedWord> {
+    let mut out: Vec<TimedWord> = Vec::new();
+    for (i, token) in tokens.iter().enumerate() {
+        let at = offset + timestamps.get(i).copied().unwrap_or(0.0) as f64;
+        let piece = token.trim_start_matches([' ', '▁']);
+        // Numbers come without the space before them: "las" "4".
+        let number_after_word = piece.starts_with(|c: char| c.is_ascii_digit())
+            && out.last().and_then(|w| w.text.chars().last()).is_some_and(char::is_alphabetic);
+        let starts_word = token.starts_with(' ') || token.starts_with('▁') || out.is_empty() || number_after_word;
+        if starts_word {
+            if let Some(last) = out.last_mut() {
+                last.end = last.end.max(at);
+            }
+            if piece.is_empty() {
+                continue;
+            }
+            out.push(TimedWord { text: piece.to_string(), start: at, end: at + 0.08 });
+        } else if let Some(last) = out.last_mut() {
+            last.text.push_str(piece);
+            last.end = at + 0.08;
+        }
+    }
+    if let Some(last) = out.last_mut() {
+        last.end = (last.end + 0.25).min(offset + length).max(last.start);
+    }
+    out.retain(|w| !w.text.is_empty());
+    out
+}
+
 struct Loaded {
-    rec: Arc<Mutex<TransducerRecognizer>>,
+    rec: Arc<Mutex<Recognizer>>,
     last_used: Instant,
 }
 
@@ -159,7 +282,7 @@ fn threads() -> i32 {
     std::thread::available_parallelism().map(|n| n.get().clamp(1, 4) as i32).unwrap_or(2)
 }
 
-fn recognizer() -> Option<Arc<Mutex<TransducerRecognizer>>> {
+fn recognizer() -> Option<Arc<Mutex<Recognizer>>> {
     if let Some(l) = slot().lock().unwrap().as_mut() {
         l.last_used = Instant::now();
         return Some(l.rec.clone());
@@ -172,19 +295,7 @@ fn recognizer() -> Option<Arc<Mutex<TransducerRecognizer>>> {
         return Some(l.rec.clone());
     }
     let started = Instant::now();
-    let config = TransducerConfig {
-        encoder: path("encoder.int8.onnx"),
-        decoder: path("decoder.int8.onnx"),
-        joiner: path("joiner.int8.onnx"),
-        tokens: path("tokens.txt"),
-        model_type: "nemo_transducer".into(),
-        num_threads: threads(),
-        sample_rate: RATE as i32,
-        feature_dim: 80,
-        decoding_method: "greedy_search".into(),
-        ..Default::default()
-    };
-    match TransducerRecognizer::new(config) {
+    match Recognizer::new() {
         Ok(rec) => {
             log::line(format!("voice: Parakeet loaded in {:.1} s", started.elapsed().as_secs_f32()));
             let rec = Arc::new(Mutex::new(rec));
@@ -228,24 +339,33 @@ pub fn unload() {
 
 /// What was said in 16 kHz mono `samples`, or `None` when Parakeet is not there.
 pub fn transcribe(samples: &[f32]) -> Option<String> {
+    transcribe_timed(samples).map(|h| h.text)
+}
+
+/// Like `transcribe`, with each word's place in `samples`.
+pub fn transcribe_timed(samples: &[f32]) -> Option<Heard> {
     let rec = recognizer()?;
-    let mut out = String::new();
+    let mut out = Heard::default();
     let mut rest = samples;
+    let mut offset = 0usize;
     while !rest.is_empty() {
         let cut = if rest.len() > MAX_CHUNK { crate::meeting::split_point(rest, MAX_CHUNK) } else { rest.len() };
         let (chunk, tail) = rest.split_at(cut);
         rest = tail;
+        let start = offset as f64 / RATE as f64;
+        offset += chunk.len();
         if chunk.len() < RATE / 4 {
             continue;
         }
-        let text = rec.lock().unwrap_or_else(|p| p.into_inner()).transcribe(RATE as u32, chunk);
+        let (text, tokens, times) = rec.lock().unwrap_or_else(|p| p.into_inner()).decode(chunk);
         let text = text.trim();
         if !text.is_empty() {
-            if !out.is_empty() {
-                out.push(' ');
+            if !out.text.is_empty() {
+                out.text.push(' ');
             }
-            out.push_str(text);
+            out.text.push_str(text);
         }
+        out.words.extend(words_from_tokens(&tokens, &times, start, chunk.len() as f64 / RATE as f64));
     }
     Some(out)
 }
@@ -261,6 +381,17 @@ mod tests {
             assert_eq!(f.sha256.len(), 64, "{}", f.name);
         }
         assert!(REPO.starts_with("https://huggingface.co/"));
+    }
+
+    #[test]
+    fn tokens_make_words_with_their_times() {
+        let toks: Vec<String> = [" Ma", "ña", "na", " nos", " ve", "mos", " a", " las", "4", "."].iter().map(|s| s.to_string()).collect();
+        let words = words_from_tokens(&toks, &[0.0, 0.16, 0.32, 0.4, 0.56, 0.72, 0.8, 0.9, 1.0, 1.1], 10.0, 2.0);
+        let texts: Vec<&str> = words.iter().map(|w| w.text.as_str()).collect();
+        assert_eq!(texts, ["Mañana", "nos", "vemos", "a", "las", "4."]);
+        assert!((words[1].start - 10.4).abs() < 1e-6);
+        assert!(words[1].end >= 10.56 - 1e-9);
+        assert!(words[5].end <= 12.0);
     }
 
     #[test]
@@ -280,8 +411,10 @@ mod tests {
         let at = bytes.windows(4).position(|w| w == b"data").unwrap() + 8;
         let pcm: Vec<f32> = bytes[at..].chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]]) as f32 / 32768.0).collect();
         let t = Instant::now();
-        let text = transcribe(&pcm).expect("model");
-        println!("{text} ({:?})", t.elapsed());
-        assert!(!text.is_empty());
+        let heard = transcribe_timed(&pcm).expect("model");
+        println!("{} ({:?})", heard.text, t.elapsed());
+        println!("{:?}", heard.words.iter().map(|w| (&w.text, (w.start * 100.0).round() / 100.0)).collect::<Vec<_>>());
+        assert!(!heard.text.is_empty());
+        assert!(!heard.words.is_empty());
     }
 }

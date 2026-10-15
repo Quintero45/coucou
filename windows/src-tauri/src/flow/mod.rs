@@ -639,11 +639,14 @@ pub fn pill_action(app: AppHandle, flow: State<Arc<Flow>>, action: String, id: O
     match action.as_str() {
         "finish" => flow.send(KeyEvent::Finish),
         "cancel" => flow.send(KeyEvent::Cancel),
+        "stopNote" => {
+            std::thread::spawn(move || crate::notes::stop(&app));
+        }
         "announcement" | "dismiss" => {
             let current = pill::get(&app).and_then(|p| p.state().announcement).filter(|a| Some(a.id) == id);
             if let Some(a) = current {
                 pill::dismiss(&app, a.id);
-                if action == "announcement" && a.action_id.as_deref() == Some("openSettings") {
+                if action == "announcement" && matches!(a.action_id.as_deref(), Some("openSettings" | "openNotes")) {
                     crate::show_settings_window(&app);
                 }
             }

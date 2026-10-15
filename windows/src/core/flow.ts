@@ -95,6 +95,8 @@ export interface PillState {
   phase: "idle" | "listening" | "thinking" | "locked" | "copied" | "failed" | "pastedAgain";
   key: FlowKey | "";
   announcement: PillAnnouncement | null;
+  /** ARIA is taking a call's notes since then (ms since 1970). */
+  noteStartedAt?: number | null;
 }
 
 export const FLOW_KEYS: { id: FlowKey; label: string }[] = [

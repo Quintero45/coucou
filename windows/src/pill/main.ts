@@ -21,6 +21,7 @@ const ICONS: Record<string, string> = {
   mic: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3",
   copy: "M9 9h10v10H9zM5 15V5h10",
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  stop: "M7 7h10v10H7z",
 };
 
 let state: PillState = { phase: "idle", key: "right_ctrl", announcement: null };
@@ -62,7 +63,7 @@ function ariaSlot(): HTMLElement {
 
 // ── Looks ─────────────────────────────────────────────────────────────────────
 
-type Look = "hidden" | "live" | "handsFree" | "message";
+type Look = "hidden" | "live" | "handsFree" | "message" | "note";
 
 function look(): Look {
   switch (state.phase) {
@@ -76,8 +77,30 @@ function look(): Look {
     case "pastedAgain":
       return "message";
     default:
-      return "hidden";
+      return state.noteStartedAt ? "note" : "hidden";
   }
+}
+
+function noteClock(): string {
+  const s = Math.max(0, Math.floor((Date.now() - (state.noteStartedAt ?? Date.now())) / 1000));
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${mm}:${ss}` : `${Math.floor(s / 60)}:${ss}`;
+}
+
+const noteTime = el("span", "note-time");
+let noteTimer: number | null = null;
+
+/** The call's clock ticks once a second, only while it shows. */
+function syncNoteTimer() {
+  const on = visible && look() === "note";
+  if (on && noteTimer === null) {
+    noteTimer = window.setInterval(() => (noteTime.textContent = noteClock()), 1000);
+  } else if (!on && noteTimer !== null) {
+    window.clearInterval(noteTimer);
+    noteTimer = null;
+  }
+  noteTime.textContent = noteClock();
 }
 
 function messageText(): string {
@@ -105,6 +128,8 @@ function length(l: Look): number {
       return 158;
     case "message":
       return measure(messageText()) + 22 + 9 + 26 + 2;
+    case "note":
+      return 132;
     default:
       return 118;
   }
@@ -137,6 +162,13 @@ function content(l: Look): HTMLElement {
       break;
     case "message":
       c.append(ariaSlot(), el("span", "message", messageText()));
+      break;
+    case "note":
+      c.append(
+        el("span", "rec-dot"),
+        noteTime,
+        pillButton("stop", t("Stop and write the notes"), () => void FlowBridge.pillAction("stopNote")),
+      );
       break;
     default:
       c.append(ariaSlot(), barsEl);
@@ -196,6 +228,7 @@ function render() {
   const b = bubble();
   root.replaceChildren(...(b ? [b] : []), capsule);
   aria.setState(state.phase === "thinking" ? "thinking" : "idle");
+  syncNoteTimer();
   wake();
   // Where the mouse is taken, once the sizes have settled.
   setTimeout(reportHot, 60);
@@ -206,7 +239,7 @@ function reportHot() {
   const rects: [number, number, number, number][] = [];
   const W = window.innerWidth;
   const H = window.innerHeight;
-  if (look() === "handsFree" || look() === "live") rects.push([(W - 200) / 2, H - 46, 200, 46]);
+  if (look() === "handsFree" || look() === "live" || look() === "note") rects.push([(W - 200) / 2, H - 46, 200, 46]);
   const b = root.querySelector<HTMLElement>(".bubble");
   if (b) {
     const r = b.getBoundingClientRect();
@@ -263,11 +296,16 @@ function tick(now: number) {
     ctx.clearRect(0, 0, size, size);
     aria.draw(ctx, size, size);
   }
-  if (visible && look() !== "hidden") frame = requestAnimationFrame(tick);
+  if (animated()) frame = requestAnimationFrame(tick);
+}
+
+/** The dots and mini ARIA move; a call's notes only need their clock. */
+function animated(): boolean {
+  return visible && look() !== "hidden" && look() !== "note";
 }
 
 function wake() {
-  if (frame === null && visible) {
+  if (frame === null && animated()) {
     last = performance.now();
     frame = requestAnimationFrame(tick);
   }

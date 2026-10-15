@@ -590,6 +590,16 @@ pub async fn chat(
     converse(&SESSION, &setup, ep, system, specs, query, context, cancel, &mut emit).await
 }
 
+/// A one-off answer with no tools, in an agent of its own (the summary of a
+/// meeting's notes). Nothing streams to the island.
+pub async fn answer(ep: &Endpoint, system: &str, query: &str, cancel: &AtomicBool) -> Result<String, String> {
+    let slot = Mutex::new(None);
+    let home = platform::home_dir();
+    let setup = Setup { cwd: &home, name: "ARIA notes", cursor_tools: false };
+    let mut ignore = |_: &str| {};
+    converse(&slot, &setup, ep, system, &[], query, None, cancel, &mut ignore).await
+}
+
 /// Where an agent works and with which tools.
 struct Setup<'a> {
     cwd: &'a Path,

@@ -19,6 +19,7 @@ mod desktop;
 mod editctx;
 mod files;
 mod flow;
+mod notes;
 mod github;
 mod grokbot;
 mod hooks;
@@ -1051,6 +1052,18 @@ pub fn run() {
             flow::pill_hot,
             flow::pill_hover,
             flow::pill_action,
+            notes::notes_state,
+            notes::notes_start,
+            notes::notes_stop,
+            notes::notes_rename,
+            notes::notes_rename_speaker,
+            notes::notes_toggle_todo,
+            notes::notes_delete,
+            notes::notes_summarize,
+            notes::notes_retry,
+            notes::notes_markdown,
+            notes::notes_export,
+            notes::notes_download_speakers,
             phone_link::phone_link_status,
             phone_link::chat_backend::phone_chat_reply,
             delegation::errand_bot_update,
@@ -1093,6 +1106,7 @@ pub fn run() {
             desktop::setup(&handle);
             // And for the dictation pill's.
             flow::setup(&handle);
+            notes::setup(&handle);
 
             if let Some(win) = island::window(&handle) {
                 // Where Tauri takes the drop itself (Linux), its paths are the
@@ -1149,6 +1163,7 @@ pub fn run() {
             // Withdraw the phone link's announcement on the local network before the process ends.
             if let tauri::RunEvent::Exit = event {
                 phone_link::stop_on_exit(app);
+                notes::shutdown(app);
             }
         });
 }

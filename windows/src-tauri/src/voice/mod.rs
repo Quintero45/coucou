@@ -3,6 +3,7 @@
 // (%LOCALAPPDATA%\ARIA\voice\), resumable downloads with progress on the
 // `voice-engine` event, and unzipping.
 
+pub mod diarizer;
 pub mod listen;
 mod models;
 mod speech;
