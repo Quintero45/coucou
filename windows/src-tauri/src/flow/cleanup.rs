@@ -18,18 +18,29 @@ use crate::providers::{self, Endpoint, Msg, Part, Provider, Request};
 
 /// Past this, the words are pasted as heard rather than keeping you waiting.
 const TIMEOUT: Duration = Duration::from_secs(6);
-/// Tried in this order when the assistant itself runs on Cursor.
-const FALLBACKS: [Provider; 4] = [Provider::Xai, Provider::Anthropic, Provider::Openai, Provider::Google];
+/// Tried in this order when the assistant itself runs on Cursor. The local
+/// ones only once the owner has chosen a model for them in Settings.
+const FALLBACKS: [Provider; 6] =
+    [Provider::Xai, Provider::Anthropic, Provider::Openai, Provider::Google, Provider::Ollama, Provider::Lmstudio];
 
 /// The provider the clean-up would use, or None when there is no usable one.
 pub fn endpoint(app: &AppHandle) -> Option<Endpoint> {
     let settings = app.state::<crate::Shared>().settings.lock().unwrap().clone();
+    pick(&settings)
+}
+
+fn pick(settings: &crate::settings::Settings) -> Option<Endpoint> {
     if settings.provider != Provider::Cursor {
-        if let Ok(ep) = Endpoint::new(&settings, settings.provider) {
+        if let Ok(ep) = Endpoint::new(settings, settings.provider) {
             return Some(ep);
         }
     }
-    FALLBACKS.iter().find_map(|p| Endpoint::new(&settings, *p).ok())
+    FALLBACKS
+        .iter()
+        .filter(|p| {
+            !p.info().local || settings.provider_models.get(p.id()).is_some_and(|m| !m.trim().is_empty())
+        })
+        .find_map(|p| Endpoint::new(settings, *p).ok())
 }
 
 pub async fn clean(app: &AppHandle, raw: &str, style: Style, app_name: Option<&str>, words: &[String]) -> String {

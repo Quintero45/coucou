@@ -27,6 +27,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use super::logic::FlowKey;
 use super::KeyEvent;
 
+/// Stamped on the keystrokes ARIA sends, so her hook knows them.
+const OWN_INPUT: usize = 0x4152_4941; // "ARIA"
 const VK_ESCAPE: u32 = 0x1B;
 const VK_V: u16 = 0x56;
 const VK_CONTROL: u16 = 0x11;
@@ -69,8 +71,9 @@ fn send(event: KeyEvent) {
 unsafe extern "system" fn hook(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code >= 0 {
         let info = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
-        // Our own Ctrl+V, and other programs' synthetic keys, are not the user's.
-        if info.flags.0 & LLKHF_INJECTED.0 == 0 {
+        // Our own Ctrl+V is not the user's. Other programs' synthetic keys (an
+        // on-screen keyboard, a key remapper) are.
+        if info.flags.0 & LLKHF_INJECTED.0 == 0 || info.dwExtraInfo != OWN_INPUT {
             let down = matches!(wparam.0 as u32, WM_KEYDOWN | WM_SYSKEYDOWN);
             let up = matches!(wparam.0 as u32, WM_KEYUP | WM_SYSKEYUP);
             on_key(info.vkCode, down, up);
@@ -198,7 +201,7 @@ fn key_input(vk: u16, up: bool) -> INPUT {
                 wScan: 0,
                 dwFlags: if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) },
                 time: 0,
-                dwExtraInfo: 0,
+                dwExtraInfo: OWN_INPUT,
             },
         },
     }

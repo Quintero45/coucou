@@ -291,6 +291,15 @@ fn finish(app: &AppHandle, flow: &Arc<Flow>, mut l: Listening) {
     l.pull();
     drop(l.capture);
     let seconds = l.started.elapsed().as_secs_f64();
+    // Development builds only: a 16 kHz mono WAV stands in for the microphone,
+    // so the whole path (key, model, paste) can be tested without a voice.
+    #[cfg(debug_assertions)]
+    if let Some(bytes) = std::env::var("ARIA_FLOW_TEST_WAV").ok().and_then(|p| std::fs::read(p).ok()) {
+        if let Some(at) = bytes.windows(4).position(|w| w == b"data") {
+            l.samples = bytes[at + 8..].chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]]) as f32 / 32768.0).collect();
+            l.peak = 1.0;
+        }
+    }
     // Too short or silent: nothing to send to the model.
     if l.samples.len() < 16_000 / 4 || l.peak < 0.004 {
         pill::update(app, |s| s.phase = "idle".into());
